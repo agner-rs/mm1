@@ -19,12 +19,13 @@ mm1-proc-macros.workspace = true
 
 either.workspace = true
 futures.workspace = true
+num_cpus = "^1"
 parking_lot.workspace = true
 pin-project.workspace = true
 scc = "^2.2.5"
 serde = {workspace = true, features = ["derive"]}
 thiserror.workspace = true
-tokio = { workspace = true, features = ["sync", "rt", "macros"] }
+tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "macros", "net"] }
 tracing.workspace = true
 
 [dev-dependencies]

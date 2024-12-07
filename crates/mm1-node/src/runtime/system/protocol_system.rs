@@ -8,11 +8,12 @@ use mm1_proto_system::{
 use tokio::sync::oneshot;
 use tracing::trace;
 
+use crate::runtime::config::EffectiveActorConfig;
+use crate::runtime::container;
 use crate::runtime::context::ActorContext;
 use crate::runtime::sys_call::SysCall;
 use crate::runtime::sys_msg::{ExitReason, SysLink, SysMsg};
 use crate::runtime::system::Local;
-use crate::runtime::{config, container};
 
 impl Call<Local, SpawnRequest<Local>> for ActorContext {
     type Outcome = SpawnResponse;
@@ -24,31 +25,31 @@ impl Call<Local, SpawnRequest<Local>> for ActorContext {
             link_to,
         } = message;
 
-        let actor_key = self
-            .actor_key
-            .child(runnable.func_name(), Default::default());
-
-        let execute_on = self.rt_api.choose_executor(&actor_key);
+        let actor_key = self.actor_key.child(runnable.func_name());
+        let actor_config = self.rt_config.actor_config(&actor_key);
+        let execute_on = self.rt_api.choose_executor(actor_config.runtime_key());
 
         trace!("starting [ack-to: {:?}; link-to: {:?}]", ack_to, link_to);
 
         let subnet_lease = self
             .rt_api
-            .request_address(config::stubs::ACTOR_NETMASK)
+            .request_address(actor_config.netmask())
             .await
             .map_err(|e| ErrorOf::new(SpawnErrorKind::ResourceConstraint, e.to_string()))?;
 
         trace!("subnet-lease: {}", subnet_lease.net_address());
 
         let rt_api = self.rt_api.clone();
+        let rt_config = self.rt_config.clone();
         let container = container::Container::create(
             container::ContainerArgs {
                 ack_to,
                 link_to,
                 actor_key,
-                inbox_size: config::stubs::INBOX_SIZE,
+
                 subnet_lease,
                 rt_api,
+                rt_config,
             },
             runnable,
         )

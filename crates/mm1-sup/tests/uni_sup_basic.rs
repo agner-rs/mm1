@@ -27,8 +27,8 @@ fn logger_config() -> mm1_logger::LoggingConfig {
     }
 }
 
-#[tokio::test]
-async fn test_01() {
+#[test]
+fn test_01() {
     let _ = mm1_logger::init(&logger_config());
 
     struct Hi {
@@ -177,6 +177,5 @@ async fn test_01() {
     Rt::create(Default::default())
         .expect("Rt::create")
         .run(Local::actor(main))
-        .await
         .expect("Rt::run");
 }

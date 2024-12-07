@@ -1,5 +1,6 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::pin::pin;
+use std::sync::Arc;
 
 use either::Either;
 use futures::stream::FuturesUnordered;
@@ -13,6 +14,7 @@ use mm1_proto::AnyError;
 use mm1_proto_system::{self as system};
 use tracing::{instrument, trace};
 
+use super::config::{EffectiveActorConfig, Mm1Config};
 use crate::runtime::actor_key::ActorKey;
 use crate::runtime::rt_api::{RequestAddressError, RtApi};
 use crate::runtime::runnable::{ActorRun, BoxedRunnable};
@@ -21,12 +23,13 @@ use crate::runtime::sys_msg::{ExitReason, SysLink, SysMsg, SysWatch};
 use crate::runtime::{context, mq};
 
 pub(crate) struct ContainerArgs {
-    pub(crate) ack_to:       Option<Address>,
-    pub(crate) link_to:      Vec<Address>,
-    pub(crate) actor_key:    ActorKey,
-    pub(crate) inbox_size:   usize,
+    pub(crate) ack_to:    Option<Address>,
+    pub(crate) link_to:   Vec<Address>,
+    pub(crate) actor_key: ActorKey,
+
     pub(crate) subnet_lease: AddressLease,
     pub(crate) rt_api:       RtApi,
+    pub(crate) rt_config:    Arc<Mm1Config>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -77,7 +80,8 @@ pub(crate) struct Container {
     actor_subnet:        SubnetPool,
     actor_address_lease: AddressLease,
 
-    rt_api: RtApi,
+    rt_api:    RtApi,
+    rt_config: Arc<Mm1Config>,
 
     runnable: BoxedRunnable<context::ActorContext>,
 }
@@ -91,10 +95,12 @@ impl Container {
             ack_to,
             link_to,
             actor_key,
-            inbox_size,
+
             subnet_lease,
             rt_api,
+            rt_config,
         } = args;
+        let inbox_size = rt_config.actor_config(&actor_key).inbox_size();
         let actor_subnet = SubnetPool::new(subnet_lease.net_address());
         let actor_address = actor_subnet
             .lease(NetMask::M_64)
@@ -108,6 +114,7 @@ impl Container {
             actor_address_lease: actor_address,
             actor_subnet,
             rt_api,
+            rt_config,
             runnable,
         };
         Ok(container)
@@ -135,6 +142,7 @@ impl Container {
             actor_subnet,
             actor_address_lease,
             rt_api,
+            rt_config,
             runnable,
         } = self;
 
@@ -192,6 +200,7 @@ impl Container {
 
         let mut context = context::ActorContext {
             rt_api: rt_api.clone(),
+            rt_config,
             actor_address,
             call: call_tx,
             rx_priority,

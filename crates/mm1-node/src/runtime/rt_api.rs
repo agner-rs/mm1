@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use mm1_address::address::Address;
@@ -5,10 +6,10 @@ use mm1_address::pool::{Lease, Pool as SubnetPool};
 use mm1_address::subnet::{NetAddress, NetMask};
 use mm1_core::context::TellErrorKind;
 use mm1_core::envelope::Envelope;
+use tokio::runtime::Handle;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::trace;
 
-use crate::runtime::actor_key::ActorKey;
 use crate::runtime::mq;
 use crate::runtime::registry::{
     Registry, {self},
@@ -28,15 +29,23 @@ pub(crate) struct RequestAddressError(#[source] mm1_address::pool::LeaseError);
 struct Inner {
     subnet_pool: SubnetPool,
     registry:    Registry,
+    default_rt:  Handle,
+    named_rts:   HashMap<String, Handle>,
 }
 
 impl RtApi {
-    pub(crate) fn create(subnet_address: NetAddress) -> Self {
+    pub(crate) fn create(
+        subnet_address: NetAddress,
+        default_rt: Handle,
+        named_rts: HashMap<String, Handle>,
+    ) -> Self {
         let subnet_pool = SubnetPool::new(subnet_address);
         let registry = Registry::new();
         let inner = Arc::new(Inner {
             subnet_pool,
             registry,
+            default_rt,
+            named_rts,
         });
         Self { inner }
     }
@@ -140,8 +149,14 @@ impl RtApi {
             .map_err(RequestAddressError)
     }
 
-    pub(crate) fn choose_executor(&self, _actor_key: &ActorKey) -> tokio::runtime::Handle {
-        // TODO: implement actor-key based runtime configuration
-        tokio::runtime::Handle::current()
+    pub(crate) fn choose_executor(&self, key: Option<&str>) -> &tokio::runtime::Handle {
+        if let Some(key) = key {
+            self.inner
+                .named_rts
+                .get(key)
+                .expect("config should have been validated, shouldn't it?")
+        } else {
+            &self.inner.default_rt
+        }
     }
 }

@@ -3,23 +3,24 @@ use std::time::Duration;
 use mm1_address::address::Address;
 use mm1_core::context::{dispatch, Call, Fork, Quit, Recv, Tell, TryCall};
 use mm1_core::types::Never;
-use mm1_node::runtime::config::RtConfig;
+use mm1_node::runtime::config::Mm1Config;
 use mm1_node::runtime::{runnable, Local, Rt};
 use mm1_proto::Traversable;
 use mm1_proto_system::{InitAck, Kill, SpawnRequest};
 
-#[tokio::test]
-async fn hello_runtime() {
-    let config: RtConfig = serde_yaml::from_str(
+#[test]
+fn hello_runtime() {
+    let config: Mm1Config = serde_yaml::from_str(
         r#"
-            subnet_address: aaaaaaaa00000000/48
+            subnet_address: aaaabbbbcccc0000/48
+            actor_netmask: 56
+            actor_inbox_size: 1024
         "#,
     )
     .expect("parse-config error");
     eprintln!("config: {:#?}", config);
     let rt = Rt::create(config).unwrap();
     rt.run(runnable::boxed_from_fn(main))
-        .await
         .expect("main actor run error");
 }
 

@@ -5,8 +5,8 @@ use mm1_core::context::{Fork, InitDone, Linking, Recv, Start, Stop, Watching};
 use mm1_node::runtime::{Local, Rt};
 use mm1_proto_system::{Down, Exited};
 
-#[tokio::test]
-async fn test_linking_with_trap_exit() {
+#[test]
+fn test_linking_with_trap_exit() {
     let _ = mm1_logger::init(&logger_config());
 
     async fn main<C>(ctx: &mut C)
@@ -74,12 +74,11 @@ async fn test_linking_with_trap_exit() {
     Rt::create(Default::default())
         .expect("Rt::create")
         .run(Local::actor(main))
-        .await
         .expect("Rt::run");
 }
 
-#[tokio::test]
-async fn test_watching_no_trap_exit() {
+#[test]
+fn test_watching_no_trap_exit() {
     let _ = mm1_logger::init(&logger_config());
 
     async fn main<C>(ctx: &mut C)
@@ -164,12 +163,11 @@ async fn test_watching_no_trap_exit() {
     Rt::create(Default::default())
         .expect("Rt::create")
         .run(Local::actor(main))
-        .await
         .expect("Rt::run");
 }
 
-#[tokio::test]
-async fn test_shutdown() {
+#[test]
+fn test_shutdown() {
     let _ = mm1_logger::init(&logger_config());
 
     async fn main<C>(ctx: &mut C)
@@ -203,7 +201,6 @@ async fn test_shutdown() {
     Rt::create(Default::default())
         .expect("Rt::create")
         .run(Local::actor(main))
-        .await
         .expect("Rt::run");
 }
 

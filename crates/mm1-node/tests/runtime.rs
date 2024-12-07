@@ -8,6 +8,7 @@ use mm1_core::context::{dispatch, Call, Fork, Recv, Tell, TryCall};
 use mm1_node::runtime::{Local, Rt};
 use mm1_proto::Traversable;
 use mm1_proto_system::{Exit, Exited, InitAck, SpawnRequest, TrapExit};
+use tokio::runtime::Runtime;
 use tokio::sync::{oneshot, Notify};
 
 fn logger_config() -> mm1_logger::LoggingConfig {
@@ -22,8 +23,8 @@ fn logger_config() -> mm1_logger::LoggingConfig {
     }
 }
 
-#[tokio::test]
-async fn main_actor_is_executed() {
+#[test]
+fn main_actor_is_executed() {
     let _ = mm1_logger::init(&logger_config());
 
     let (tx, rx) = oneshot::channel::<()>();
@@ -33,12 +34,12 @@ async fn main_actor_is_executed() {
         info!("Bye!");
     }
     let rt = Rt::create(Default::default()).expect("Rt::create");
-    rt.run(Local::actor((main, (tx,)))).await.expect("rt.run");
-    rx.await.expect("rx.await");
+    rt.run(Local::actor((main, (tx,)))).expect("rt.run");
+    Runtime::new().unwrap().block_on(rx).expect("rx.await");
 }
 
-#[tokio::test]
-async fn main_actor_forks() {
+#[test]
+fn main_actor_forks() {
     let _ = mm1_logger::init(&logger_config());
 
     let (tx, rx) = oneshot::channel::<()>();
@@ -70,12 +71,12 @@ async fn main_actor_forks() {
     }
 
     let rt = Rt::create(Default::default()).expect("Rt::create");
-    rt.run(Local::actor((main, (tx,)))).await.expect("rt.run");
-    rx.await.expect("rx.await");
+    rt.run(Local::actor((main, (tx,)))).expect("rt.run");
+    Runtime::new().unwrap().block_on(rx).expect("rx.await");
 }
 
-#[tokio::test]
-async fn main_actor_panics() {
+#[test]
+fn main_actor_panics() {
     let _ = mm1_logger::init(&logger_config());
 
     async fn main<C>(_ctx: &mut C) {
@@ -84,11 +85,11 @@ async fn main_actor_panics() {
         panic!("I have to, really");
     }
     let rt = Rt::create(Default::default()).expect("Rt::create");
-    rt.run(Local::actor(main)).await.expect("rt.run");
+    rt.run(Local::actor(main)).expect("rt.run");
 }
 
-#[tokio::test]
-async fn child_actor_panics() {
+#[test]
+fn child_actor_panics() {
     let _ = mm1_logger::init(&logger_config());
 
     let (tx, rx) = oneshot::channel();
@@ -121,12 +122,12 @@ async fn child_actor_panics() {
     }
 
     let rt = Rt::create(Default::default()).expect("Rt::create");
-    rt.run(Local::actor((main, (tx,)))).await.expect("rt.run");
-    let _exited = rx.await.expect("rx.await");
+    rt.run(Local::actor((main, (tx,)))).expect("rt.run");
+    Runtime::new().unwrap().block_on(rx).expect("rx.await");
 }
 
-#[tokio::test]
-async fn message_is_sent_and_received() {
+#[test]
+fn message_is_sent_and_received() {
     let _ = mm1_logger::init(&logger_config());
 
     #[derive(Traversable)]
@@ -191,12 +192,12 @@ async fn message_is_sent_and_received() {
 
     let (tx, rx) = oneshot::channel();
     let rt = Rt::create(Default::default()).expect("Rt::create");
-    rt.run(Local::actor((main, (tx,)))).await.expect("rt.run");
-    let () = rx.await.expect("rx.await");
+    rt.run(Local::actor((main, (tx,)))).expect("rt.run");
+    Runtime::new().unwrap().block_on(rx).expect("rx.await");
 }
 
-#[tokio::test]
-async fn child_actor_force_exit_with_trapexit() {
+#[test]
+fn child_actor_force_exit_with_trapexit() {
     let _ = mm1_logger::init(&logger_config());
 
     let (tx, rx) = oneshot::channel();
@@ -250,12 +251,12 @@ async fn child_actor_force_exit_with_trapexit() {
     }
 
     let rt = Rt::create(Default::default()).expect("Rt::create");
-    rt.run(Local::actor((main, (tx,)))).await.expect("rt.run");
-    let _exited = rx.await.expect("rx.await");
+    rt.run(Local::actor((main, (tx,)))).expect("rt.run");
+    Runtime::new().unwrap().block_on(rx).expect("rx.await");
 }
 
-#[tokio::test]
-async fn actor_fork_run() {
+#[test]
+fn actor_fork_run() {
     async fn main<C>(ctx: &mut C)
     where
         C: Recv + Tell + Fork,
@@ -293,6 +294,5 @@ async fn actor_fork_run() {
     Rt::create(Default::default())
         .expect("Rt::create")
         .run(Local::actor(main))
-        .await
         .expect("Rt::run");
 }
