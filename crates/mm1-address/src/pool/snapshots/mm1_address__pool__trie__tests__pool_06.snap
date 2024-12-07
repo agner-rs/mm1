@@ -1,0 +1,14 @@
+---
+source: crates/mm1-address/src/pool/trie.rs
+expression: "&pool"
+snapshot_kind: text
+---
+Pool {
+    root: Some(
+        Node {
+            addr: "fffffffffffffff0 (1111111111111111111111111111111111111111111111111111111111110000)",
+            mask: "fffffffffffffff0 (1111111111111111111111111111111111111111111111111111111111110000)",
+            next: Leaf,
+        },
+    ),
+}

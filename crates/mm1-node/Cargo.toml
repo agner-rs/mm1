@@ -1,0 +1,34 @@
+[package]
+name = "mm1-node"
+version = "0.5.0"
+edition = "2021"
+
+license = "MIT"
+authors = ["That Roma <mm1@thatroma.me>"]
+repository = "https://github.com/agner-rs/mm1"
+description = "M/M/1! Queueing, do you speak it?!"
+
+[dependencies]
+mm1-common = {workspace = true, features = ["futures", "logging"]}
+mm1-core.workspace = true
+mm1-proto.workspace = true
+mm1-proto-system.workspace = true
+mm1-address.workspace = true
+
+mm1-proc-macros.workspace = true
+
+either.workspace = true
+futures.workspace = true
+parking_lot.workspace = true
+pin-project.workspace = true
+scc = "^2.2.5"
+serde = {workspace = true, features = ["derive"]}
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "rt", "macros"] }
+tracing.workspace = true
+
+[dev-dependencies]
+mm1-logger.workspace = true
+
+tokio = {workspace = true, features = ["rt", "rt-multi-thread", "macros"]}
+serde_yaml = "^0.9"

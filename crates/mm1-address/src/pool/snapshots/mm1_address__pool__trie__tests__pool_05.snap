@@ -1,0 +1,11 @@
+---
+source: crates/mm1-address/src/pool/trie.rs
+expression: "(a_64, &pool)"
+snapshot_kind: text
+---
+(
+    18446744073709551615,
+    Pool {
+        root: None,
+    },
+)
