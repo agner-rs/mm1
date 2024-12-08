@@ -13,7 +13,7 @@ pub(crate) use actor_config::EffectiveActorConfig;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Mm1Config {
     #[serde(default = "defaults::subnet_address")]
-    pub subnet_address: NetAddress,
+    pub(crate) subnet_address: NetAddress,
 
     #[serde(default)]
     actor: actor_config::ActorConfigNode,
