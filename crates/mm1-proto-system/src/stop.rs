@@ -14,7 +14,7 @@ pub struct Kill {
     pub peer: Address,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[message]
 pub enum StopErrorKind {
     NotFound,

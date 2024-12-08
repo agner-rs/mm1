@@ -3,18 +3,67 @@
 #![warn(unreachable_pub)]
 
 pub mod proto {
-    pub use mm1_proto::{message, Local, Message, Unique};
-    pub use {mm1_proto as common, mm1_proto_sup as sup, mm1_proto_system as system};
+    //! Protocols. Actors interact by communication.
+
+    /// A proc-macro attribute to make a message out of a type.
+    ///
+    /// Example:
+    /// ```rust
+    /// #[message]
+    /// struct Accept {
+    ///     reply_to: Address,
+    ///     timeout:  Duration,
+    /// }
+    ///
+    /// #[message]
+    /// struct Accepted {
+    ///     io: Unique<TcpStream>,
+    /// }
+    /// ```
+    pub use mm1_proto::message;
+    /// A Message-wrapper over a non-Message type, showing that that piece of
+    /// data is not supposed to cross the node boundary.
+    pub use mm1_proto::Local;
+    /// A trait showing that the type implementing it can be sent between the
+    /// actors.
+    pub use mm1_proto::Message;
+    /// A cloneable Message-wrapper over a non-clonable (and thus non-Message)
+    /// type.
+    pub use mm1_proto::Unique;
+    /// The protocol to communicate with supervisors.
+    /// See [`sup`](crate::sup).
+    pub use mm1_proto_sup as sup;
+    /// The low-level API-to the actor system.
+    /// See [`Call`](crate::core::context::Call).
+    pub use mm1_proto_system as system;
 }
 
 pub mod address {
-    pub use mm1_address::address::{Address, AddressParseError};
-    pub use mm1_address::subnet::{
-        InvalidMask, MaskParseError, NetAddress, NetAddressParseError, NetMask,
-    };
+    //! Addresses, masks, subnets.
+    //!
+    //! Addresses in `mm1` are used as destinations to send messages to.
+    //! A type `Address` is represented as a `u64` integer, and is very similar
+    //! to IPv4- or IPv6-address, in that the whole space of addresses may be
+    //! split into sub-spaces using netmasks.
+    //!
+    //! Example:
+    //!
+    //! A subnet `aabbccddee000000/40` contains 2^24 addresses: from
+    //! `aabbccddee000000` to `aabbccddeeFFFFFF`.
+
+    /// Address — a destination to send messages to.
+    pub use mm1_address::address::Address;
+    pub use mm1_address::address::AddressParseError;
+    /// Address of a network, i.e. an `Address` in combination with a `NetMask`.
+    pub use mm1_address::subnet::NetAddress;
+    /// Mask — specifies how many leading bits in the address are fixed.
+    pub use mm1_address::subnet::NetMask;
+    pub use mm1_address::subnet::{InvalidMask, MaskParseError, NetAddressParseError};
 }
 
 pub mod common {
+
+    /// An empty type, i.e. no instance of that type can be produced.
     pub use mm1_common::types::Never;
 
     pub mod log {
@@ -34,31 +83,87 @@ pub mod common {
 }
 
 pub mod core {
+    //! The API to implement actors.
+
     pub mod envelope {
-        pub use mm1_core::envelope::{dispatch, Envelope, EnvelopeInfo};
+        //! An [`Envelope`] is a type-erasing container for the sent messages.
+
+        /// A macro helping to match an [`Envelope`].
+        pub use mm1_core::envelope::dispatch;
+        /// A type-erasing container for the message that has been sent.
+        pub use mm1_core::envelope::Envelope;
+        /// An opaque type containing some information about the message that
+        /// has been sent.
+        pub use mm1_core::envelope::EnvelopeInfo;
     }
 
     pub mod context {
-        pub use mm1_core::context::{
-            Ask, AskErrorKind, Call, Fork, ForkErrorKind, InitDone, Linking, Quit, Recv,
-            RecvErrorKind, ShutdownErrorKind, Start, Stop, Tell, TellErrorKind, TryCall, Watching,
-        };
+        //! Actor's behaviour is defined as an async-function that receives an
+        //! exclusive reference to some *context* as its first argument.
+        //! The concrete type of the *context* is supposed to remain unknown to
+        //! the actors: they are to interact with their *contexts* via a set of
+        //! traits, that are defined on a *context*.
+
+        /// Report the completion of the init-phase.
+        pub use mm1_core::context::InitDone;
+        /// Link to/unlink from other actors.
+        pub use mm1_core::context::Linking;
+        /// Terminate its own execution.
+        pub use mm1_core::context::Quit;
+        /// Start other actors.
+        pub use mm1_core::context::Start;
+        /// Watch/unwatch the termination of other actors.
+        pub use mm1_core::context::Watching;
+        /// A convenience trait for request-response interation with other
+        /// actors.
+        pub use mm1_core::context::{Ask, AskErrorKind};
+        #[doc(hidden)]
+        /// Plumbing APIs
+        pub use mm1_core::context::{Call, TryCall};
+        /// Create another context, having an address distinct from the original
+        /// context's one.
+        pub use mm1_core::context::{Fork, ForkErrorKind};
+        /// Receive inbound messages, get own address.
+        pub use mm1_core::context::{Recv, RecvErrorKind};
+        /// Stop other actors.
+        pub use mm1_core::context::{ShutdownErrorKind, Stop};
+        /// Send messages to other actors.
+        pub use mm1_core::context::{Tell, TellErrorKind};
     }
 }
 
 pub mod sup {
+    //! Supervisors — the actors that manage other actors.
+
     pub mod common {
+        //! The building blocks shared across different types of supervisors.
+
         use std::time::Duration;
 
-        pub use mm1_sup::common::child_spec::{ChildSpec, ChildTimeouts, ChildType, InitType};
-        pub use mm1_sup::common::factory::{ActorFactory, ActorFactoryMut};
+        /// A recipe for a child-actor.
+        pub use mm1_sup::common::child_spec::ChildSpec;
+        /// Timeouts for a child-actor.
+        pub use mm1_sup::common::child_spec::ChildTimeouts;
+        pub use mm1_sup::common::child_spec::{ChildType, InitType};
+        /// Multiple-use actor factory.
+        pub use mm1_sup::common::factory::ActorFactoryMut;
+        /// Single-use actor-factory.
+        pub use mm1_sup::common::factory::ActorFactoryOnce;
 
         pub type RestartIntensity = mm1_sup::common::restart_intensity::RestartIntensity<Duration>;
+
         pub use mm1_sup::common::restart_intensity::MaxRestartIntensityReached;
     }
 
     pub mod uniform {
-        pub use mm1_sup::uniform::{uniform_sup, UniformSup, UniformSupFailure};
+        //! Uniform supervisor — the actor, that supervises the children of the
+        //! same type.
+
+        /// The behaviour function of the uniform supervisor actor.
+        pub use mm1_sup::uniform::uniform_sup;
+        /// The recipe for a supervisor.
+        pub use mm1_sup::uniform::UniformSup;
+        pub use mm1_sup::uniform::UniformSupFailure;
     }
 }
 

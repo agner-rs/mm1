@@ -7,7 +7,7 @@ use mm1_proto::message;
 
 use crate::envelope::Envelope;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[message]
 pub enum RecvErrorKind {
     Closed,

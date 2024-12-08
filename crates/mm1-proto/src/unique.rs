@@ -2,8 +2,14 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Unique<T>(Arc<Mutex<Option<T>>>);
+
+impl<T> Clone for Unique<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
 
 impl<T> Unique<T> {
     pub fn new(value: T) -> Self {

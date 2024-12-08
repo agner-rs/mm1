@@ -15,7 +15,7 @@ pub struct SpawnRequest<S: System> {
 
 pub type SpawnResponse = Result<Address, ErrorOf<SpawnErrorKind>>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[message]
 pub enum SpawnErrorKind {
     InternalError,

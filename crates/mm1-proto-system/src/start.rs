@@ -10,7 +10,7 @@ pub struct InitAck {
     pub address: Address,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[message]
 pub enum StartErrorKind {
     Spawn(SpawnErrorKind),

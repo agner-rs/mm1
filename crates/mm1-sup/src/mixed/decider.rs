@@ -1,6 +1,6 @@
 use mm1_proto::message;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[message]
 pub enum DeciderErrorKind {}
 
