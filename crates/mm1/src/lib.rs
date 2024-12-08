@@ -3,6 +3,7 @@
 #![warn(unreachable_pub)]
 
 pub mod proto {
+    pub use mm1_proto::{message, Local, Message, Unique};
     pub use {mm1_proto as common, mm1_proto_sup as sup, mm1_proto_system as system};
 }
 
@@ -33,10 +34,6 @@ pub mod common {
 }
 
 pub mod core {
-    pub mod message {
-        pub use mm1_core::prim::{Local, Unique};
-    }
-
     pub mod envelope {
         pub use mm1_core::envelope::{dispatch, Envelope, EnvelopeInfo};
     }

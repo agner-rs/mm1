@@ -1,10 +1,12 @@
 use std::sync::Arc;
 
-use super::error_kind::ErrorKind;
-use crate::errors::error_kind::HasErrorKind;
+use mm1_proc_macros::message;
+
+use crate::errors::error_kind::{ErrorKind, HasErrorKind};
 
 #[derive(Debug, thiserror::Error)]
 #[error("{}: {}", kind, message)]
+#[message]
 pub struct ErrorOf<Kind: ErrorKind> {
     pub kind:    Kind,
     pub message: Arc<str>,

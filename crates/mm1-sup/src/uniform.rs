@@ -9,7 +9,7 @@ use mm1_core::context::{
     Fork, ForkErrorKind, InitDone, Linking, Quit, Recv, RecvErrorKind, Start, Stop, Tell, Watching,
 };
 use mm1_core::envelope::dispatch;
-use mm1_proto::Traversable;
+use mm1_proto::message;
 use mm1_proto_sup::uniform::{self as unisup};
 use mm1_proto_system::{
     StartErrorKind, StopErrorKind, System, {self as system},
@@ -19,6 +19,7 @@ use crate::common::child_spec::{ChildSpec, ChildTimeouts, InitType};
 use crate::common::factory::ActorFactory;
 
 #[derive(Debug, thiserror::Error)]
+#[message]
 pub enum UniformSupFailure {
     #[error("recv error: {}", _0)]
     Recv(RecvErrorKind),
@@ -226,7 +227,8 @@ where
         .map_err(|e| e.map_kind(|_| StopErrorKind::InternalError))
 }
 
-#[derive(Debug, Traversable)]
+#[derive(Debug)]
+#[message]
 struct ChildStarted(Address);
 
 #[derive(Debug, thiserror::Error)]

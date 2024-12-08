@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use mm1_address::address::Address;
 pub use mm1_proc_macros::dispatch;
+use mm1_proto::Message;
 
 use crate::message::AnyMessage;
 
@@ -32,7 +33,7 @@ impl EnvelopeInfo {
 
 impl<M> Envelope<M>
 where
-    M: Send + 'static,
+    M: Message,
 {
     pub fn into_erased(self) -> Envelope<AnyMessage> {
         let Self { info, message } = self;
@@ -54,7 +55,7 @@ impl<M> Envelope<M> {
 impl Envelope<AnyMessage> {
     pub fn cast<M>(self) -> Result<Envelope<M>, Self>
     where
-        M: Send + 'static,
+        M: Message,
     {
         let Self { info, message } = self;
         match message.cast() {
@@ -65,7 +66,7 @@ impl Envelope<AnyMessage> {
 
     pub fn peek<M>(&self) -> Option<&M>
     where
-        M: Send + 'static,
+        M: Message,
     {
         self.message.peek()
     }

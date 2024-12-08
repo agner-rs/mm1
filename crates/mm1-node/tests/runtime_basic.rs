@@ -6,7 +6,7 @@ use mm1_core::context::{Call, Fork, Quit, Recv, Tell, TryCall};
 use mm1_core::envelope::dispatch;
 use mm1_node::runtime::config::Mm1Config;
 use mm1_node::runtime::{runnable, Local, Rt};
-use mm1_proto::Traversable;
+use mm1_proto::message;
 use mm1_proto_system::{InitAck, Kill, SpawnRequest};
 
 #[test]
@@ -117,16 +117,19 @@ where
     ctx.quit_ok().await
 }
 
-#[derive(Traversable)]
+#[derive(Debug)]
+#[message]
 struct Request {
     reply_to: Address,
     message:  String,
 }
 
-#[derive(Traversable)]
+#[derive(Debug)]
+#[message]
 struct Response;
 
-#[derive(Traversable)]
+#[derive(Debug)]
+#[message]
 struct ImMain {
     address: Address,
 }

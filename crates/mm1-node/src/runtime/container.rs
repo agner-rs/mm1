@@ -9,8 +9,8 @@ use mm1_address::address::Address;
 use mm1_address::pool::{Lease as AddressLease, LeaseError, Pool as SubnetPool};
 use mm1_address::subnet::NetMask;
 use mm1_common::futures::catch_panic::CatchPanicExt;
+use mm1_common::types::AnyError;
 use mm1_core::envelope::{Envelope, EnvelopeInfo};
-use mm1_proto::AnyError;
 use mm1_proto_system::{self as system};
 use tracing::{instrument, trace};
 

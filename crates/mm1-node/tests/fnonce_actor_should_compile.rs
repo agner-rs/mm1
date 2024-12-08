@@ -3,13 +3,12 @@ use std::time::Duration;
 
 use mm1_address::address::Address;
 use mm1_common::errors::error_of::ErrorOf;
-use mm1_common::types::{Never, StdError};
+use mm1_common::types::{AnyError, Never, StdError};
 use mm1_core::context::*;
 use mm1_core::envelope::Envelope;
 use mm1_node::runtime::runnable::{
     ActorRun, {self},
 };
-use mm1_proto::AnyError;
 use tokio::time;
 
 async fn actor_exits<C: Quit>(context: &mut C) -> Never {

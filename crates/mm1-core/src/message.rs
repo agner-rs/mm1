@@ -1,8 +1,7 @@
 use std::any::Any;
 use std::fmt;
 
-pub trait Message: Send + 'static {}
-impl<T> Message for T where T: Send + 'static {}
+pub use mm1_proto::Message;
 
 pub struct AnyMessage(
     Box<dyn Any + Send + 'static>,
@@ -14,7 +13,7 @@ pub struct Priority(pub AnyMessage);
 impl AnyMessage {
     pub(crate) fn new<T>(value: T) -> Self
     where
-        T: Any + Send,
+        T: Message,
     {
         Self(
             Box::new(value),
@@ -25,14 +24,14 @@ impl AnyMessage {
 
     pub(crate) fn peek<T>(&self) -> Option<&T>
     where
-        T: Send + 'static,
+        T: Message,
     {
         self.0.downcast_ref()
     }
 
     pub(crate) fn cast<T>(self) -> Result<T, Self>
     where
-        T: Send + 'static,
+        T: Message,
     {
         self.0.downcast().map(|b| *b).map_err(|value| {
             Self(

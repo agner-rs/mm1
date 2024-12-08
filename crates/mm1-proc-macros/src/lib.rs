@@ -4,13 +4,13 @@
 
 use proc_macro::TokenStream;
 
-mod derive_message;
 mod derive_traversable;
 mod dispatch;
+mod message;
 
-#[proc_macro_derive(Message)]
-pub fn derive_message(item: TokenStream) -> TokenStream {
-    derive_message::derive_message(item)
+#[proc_macro_attribute]
+pub fn message(attr: TokenStream, item: TokenStream) -> TokenStream {
+    message::message(attr, item)
 }
 
 #[proc_macro_derive(Traversable)]

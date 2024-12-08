@@ -3,35 +3,41 @@ use mm1_address::address::Address;
 use mm1_core::envelope::{dispatch, Envelope, EnvelopeInfo};
 
 pub mod messages {
-    use mm1_core::prim::Traversable;
+    use mm1_proto::message;
 
     use crate::Address;
 
-    #[derive(Debug, Traversable)]
+    #[derive(Debug)]
+    #[message]
     pub struct AUnit;
 
-    #[derive(Debug, Traversable)]
+    #[derive(Debug)]
+    #[message]
     pub struct ATuple(pub String, pub String);
 
-    #[derive(Debug, Traversable)]
+    #[derive(Debug)]
+    #[message]
     pub struct AStruct {
         pub s: String,
         pub i: i64,
     }
 
-    #[derive(Debug, Traversable)]
+    #[derive(Debug)]
+    #[message]
     pub struct Ping {
         pub reply_to: Address,
         pub seq_num:  u64,
     }
 
-    #[derive(Debug, Traversable)]
+    #[derive(Debug)]
+    #[message]
     pub struct Forward<Message> {
         pub forward_to: Address,
         pub message:    Message,
     }
 
-    #[derive(Debug, Traversable)]
+    #[derive(Debug)]
+    #[message]
     pub struct Pong {
         pub seq_num: u64,
     }

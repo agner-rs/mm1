@@ -3,9 +3,12 @@
 #![warn(unreachable_pub)]
 
 mod local;
-mod traversable;
+mod message;
+// mod traversable;
 mod unique;
 
 pub use local::Local;
-pub use traversable::{AnyError, Traversable};
+pub use message::message;
+// pub use traversable::{AnyError, Traversable};
+pub use message::Message;
 pub use unique::Unique;

@@ -5,8 +5,8 @@ use std::task::{ready, Context, Poll};
 
 use futures::Stream;
 use mm1_address::address::Address;
+use mm1_common::types::AnyError;
 use mm1_core::envelope::Envelope;
-use mm1_proto::AnyError;
 use mm1_proto_system::WatchRef;
 use tokio::sync::{mpsc, oneshot};
 

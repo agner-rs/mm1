@@ -7,6 +7,7 @@ use mm1_common::log::{debug, info};
 use mm1_common::types::Never;
 use mm1_core::context::{Ask, Call, Fork, Quit, Recv, Tell, TryCall};
 use mm1_node::runtime::{Local, Rt};
+use mm1_proto::message;
 use mm1_proto_sup::uniform;
 use mm1_proto_system::{
     InitAck, SpawnRequest, System, {self as system},
@@ -31,6 +32,8 @@ fn logger_config() -> mm1_logger::LoggingConfig {
 fn test_01() {
     let _ = mm1_logger::init(&logger_config());
 
+    #[derive(Debug)]
+    #[message]
     struct Hi {
         worker_id:      usize,
         worker_address: Address,

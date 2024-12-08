@@ -3,6 +3,7 @@ use std::future::Future;
 use mm1_address::address::Address;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::impl_error_kind;
+use mm1_proto::Message;
 
 use crate::context::{Fork, ForkErrorKind, Recv, RecvErrorKind, Tell, TellErrorKind};
 use crate::envelope::Envelope;
@@ -21,7 +22,7 @@ pub trait Ask: Tell + Fork + Recv {
         make_request: impl FnOnce(Address) -> Req + Send,
     ) -> impl Future<Output = Result<Envelope, ErrorOf<AskErrorKind>>> + Send
     where
-        Req: Send + 'static,
+        Req: Message,
     {
         async move {
             let mut forked = self

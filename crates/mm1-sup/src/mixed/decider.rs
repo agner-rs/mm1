@@ -1,6 +1,7 @@
-use mm1_proto::Traversable;
+use mm1_proto::message;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Traversable)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[message]
 pub enum DeciderErrorKind {}
 
 pub trait Decider {

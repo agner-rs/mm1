@@ -13,11 +13,14 @@ default = ["test-util"]
 test-util = []
 
 [dependencies]
+mm1-proc-macros.workspace = true
+
+mm1-common.workspace = true
+
 either.workspace = true
 # thiserror.workspace = true
-mm1-common.workspace = true
-mm1-proc-macros.workspace = true
 parking_lot.workspace = true
+serde.workspace = true
 
 [dev-dependencies]
 # eyre.workspace = true

@@ -1,10 +1,11 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
+use mm1_proto::Message;
 use parking_lot::Mutex;
 
 pub trait ActorFactory: Clone + Send + 'static {
-    type Args;
+    type Args: Message;
     type Runnable;
     fn produce(&self, args: Self::Args) -> Self::Runnable;
 }
@@ -34,7 +35,7 @@ impl<F, A, R> ActorFactory for ActorFactoryMut<F, A, R>
 where
     F: FnMut(A) -> R,
     F: Send + 'static,
-    A: Send + 'static,
+    A: Message,
     R: Send + 'static,
 {
     type Args = A;

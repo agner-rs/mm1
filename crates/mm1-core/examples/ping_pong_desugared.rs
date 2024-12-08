@@ -2,21 +2,24 @@ pub mod ping_pong {
 
     use mm1_address::address::Address;
     use mm1_core::context::{Recv, Tell};
-    use mm1_proto::Traversable;
+    use mm1_proto::message;
 
-    #[derive(Traversable)]
+    #[derive(Debug)]
+    #[message]
     pub struct Ping {
         reply_to: Address,
         seq_num:  u64,
     }
 
-    #[derive(Traversable)]
+    #[derive(Debug)]
+    #[message]
     pub struct Forward<Message> {
         forward_to: Address,
         message:    Message,
     }
 
-    #[derive(Traversable)]
+    #[derive(Debug)]
+    #[message]
     pub struct Pong {
         seq_num: u64,
     }

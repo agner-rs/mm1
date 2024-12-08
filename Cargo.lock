@@ -434,7 +434,9 @@ dependencies = [
 name = "mm1-common"
 version = "0.5.3"
 dependencies = [
+ "mm1-proc-macros",
  "pin-project",
+ "serde",
  "thiserror",
  "tokio",
  "tracing",
@@ -510,6 +512,7 @@ dependencies = [
  "mm1-common",
  "mm1-proc-macros",
  "parking_lot",
+ "serde",
 ]
 
 [[package]]
@@ -520,6 +523,7 @@ dependencies = [
  "mm1-common",
  "mm1-proto",
  "mm1-proto-system",
+ "serde",
 ]
 
 [[package]]
@@ -529,6 +533,7 @@ dependencies = [
  "mm1-address",
  "mm1-common",
  "mm1-proto",
+ "serde",
 ]
 
 [[package]]
@@ -544,6 +549,7 @@ dependencies = [
  "mm1-proto-sup",
  "mm1-proto-system",
  "parking_lot",
+ "serde",
  "thiserror",
  "tokio",
 ]

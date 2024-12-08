@@ -7,7 +7,7 @@ use mm1_common::log::info;
 use mm1_core::context::{Call, Fork, Recv, Tell, TryCall};
 use mm1_core::envelope::dispatch;
 use mm1_node::runtime::{Local, Rt};
-use mm1_proto::Traversable;
+use mm1_proto::message;
 use mm1_proto_system::{Exit, Exited, InitAck, SpawnRequest, TrapExit};
 use tokio::runtime::Runtime;
 use tokio::sync::{oneshot, Notify};
@@ -131,11 +131,13 @@ fn child_actor_panics() {
 fn message_is_sent_and_received() {
     let _ = mm1_logger::init(&logger_config());
 
-    #[derive(Traversable)]
+    #[derive(Debug)]
+    #[message]
     struct Request {
         reply_to: Address,
     }
-    #[derive(Traversable)]
+    #[derive(Debug)]
+    #[message]
     struct Response;
 
     async fn main<C>(ctx: &mut C, tx: oneshot::Sender<()>)
@@ -262,6 +264,8 @@ fn actor_fork_run() {
     where
         C: Recv + Tell + Fork,
     {
+        #[derive(Debug)]
+        #[message]
         struct Hello(usize);
 
         let main_address = ctx.address();

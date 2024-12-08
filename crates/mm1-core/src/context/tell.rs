@@ -1,9 +1,9 @@
-use std::any::Any;
 use std::future::Future;
 
 use mm1_address::address::Address;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::impl_error_kind;
+use mm1_proto::Message;
 
 use crate::context::Call;
 use crate::message::AnyMessage;
@@ -23,7 +23,7 @@ pub trait Tell: Call<Address, AnyMessage, Outcome = Result<(), ErrorOf<TellError
         msg: M,
     ) -> impl Future<Output = Result<(), ErrorOf<TellErrorKind>>> + Send
     where
-        M: Any + Send + 'static,
+        M: Message,
     {
         async move {
             let message = AnyMessage::new(msg);

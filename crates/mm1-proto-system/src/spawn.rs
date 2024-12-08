@@ -1,11 +1,12 @@
 use mm1_address::address::Address;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::impl_error_kind;
-use mm1_proto::Traversable;
+use mm1_proto::message;
 
 use crate::System;
 
-#[derive(Debug, Traversable)]
+#[derive(Debug)]
+#[message]
 pub struct SpawnRequest<S: System> {
     pub runnable: S::Runnable,
     pub ack_to:   Option<Address>,
@@ -14,7 +15,8 @@ pub struct SpawnRequest<S: System> {
 
 pub type SpawnResponse = Result<Address, ErrorOf<SpawnErrorKind>>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Traversable)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[message]
 pub enum SpawnErrorKind {
     InternalError,
     ResourceConstraint,

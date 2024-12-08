@@ -17,6 +17,7 @@ mm1-proto-sup.workspace = true
 mm1-proto-system.workspace = true
 
 parking_lot.workspace = true
+serde = {workspace = true, features = ["derive"]}
 thiserror.workspace = true
 
 [dev-dependencies]
