@@ -4,15 +4,15 @@ use std::time::Duration;
 
 use mm1_address::address::Address;
 use mm1_common::log::{debug, info};
+use mm1_common::types::Never;
 use mm1_core::context::{Ask, Call, Fork, Quit, Recv, Tell, TryCall};
-use mm1_core::types::Never;
 use mm1_node::runtime::{Local, Rt};
 use mm1_proto_sup::uniform;
 use mm1_proto_system::{
     InitAck, SpawnRequest, System, {self as system},
 };
 use mm1_sup::common::child_spec::{ChildSpec, ChildType, InitType};
-use mm1_sup::common::factory::Func;
+use mm1_sup::common::factory::ActorFactoryMut;
 use mm1_sup::uniform::{uniform_sup, UniformSup};
 
 fn logger_config() -> mm1_logger::LoggingConfig {
@@ -75,7 +75,7 @@ fn test_01() {
     where
         Ctx: Fork + Recv + Tell + TryCall<Local, SpawnRequest<Local>>,
     {
-        let factory = Func::new(|(reply_to, duration): (Address, Duration)| {
+        let factory = ActorFactoryMut::new(|(reply_to, duration): (Address, Duration)| {
             Local::actor((worker, (reply_to, duration)))
         });
         let child = ChildSpec {
@@ -103,7 +103,7 @@ fn test_01() {
             .expect("recv")
             .cast::<InitAck>()
             .expect("cast")
-            .take_message();
+            .take();
 
         let sup_addr = init_ack.address;
         let main_addr = ctx.address();
@@ -124,7 +124,7 @@ fn test_01() {
                 .expect("ask")
                 .cast::<uniform::StartResponse>()
                 .expect("cast")
-                .take_message();
+                .take();
             let started = start_response.expect("start-response");
             debug!("started[{}]: {}", i, started);
 
@@ -140,13 +140,7 @@ fn test_01() {
                     worker_address,
                 },
                 _,
-            ) = ctx
-                .recv()
-                .await
-                .expect("recv")
-                .cast()
-                .expect("cast")
-                .take_message();
+            ) = ctx.recv().await.expect("recv").cast().expect("cast").take();
 
             assert!(
                 workers.remove(&worker_address),
@@ -166,7 +160,7 @@ fn test_01() {
                 .expect("ask")
                 .cast::<uniform::StopResponse>()
                 .expect("cast")
-                .take_message();
+                .take();
 
             let () = stop_response.expect("stop-response");
 

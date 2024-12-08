@@ -10,9 +10,9 @@ pub trait ActorFactory: Clone + Send + 'static {
 }
 
 #[derive(Debug)]
-pub struct Func<F, A, R>(Arc<Mutex<F>>, PhantomData<(A, R)>);
+pub struct ActorFactoryMut<F, A, R>(Arc<Mutex<F>>, PhantomData<(A, R)>);
 
-impl<F, A, R> Func<F, A, R>
+impl<F, A, R> ActorFactoryMut<F, A, R>
 where
     F: FnMut(A) -> R,
     F: Send + 'static,
@@ -24,13 +24,13 @@ where
     }
 }
 
-impl<F, A, R> Clone for Func<F, A, R> {
+impl<F, A, R> Clone for ActorFactoryMut<F, A, R> {
     fn clone(&self) -> Self {
         Self(self.0.clone(), Default::default())
     }
 }
 
-impl<F, A, R> ActorFactory for Func<F, A, R>
+impl<F, A, R> ActorFactory for ActorFactoryMut<F, A, R>
 where
     F: FnMut(A) -> R,
     F: Send + 'static,

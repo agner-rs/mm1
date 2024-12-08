@@ -36,7 +36,7 @@ fn test_linking_with_trap_exit() {
             .unwrap()
             .cast()
             .unwrap()
-            .take_message();
+            .take();
         assert_eq!(peer, quick);
         assert!(!ctx.exit(quick).await);
 
@@ -49,7 +49,7 @@ fn test_linking_with_trap_exit() {
             .unwrap()
             .cast()
             .unwrap()
-            .take_message();
+            .take();
         assert_eq!(peer, obedient);
 
         ctx.exit(stubborn).await;
@@ -67,7 +67,7 @@ fn test_linking_with_trap_exit() {
             .unwrap()
             .cast()
             .unwrap()
-            .take_message();
+            .take();
         assert_eq!(peer, stubborn);
     }
 
@@ -115,7 +115,7 @@ fn test_watching_no_trap_exit() {
             .unwrap()
             .cast()
             .unwrap()
-            .take_message();
+            .take();
         assert_eq!((peer, watch_ref), (quick, quick_wref));
         assert!(!ctx.exit(quick).await);
 
@@ -133,7 +133,7 @@ fn test_watching_no_trap_exit() {
             .unwrap()
             .cast()
             .unwrap()
-            .take_message();
+            .take();
         assert_eq!((peer, watch_ref), (obedient, obedient_wref));
 
         ctx.exit(stubborn).await;
@@ -156,7 +156,7 @@ fn test_watching_no_trap_exit() {
             .unwrap()
             .cast()
             .unwrap()
-            .take_message();
+            .take();
         assert_eq!((peer, watch_ref), (stubborn, stubborn_wref));
     }
 

@@ -1,6 +1,6 @@
 use std::future::Future;
 
-use mm1_core::types::Never;
+use mm1_common::types::Never;
 
 mod actor_exit;
 mod fnonce_actor;

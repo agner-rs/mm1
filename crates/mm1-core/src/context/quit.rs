@@ -1,6 +1,6 @@
 use std::future::Future;
 
-use crate::types::{Never, StdError};
+use mm1_common::types::{Never, StdError};
 
 pub trait Quit: Send {
     fn quit<E>(&mut self, result: Result<(), E>) -> impl Future<Output = Never> + Send

@@ -2,7 +2,8 @@ pub mod ping_pong {
     use std::time::Duration;
 
     use mm1_address::address::Address;
-    use mm1_core::context::{dispatch, Ask, Fork, Recv, Tell};
+    use mm1_core::context::{Ask, Fork, Recv, Tell};
+    use mm1_core::envelope::dispatch;
     use mm1_proto::Traversable;
     use tokio::time;
 

@@ -1,8 +1,9 @@
 use std::time::Duration;
 
 use mm1_address::address::Address;
-use mm1_core::context::{dispatch, Call, Fork, Quit, Recv, Tell, TryCall};
-use mm1_core::types::Never;
+use mm1_common::types::Never;
+use mm1_core::context::{Call, Fork, Quit, Recv, Tell, TryCall};
+use mm1_core::envelope::dispatch;
 use mm1_node::runtime::config::Mm1Config;
 use mm1_node::runtime::{runnable, Local, Rt};
 use mm1_proto::Traversable;

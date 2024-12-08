@@ -1,7 +1,7 @@
 use std::future::Future;
 
+use mm1_common::types::Never;
 use mm1_core::context::Quit;
-use mm1_core::types::Never;
 use mm1_proto::AnyError;
 
 use crate::runtime::runnable::ActorExit;

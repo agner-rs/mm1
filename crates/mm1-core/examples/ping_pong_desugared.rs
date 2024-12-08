@@ -32,7 +32,7 @@ pub mod ping_pong {
                 let inbound = match inbound.cast::<Ping>() {
                     Ok(inbound) => {
                         break 'handle ({
-                            let (Ping { reply_to, seq_num }, _) = inbound.take_message();
+                            let (Ping { reply_to, seq_num }, _) = inbound.take();
                             let _ = ctx.tell(reply_to, Pong { seq_num }).await;
 
                             None
@@ -50,7 +50,7 @@ pub mod ping_pong {
                                     message,
                                 },
                                 _,
-                            ) = inbound.take_message();
+                            ) = inbound.take();
                             ctx.tell(forward_to, message)
                                 .await
                                 .expect("Heute leider nicht");

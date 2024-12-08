@@ -1,7 +1,6 @@
 use messages::*;
 use mm1_address::address::Address;
-use mm1_core::context::dispatch;
-use mm1_core::envelope::{Envelope, EnvelopeInfo};
+use mm1_core::envelope::{dispatch, Envelope, EnvelopeInfo};
 
 pub mod messages {
     use mm1_core::prim::Traversable;

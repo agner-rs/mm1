@@ -1,7 +1,7 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use mm1_core::types::Never;
+use mm1_common::types::Never;
 
 use crate::runtime::runnable::ActorExit;
 

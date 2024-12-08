@@ -2,6 +2,7 @@ use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use mm1_address::address::Address;
+pub use mm1_proc_macros::dispatch;
 
 use crate::message::AnyMessage;
 
@@ -70,7 +71,7 @@ impl Envelope<AnyMessage> {
     }
 }
 impl<M> Envelope<M> {
-    pub fn take_message(self) -> (M, Envelope<()>) {
+    pub fn take(self) -> (M, Envelope<()>) {
         (
             self.message,
             Envelope {

@@ -2,18 +2,22 @@ use std::fmt;
 
 use crate::types::Never;
 
-pub trait HasErrorKind<Kind: fmt::Display + Eq + Ord + Copy + Send + Sync + 'static> {
+pub trait HasErrorKind<Kind: ErrorKind> {
     fn kind(&self) -> Kind;
 }
 
+pub trait ErrorKind: fmt::Display + Eq + Ord + Copy + Send + Sync + 'static {}
+
 impl<AnyKind> HasErrorKind<AnyKind> for Never
 where
-    AnyKind: fmt::Display + Eq + Ord + Copy + Send + Sync + 'static,
+    AnyKind: ErrorKind,
 {
     fn kind(&self) -> AnyKind {
         match *self {}
     }
 }
+
+impl<K> ErrorKind for K where K: fmt::Display + Eq + Ord + Copy + Send + Sync + 'static {}
 
 #[macro_export]
 macro_rules! impl_error_kind {

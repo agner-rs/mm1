@@ -13,7 +13,6 @@ pub use ask::{Ask, AskErrorKind};
 pub use call::{Call, TryCall};
 pub use fork::{Fork, ForkErrorKind};
 pub use linking::Linking;
-pub use mm1_proc_macros::dispatch;
 pub use quit::Quit;
 pub use recv::{Recv, RecvErrorKind};
 pub use start::{InitDone, Start};

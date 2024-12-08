@@ -63,7 +63,7 @@ fn dispatch_arm(
                 .is_some_and(|#[allow(unused)] #bind| #guard)
             {
                 let #expr_var_name = #expr_var_name .cast::<#ty>().expect("peek with the same type has just succeeded");
-                #[allow(unused)]  let (#bind, #expr_var_name) = #expr_var_name .take_message();
+                #[allow(unused)]  let (#bind, #expr_var_name) = #expr_var_name .take();
                 #arm_body
             } else {
                 #or_else
@@ -73,7 +73,7 @@ fn dispatch_arm(
         quote! {
             match #expr_var_name .cast::<#ty>() {
                 Ok(#expr_var_name) => {
-                    let (#bind, #expr_var_name) = #expr_var_name .take_message();
+                    let (#bind, #expr_var_name) = #expr_var_name .take();
                     #arm_body
                 }
                 Err(#expr_var_name) => #or_else
@@ -82,7 +82,7 @@ fn dispatch_arm(
     } else {
         quote! {
             {
-                let (#bind, #expr_var_name) = #expr_var_name .take_message();
+                let (#bind, #expr_var_name) = #expr_var_name .take();
                 #arm_body
             }
         }

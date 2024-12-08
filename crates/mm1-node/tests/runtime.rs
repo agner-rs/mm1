@@ -4,7 +4,8 @@ use std::time::Duration;
 
 use mm1_address::address::Address;
 use mm1_common::log::info;
-use mm1_core::context::{dispatch, Call, Fork, Recv, Tell, TryCall};
+use mm1_core::context::{Call, Fork, Recv, Tell, TryCall};
+use mm1_core::envelope::dispatch;
 use mm1_node::runtime::{Local, Rt};
 use mm1_proto::Traversable;
 use mm1_proto_system::{Exit, Exited, InitAck, SpawnRequest, TrapExit};

@@ -6,9 +6,9 @@ use mm1_common::errors::error_kind::HasErrorKind;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::log::{debug, warn};
 use mm1_core::context::{
-    dispatch, Fork, ForkErrorKind, InitDone, Linking, Quit, Recv, RecvErrorKind, Start, Stop, Tell,
-    Watching,
+    Fork, ForkErrorKind, InitDone, Linking, Quit, Recv, RecvErrorKind, Start, Stop, Tell, Watching,
 };
+use mm1_core::envelope::dispatch;
 use mm1_proto::Traversable;
 use mm1_proto_sup::uniform::{self as unisup};
 use mm1_proto_system::{

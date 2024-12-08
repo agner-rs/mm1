@@ -6,6 +6,7 @@ use mm1_address::pool::Pool as SubnetPool;
 use mm1_address::subnet::NetMask;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::log::trace;
+use mm1_common::types::Never;
 use mm1_core::context::{Call, Fork, ForkErrorKind, Quit, Recv, RecvErrorKind, TellErrorKind};
 use mm1_core::envelope::{Envelope, EnvelopeInfo};
 use mm1_core::message::AnyMessage;
@@ -55,12 +56,12 @@ impl Call<Address, AnyMessage> for ActorContext {
 }
 
 impl Quit for ActorContext {
-    async fn quit_ok(&mut self) -> mm1_core::types::Never {
+    async fn quit_ok(&mut self) -> Never {
         self.call.invoke(SysCall::Exit(Ok(()))).await;
         std::future::pending().await
     }
 
-    async fn quit_err<E>(&mut self, reason: E) -> mm1_core::types::Never
+    async fn quit_err<E>(&mut self, reason: E) -> Never
     where
         E: std::error::Error + Send + Sync + 'static,
     {
