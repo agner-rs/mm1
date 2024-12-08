@@ -13,7 +13,7 @@ pub(crate) use actor_config::EffectiveActorConfig;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Mm1Config {
     #[serde(default = "defaults::subnet_address")]
-    pub(crate) subnet_address: NetAddress,
+    pub(crate) subnet: NetAddress,
 
     #[serde(default)]
     actor: actor_config::ActorConfigNode,
@@ -42,9 +42,9 @@ impl Mm1Config {
 impl Default for Mm1Config {
     fn default() -> Self {
         Self {
-            subnet_address: consts::DEFAULT_SUBNET_ADDRESS,
-            actor:          Default::default(),
-            runtime:        Default::default(),
+            subnet:  consts::LOCAL_SUBNET,
+            actor:   Default::default(),
+            runtime: Default::default(),
         }
     }
 }
@@ -53,7 +53,7 @@ pub mod consts {
     use mm1_address::address::Address;
     use mm1_address::subnet::{NetAddress, NetMask};
 
-    pub const DEFAULT_SUBNET_ADDRESS: NetAddress = NetAddress {
+    pub const LOCAL_SUBNET: NetAddress = NetAddress {
         address: Address::from_u64(0xFFFF0000_00000000),
         mask:    NetMask::M_16,
     };
@@ -67,6 +67,6 @@ mod defaults {
 
     use super::consts;
     pub(super) const fn subnet_address() -> NetAddress {
-        consts::DEFAULT_SUBNET_ADDRESS
+        consts::LOCAL_SUBNET
     }
 }

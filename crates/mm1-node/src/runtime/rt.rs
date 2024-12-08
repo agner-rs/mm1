@@ -98,7 +98,7 @@ async fn run_inner(
     rt_named: HashMap<String, Handle>,
     main_actor: BoxedRunnable<context::ActorContext>,
 ) -> Result<(), RtRunError> {
-    let rt_api = RtApi::create(config.subnet_address, rt_default, rt_named);
+    let rt_api = RtApi::create(config.subnet, rt_default, rt_named);
 
     let subnet_lease = rt_api
         .request_address(actor_config.netmask())
