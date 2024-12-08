@@ -403,7 +403,7 @@ dependencies = [
 
 [[package]]
 name = "mm1"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -420,7 +420,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-address"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "either",
  "insta",
@@ -432,7 +432,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-common"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "mm1-proc-macros",
  "pin-project",
@@ -444,7 +444,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-core"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "either",
  "eyre",
@@ -462,7 +462,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-logger"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "serde",
  "structopt",
@@ -472,7 +472,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-node"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "either",
  "futures",
@@ -496,7 +496,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proc-macros"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "either",
  "proc-macro2",
@@ -506,7 +506,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "either",
  "mm1-common",
@@ -517,7 +517,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-sup"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -528,7 +528,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-system"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -538,7 +538,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-sup"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "mm1-address",
  "mm1-common",
