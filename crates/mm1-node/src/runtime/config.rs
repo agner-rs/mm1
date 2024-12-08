@@ -54,8 +54,8 @@ pub mod consts {
     use mm1_address::subnet::{NetAddress, NetMask};
 
     pub const DEFAULT_SUBNET_ADDRESS: NetAddress = NetAddress {
-        address: Address::from_u64(0xFFFFFFFF_00000000),
-        mask:    NetMask::M_32,
+        address: Address::from_u64(0xFFFF0000_00000000),
+        mask:    NetMask::M_16,
     };
 
     pub const DEFAULT_ACTOR_NETMASK: NetMask = NetMask::M_56;
