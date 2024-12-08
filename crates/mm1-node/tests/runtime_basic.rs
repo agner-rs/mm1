@@ -13,7 +13,7 @@ use mm1_proto_system::{InitAck, Kill, SpawnRequest};
 fn hello_runtime() {
     let config: Mm1Config = serde_yaml::from_str(
         r#"
-            subnet_address: aaaabbbbcccc0000/48
+            subnet_address: <aaaabbbbcccc:>/48
             actor_netmask: 56
             actor_inbox_size: 1024
         "#,

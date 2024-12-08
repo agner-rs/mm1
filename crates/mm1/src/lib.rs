@@ -46,10 +46,33 @@ pub mod address {
     //! to IPv4- or IPv6-address, in that the whole space of addresses may be
     //! split into sub-spaces using netmasks.
     //!
-    //! Example:
+    //! > Example:
+    //! >
+    //! > A subnet `aabbccddee000000/40` contains 2^24 addresses: from
+    //! > `aabbccddee000000` to `aabbccddeeFFFFFF`.
     //!
-    //! A subnet `aabbccddee000000/40` contains 2^24 addresses: from
-    //! `aabbccddee000000` to `aabbccddeeFFFFFF`.
+    //! The way addresses are written takes page from IPv6's notation: the
+    //! leftmost longest series of consequent zero hex-digits is replaced with a
+    //! `':'`-sign. To improve readability, the address is surrounded by
+    //! corner brackets.
+    //!
+    //! The reasons to choose corner brackets:
+    //! - so that they don't mix visually with IPv6-addresses.
+    //! - so that they do not require additional quotes when used in YAML.
+    //! - so that the addresses remind us a little bit of Erlang PIDs :).
+    //!
+    //! > Example:
+    //! > - `aabbccddee000000/40` shall be written as `<aabbccddee:>/40`.
+    //! > - `ffff000000084b03/64` shall be written as `<ffff:84b03>/64`.
+    //!
+    //! Actors' implementations should treat addresses as opaque types
+    //! (implementing `Message`, `Copy`, `Eq`, `Cmp`, and `Hash`).
+    //!
+    //! The nature of addresses should serve the convenience of the operators,
+    //! and probably ease up the implementation of the multi-node messaging.
+    //!
+    //! So, the default value for the node's subnet is `<ffff:>/16`. This
+    //! probably should be treated as `127.0.0.0/8` in IPv4.
 
     /// Address — a destination to send messages to.
     pub use mm1_address::address::Address;
