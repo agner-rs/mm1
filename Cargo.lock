@@ -403,7 +403,7 @@ dependencies = [
 
 [[package]]
 name = "mm1"
-version = "0.5.0"
+version = "0.5.2"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -414,35 +414,35 @@ dependencies = [
  "mm1-proto-sup",
  "mm1-proto-system",
  "mm1-sup",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
 ]
 
 [[package]]
 name = "mm1-address"
-version = "0.5.0"
+version = "0.5.2"
 dependencies = [
  "either",
  "insta",
  "mm1-common",
  "parking_lot",
  "serde",
- "thiserror 2.0.4",
+ "thiserror",
 ]
 
 [[package]]
 name = "mm1-common"
-version = "0.5.0"
+version = "0.5.2"
 dependencies = [
  "pin-project",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "tracing",
 ]
 
 [[package]]
 name = "mm1-core"
-version = "0.5.0"
+version = "0.5.2"
 dependencies = [
  "either",
  "eyre",
@@ -453,14 +453,14 @@ dependencies = [
  "mm1-proto",
  "mm1-proto-system",
  "serde",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "tracing",
 ]
 
 [[package]]
 name = "mm1-logger"
-version = "0.5.0"
+version = "0.5.2"
 dependencies = [
  "serde",
  "structopt",
@@ -470,7 +470,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-node"
-version = "0.5.0"
+version = "0.5.2"
 dependencies = [
  "either",
  "futures",
@@ -487,14 +487,14 @@ dependencies = [
  "scc",
  "serde",
  "serde_yaml",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "tracing",
 ]
 
 [[package]]
 name = "mm1-proc-macros"
-version = "0.5.0"
+version = "0.5.2"
 dependencies = [
  "either",
  "proc-macro2",
@@ -504,7 +504,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto"
-version = "0.5.0"
+version = "0.5.2"
 dependencies = [
  "either",
  "mm1-common",
@@ -514,7 +514,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-sup"
-version = "0.5.0"
+version = "0.5.2"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -524,7 +524,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-system"
-version = "0.5.0"
+version = "0.5.2"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -533,7 +533,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-sup"
-version = "0.5.0"
+version = "0.5.2"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -544,7 +544,7 @@ dependencies = [
  "mm1-proto-sup",
  "mm1-proto-system",
  "parking_lot",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
 ]
 
@@ -614,20 +614,20 @@ dependencies = [
 
 [[package]]
 name = "pest"
-version = "2.7.14"
+version = "2.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "879952a81a83930934cbf1786752d6dedc3b1f29e8f8fb2ad1d0a36f377cf442"
+checksum = "8b7cafe60d6cf8e62e1b9b2ea516a089c008945bb5a275416789e7db0bc199dc"
 dependencies = [
  "memchr",
- "thiserror 1.0.69",
+ "thiserror",
  "ucd-trie",
 ]
 
 [[package]]
 name = "pest_derive"
-version = "2.7.14"
+version = "2.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d214365f632b123a47fd913301e14c946c61d1c183ee245fa76eb752e59a02dd"
+checksum = "816518421cfc6887a0d62bf441b6ffb4536fcc926395a69e1a85852d4363f57e"
 dependencies = [
  "pest",
  "pest_generator",
@@ -635,9 +635,9 @@ dependencies = [
 
 [[package]]
 name = "pest_generator"
-version = "2.7.14"
+version = "2.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb55586734301717aea2ac313f50b2eb8f60d2fc3dc01d190eefa2e625f60c4e"
+checksum = "7d1396fd3a870fc7838768d171b4616d5c91f6cc25e377b673d714567d99377b"
 dependencies = [
  "pest",
  "pest_meta",
@@ -648,9 +648,9 @@ dependencies = [
 
 [[package]]
 name = "pest_meta"
-version = "2.7.14"
+version = "2.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b75da2a70cf4d9cb76833c990ac9cd3923c9a8905a8929789ce347c84564d03d"
+checksum = "e1e58089ea25d717bfd31fb534e4f3afcc2cc569c70de3e239778991ea3b7dea"
 dependencies = [
  "once_cell",
  "pest",
@@ -920,38 +920,18 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.69"
+version = "2.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52"
+checksum = "643caef17e3128658ff44d85923ef2d28af81bb71e0d67bbfe1d76f19a73e053"
 dependencies = [
- "thiserror-impl 1.0.69",
-]
-
-[[package]]
-name = "thiserror"
-version = "2.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f49a1853cf82743e3b7950f77e0f4d622ca36cf4317cba00c767838bac8d490"
-dependencies = [
- "thiserror-impl 2.0.4",
+ "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.69"
+version = "2.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.90",
-]
-
-[[package]]
-name = "thiserror-impl"
-version = "2.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8381894bb3efe0c4acac3ded651301ceee58a15d47c2e34885ed1908ad667061"
+checksum = "995d0bbc9995d1f19d28b7215a9352b0fc3cd3a2d2ec95c2cadc485cdedbcdde"
 dependencies = [
  "proc-macro2",
  "quote",
