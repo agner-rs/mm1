@@ -17,6 +17,7 @@ mm1-address.workspace = true
 
 mm1-proc-macros.workspace = true
 
+async-channel = {version = "^2.1"}
 either.workspace = true
 futures.workspace = true
 num_cpus = "^1"

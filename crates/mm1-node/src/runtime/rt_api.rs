@@ -6,8 +6,8 @@ use mm1_address::pool::{Lease, Pool as SubnetPool};
 use mm1_address::subnet::{NetAddress, NetMask};
 use mm1_core::context::TellErrorKind;
 use mm1_core::envelope::Envelope;
+use mq::TrySendError;
 use tokio::runtime::Handle;
-use tokio::sync::mpsc::error::TrySendError;
 use tracing::trace;
 
 use crate::runtime::mq;
