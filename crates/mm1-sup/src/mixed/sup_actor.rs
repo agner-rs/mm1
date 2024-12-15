@@ -1,18 +1,18 @@
-use mm1_address::address::Address;
-use mm1_common::errors::error_kind::HasErrorKind;
-use mm1_core::context::{Call, Fork, TryCall};
-use mm1_proto_system::{InitAck, Kill, SpawnErrorKind, SpawnRequest, System};
+use mm1_core::context::{Fork, InitDone, Linking, Quit, Recv, Start, Stop, Tell, Watching};
+use mm1_proto_system::System;
 
 use crate::mixed::MixedSup;
 
 pub async fn main<Sys, Ctx, RS, C>(ctx: &mut Ctx, sup_spec: MixedSup<RS, C>)
 where
     Sys: System + Default,
-    Ctx: Fork,
-    Ctx: Call<Sys, InitAck, Outcome = ()>,
-    Ctx: Call<Sys, Kill, Outcome = bool>,
-    Ctx: TryCall<Sys, SpawnRequest<Sys>, CallOk = Address>,
-    <Ctx as TryCall<Sys, SpawnRequest<Sys>>>::CallError: HasErrorKind<SpawnErrorKind>,
+
+    Ctx: Fork + Recv + Tell + Quit,
+    Ctx: InitDone<Sys>,
+    Ctx: Linking<Sys>,
+    Ctx: Watching<Sys>,
+    Ctx: Start<Sys>,
+    Ctx: Stop<Sys>,
 {
     let _ = (ctx, sup_spec);
 }
