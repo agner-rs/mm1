@@ -34,32 +34,27 @@ pub mod ping_pong {
             let ret_value_opt = 'handle: {
                 let inbound = match inbound.cast::<Ping>() {
                     Ok(inbound) => {
-                        break 'handle ({
-                            let (Ping { reply_to, seq_num }, _) = inbound.take();
-                            let _ = ctx.tell(reply_to, Pong { seq_num }).await;
-
-                            None
-                        })
+                        let (Ping { reply_to, seq_num }, _) = inbound.take();
+                        let _ = ctx.tell(reply_to, Pong { seq_num }).await;
+                        break 'handle None
                     },
                     Err(inbound) => inbound,
                 };
 
                 let inbound = match inbound.cast::<Forward<Ping>>() {
                     Ok(inbound) => {
-                        break 'handle ({
-                            let (
-                                Forward {
-                                    forward_to,
-                                    message,
-                                },
-                                _,
-                            ) = inbound.take();
-                            ctx.tell(forward_to, message)
-                                .await
-                                .expect("Heute leider nicht");
+                        let (
+                            Forward {
+                                forward_to,
+                                message,
+                            },
+                            _,
+                        ) = inbound.take();
+                        ctx.tell(forward_to, message)
+                            .await
+                            .expect("Heute leider nicht");
 
-                            None
-                        })
+                        break 'handle None
                     },
                     Err(inbound) => inbound,
                 };
