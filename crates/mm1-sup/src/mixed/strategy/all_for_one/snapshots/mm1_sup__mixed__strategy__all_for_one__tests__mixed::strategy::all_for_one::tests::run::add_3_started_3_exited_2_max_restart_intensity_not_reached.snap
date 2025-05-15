@@ -1,0 +1,45 @@
+---
+source: crates/mm1-sup/src/mixed/strategy/all_for_one/tests.rs
+expression: report
+---
+- "RestartIntensity { max_restarts: 1, within: 30s }"
+- "ADD     [one]"
+- "ADD     [two]"
+- "ADD     [three]"
+- DECIDE
+- ">>> Start(one)"
+- ">>> Start(two)"
+- ">>> Start(three)"
+- "STARTED [one] / <:1>"
+- "STARTED [two] / <:2>"
+- "STARTED [three] / <:3>"
+- DECIDE
+- "EXITED  <:1> normal_exit=false"
+- DECIDE
+- ">>> Stop(<:3>, Some(\"three\"))"
+- ">>> Stop(<:2>, Some(\"two\"))"
+- "EXITED  <:3> normal_exit=false"
+- "EXITED  <:2> normal_exit=false"
+- DECIDE
+- ">>> Start(one)"
+- ">>> Start(two)"
+- ">>> Start(three)"
+- "STARTED [one] / <:4>"
+- "STARTED [two] / <:5>"
+- "STARTED [three] / <:6>"
+- DECIDE
+- DELAY 40s
+- "EXITED  <:5> normal_exit=false"
+- DECIDE
+- ">>> Stop(<:6>, Some(\"three\"))"
+- ">>> Stop(<:4>, Some(\"one\"))"
+- "EXITED  <:6> normal_exit=false"
+- "EXITED  <:4> normal_exit=false"
+- DECIDE
+- ">>> Start(one)"
+- ">>> Start(two)"
+- ">>> Start(three)"
+- "STARTED [one] / <:7>"
+- "STARTED [two] / <:8>"
+- "STARTED [three] / <:9>"
+- DECIDE

@@ -94,15 +94,15 @@ where
         Ok(())
     }
 
-    fn rm(&mut self, key: &Self::Key) {
-        let Some(state) = self
+    fn rm(&mut self, key: &Self::Key) -> Result<(), Self::Error> {
+        if let Some(state) = self
             .states
             .iter_mut()
             .find_map(|(k, s)| (k == key).then_some(s))
-        else {
-            return
-        };
-        state.target = Target::Removed;
+        {
+            state.target = Target::Removed;
+        }
+        Ok(())
     }
 
     fn started(&mut self, key: &Self::Key, reported_address: Address, _at: tokio::time::Instant) {

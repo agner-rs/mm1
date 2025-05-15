@@ -6,6 +6,7 @@ use crate::mixed::decider::Decider;
 mod error;
 pub use error::DeciderError;
 
+mod all_for_one;
 mod one_for_one;
 
 pub trait RestartStrategy<Key>: Clone {
