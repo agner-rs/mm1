@@ -1,11 +1,29 @@
 pub mod decider;
+pub mod strategy;
 
+mod spec_builder;
 mod sup_actor;
+mod sup_child;
 
-pub use sup_actor::main;
+use std::pin::Pin;
+use std::sync::Arc;
 
-#[derive(Clone)]
+pub use sup_actor::{mixed_sup, MixedSupError};
+
+use crate::common::factory::ActorFactory;
+
 pub struct MixedSup<RS, C> {
-    pub restart_strategy: RS,
-    pub children:         C,
+    restart_strategy: RS,
+    children:         C,
+}
+
+pub type ErasedActorFactory<R> = Pin<Arc<dyn ActorFactory<Args = (), Runnable = R>>>;
+
+impl<RS> MixedSup<RS, ()> {
+    pub fn new(restart_strategy: RS) -> Self {
+        Self {
+            restart_strategy,
+            children: (),
+        }
+    }
 }

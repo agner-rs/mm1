@@ -7,13 +7,15 @@ use mm1_address::address::Address;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::impl_error_kind;
 use mm1_proc_macros::dispatch;
+use mm1_proto::message;
 use mm1_proto_system::{self as system, Down, System};
 use tracing::warn;
 
 use super::{ForkErrorKind, Recv, RecvErrorKind};
 use crate::context::{Call, Fork, Watching};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[message]
 pub enum ShutdownErrorKind {
     InternalError,
     Fork(ForkErrorKind),

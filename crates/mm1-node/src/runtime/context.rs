@@ -7,9 +7,10 @@ use mm1_address::subnet::NetMask;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::log::trace;
 use mm1_common::types::Never;
-use mm1_core::context::{Call, Fork, ForkErrorKind, Quit, Recv, RecvErrorKind, TellErrorKind};
+use mm1_core::context::{Call, Fork, ForkErrorKind, Now, Quit, Recv, RecvErrorKind, TellErrorKind};
 use mm1_core::envelope::{Envelope, EnvelopeInfo};
 use mm1_core::message::AnyMessage;
+use tokio::time::Instant;
 
 use super::config::{EffectiveActorConfig, Mm1Config};
 use crate::runtime::actor_key::ActorKey;
@@ -134,6 +135,14 @@ impl Fork for ActorContext {
         let call = self.call.clone();
         let fut = fun(self).map(|_| ()).boxed();
         call.invoke(SysCall::Spawn(fut)).await;
+    }
+}
+
+impl Now for ActorContext {
+    type Instant = Instant;
+
+    fn now(&self) -> Self::Instant {
+        Instant::now()
     }
 }
 

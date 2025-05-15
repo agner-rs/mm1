@@ -376,7 +376,7 @@ impl Container {
                     ) => {
                         if job_entries
                             .get_mut(&receiver)
-                            .map_or(false, |job_entry| job_entry.linked_to.remove(&sender))
+                            .is_some_and(|job_entry| job_entry.linked_to.remove(&sender))
                         {
                             break Err(Collateral(sender).into());
                         }

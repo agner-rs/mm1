@@ -4,7 +4,7 @@ use std::sync::Arc;
 use mm1_proto::Message;
 use parking_lot::Mutex;
 
-pub trait ActorFactory: Clone + Send + 'static {
+pub trait ActorFactory: Send + Sync + 'static {
     type Args: Message;
     type Runnable;
     fn produce(&self, args: Self::Args) -> Self::Runnable;
@@ -54,6 +54,7 @@ impl<F, A, R> Clone for ActorFactoryOnce<F, A, R> {
 
 impl<F, A, R> ActorFactory for ActorFactoryMut<F, A, R>
 where
+    Self: Sync + Send + 'static,
     F: FnMut(A) -> R,
     F: Send + 'static,
     A: Message,
@@ -69,6 +70,7 @@ where
 
 impl<F, A, R> ActorFactory for ActorFactoryOnce<F, A, R>
 where
+    Self: Sync + Send + 'static,
     F: FnOnce(A) -> R,
     F: Send + 'static,
     A: Message,

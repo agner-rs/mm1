@@ -100,7 +100,7 @@ impl RtApi {
             .get(&to)
             .ok_or(TellErrorKind::NotFound)?;
         let tx_system = &entry.get().tx_system;
-        let _ = tx_system
+        let () = tx_system
             .send(sys_msg)
             .map_err(|_e| TellErrorKind::Closed)?;
         Ok(())

@@ -5,7 +5,7 @@ use mm1_common::types::Never;
 
 use crate::runtime::runnable::ActorExit;
 
-pub trait ActorRunBoxed<Ctx>: Send {
+pub trait ActorRunBoxed<Ctx>: Send + Sync {
     fn run<'run>(
         self: Box<Self>,
         context: &'run mut Ctx,
@@ -57,7 +57,7 @@ where
 
 impl<Ctx, Func> ActorRunBoxed<Ctx> for Func
 where
-    Func: ActorFunc<Ctx> + Send,
+    Func: ActorFunc<Ctx> + Send + Sync,
     Ctx: Send + Sync,
 {
     fn run<'run>(

@@ -16,12 +16,16 @@ mm1-proto.workspace = true
 mm1-proto-sup.workspace = true
 mm1-proto-system.workspace = true
 
+either.workspace = true
 parking_lot.workspace = true
 serde = {workspace = true, features = ["derive"]}
 thiserror.workspace = true
+tokio = {workspace = true, features = ["time"]}
 
 [dev-dependencies]
 mm1-node.workspace = true
 mm1-logger.workspace = true
 
-tokio = {workspace = true, features = ["time", "rt", "macros"]}
+insta.workspace = true
+test-case.workspace = true
+tokio = {workspace = true, features = ["time", "rt", "macros", "test-util"]}

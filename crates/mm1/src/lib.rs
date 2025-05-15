@@ -161,19 +161,15 @@ pub mod sup {
     pub mod common {
         //! The building blocks shared across different types of supervisors.
 
-        use std::time::Duration;
-
         /// A recipe for a child-actor.
         pub use mm1_sup::common::child_spec::ChildSpec;
-        /// Timeouts for a child-actor.
-        pub use mm1_sup::common::child_spec::ChildTimeouts;
         pub use mm1_sup::common::child_spec::{ChildType, InitType};
         /// Multiple-use actor factory.
         pub use mm1_sup::common::factory::ActorFactoryMut;
         /// Single-use actor-factory.
         pub use mm1_sup::common::factory::ActorFactoryOnce;
 
-        pub type RestartIntensity = mm1_sup::common::restart_intensity::RestartIntensity<Duration>;
+        pub type RestartIntensity = mm1_sup::common::restart_intensity::RestartIntensity;
 
         pub use mm1_sup::common::restart_intensity::MaxRestartIntensityReached;
     }

@@ -15,7 +15,7 @@ use mm1_proto_system::{
     StartErrorKind, StopErrorKind, System, {self as system},
 };
 
-use crate::common::child_spec::{ChildSpec, ChildTimeouts, InitType};
+use crate::common::child_spec::{ChildSpec, InitType};
 use crate::common::factory::ActorFactory;
 
 #[derive(Debug, thiserror::Error)]
@@ -28,19 +28,19 @@ pub enum UniformSupFailure {
     Fork(ForkErrorKind),
 }
 
-pub struct UniformSup<F, D = Duration> {
-    pub child_spec: ChildSpec<F, D>,
+pub struct UniformSup<F> {
+    pub child_spec: ChildSpec<F>,
 }
 
-impl<F, D> UniformSup<F, D> {
-    pub fn new(child_spec: ChildSpec<F, D>) -> Self {
+impl<F> UniformSup<F> {
+    pub fn new(child_spec: ChildSpec<F>) -> Self {
         Self { child_spec }
     }
 }
 
 pub async fn uniform_sup<Sys, Ctx, F>(
     ctx: &mut Ctx,
-    sup_spec: UniformSup<F, Duration>,
+    sup_spec: UniformSup<F>,
 ) -> Result<(), UniformSupFailure>
 where
     Sys: System + Default,
@@ -56,18 +56,13 @@ where
 {
     let UniformSup { child_spec } = sup_spec;
     let ChildSpec {
-        factory,
+        launcher: factory,
         child_type,
         init_type,
-        timeouts,
-    } = child_spec;
-    let ChildTimeouts {
-        start_timeout,
         stop_timeout,
-    } = timeouts;
+    } = child_spec;
 
     let _ = child_type;
-    let _ = timeouts;
 
     ctx.set_trap_exit(true).await;
     ctx.init_done(ctx.address()).await;
@@ -87,14 +82,8 @@ where
                     .map_err(UniformSupFailure::fork)?
                     .run(move |mut ctx| {
                         async move {
-                            let result = do_start_child(
-                                &mut ctx,
-                                sup_address,
-                                init_type,
-                                start_timeout,
-                                runnable,
-                            )
-                            .await;
+                            let result =
+                                do_start_child(&mut ctx, sup_address, init_type, runnable).await;
                             let _ = ctx.tell(reply_to, result).await;
                         }
                     })
@@ -172,7 +161,6 @@ async fn do_start_child<Sys, Ctx>(
     ctx: &mut Ctx,
     sup_address: Address,
     init_type: InitType,
-    start_timeout: Duration,
     runnable: Sys::Runnable,
 ) -> unisup::StartResponse
 where
@@ -180,10 +168,7 @@ where
     Ctx: Recv + Tell,
     Ctx: Start<Sys>,
 {
-    debug!(
-        "starting child [init_type: {:?}, start_timeout: {:?}]",
-        init_type, start_timeout
-    );
+    debug!("starting child [init_type: {:?}]", init_type,);
 
     let result = match init_type {
         InitType::NoAck => {
@@ -191,7 +176,7 @@ where
                 .await
                 .map_err(|e| e.map_kind(StartErrorKind::Spawn))
         },
-        InitType::WithAck => ctx.start(runnable, true, start_timeout).await,
+        InitType::WithAck { start_timeout } => ctx.start(runnable, true, start_timeout).await,
     };
     match result {
         Err(reason) => {
@@ -242,5 +227,16 @@ impl UniformSupFailure {
 
     fn recv(e: impl HasErrorKind<RecvErrorKind> + Send) -> Self {
         Self::Recv(e.kind())
+    }
+}
+
+impl<F> Clone for UniformSup<F>
+where
+    ChildSpec<F>: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            child_spec: self.child_spec.clone(),
+        }
     }
 }

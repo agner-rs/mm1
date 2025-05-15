@@ -15,15 +15,17 @@ mm1-sup = {path = "crates/mm1-sup", version = "=0.5.4" }
 
 mm1-proc-macros = {path = "crates/mm1-proc-macros", version = "=0.5.4" }
 
-either = "^1"
+either = "^1.15.0"
 eyre = "^0.6"
 futures = "^0.3"
+insta = {version = "^1.43", features = ["yaml"]}
 parking_lot = "^0.12"
-pin-project = "^1"
+pin-project = "^1.1.10"
 pretty_env_logger = "^0.5"
-serde = "^1"
-smallvec = "^1"
-thiserror = "^2"
+serde = "^1.0"
+smallvec = "^1.15"
+test-case = "^3.3.1"
+thiserror = "^2.0"
 # typemap = "^0.3"
-tokio = "^1"
+tokio = "^1.45"
 tracing = "^0.1"

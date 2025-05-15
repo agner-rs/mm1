@@ -82,10 +82,12 @@ fn test_01() {
             Local::actor((worker, (reply_to, duration)))
         });
         let child = ChildSpec {
-            factory,
-            child_type: ChildType::Temporary,
-            init_type: InitType::WithAck,
-            timeouts: Default::default(),
+            launcher:     factory,
+            child_type:   ChildType::Temporary,
+            init_type:    InitType::WithAck {
+                start_timeout: Duration::from_secs(1),
+            },
+            stop_timeout: Duration::from_secs(1),
         };
         let sup = UniformSup::new(child);
         let sup_runnable = Local::actor((uniform_sup, (sup,)));
