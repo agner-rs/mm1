@@ -1,6 +1,6 @@
 [package]
 name = "mm1-sup"
-version = "0.5.4"
+version = "0.6.0"
 edition = "2021"
 
 license = "MIT"
@@ -10,7 +10,7 @@ description = "M/M/1! Queueing, do you speak it?!"
 
 [dependencies]
 mm1-address.workspace = true
-mm1-common = {workspace = true, features = ["logging"]}
+mm1-common = {workspace = true, features = ["logging"] }
 mm1-core.workspace = true
 mm1-proto.workspace = true
 mm1-proto-sup.workspace = true

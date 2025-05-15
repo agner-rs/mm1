@@ -1,6 +1,6 @@
 [package]
 name = "mm1-node"
-version = "0.5.4"
+version = "0.6.0"
 edition = "2021"
 
 license = "MIT"
@@ -9,7 +9,7 @@ repository = "https://github.com/agner-rs/mm1"
 description = "M/M/1! Queueing, do you speak it?!"
 
 [dependencies]
-mm1-common = {workspace = true, features = ["futures", "logging"]}
+mm1-common = {workspace = true, features = ["futures", "logging"] }
 mm1-core.workspace = true
 mm1-proto.workspace = true
 mm1-proto-system.workspace = true

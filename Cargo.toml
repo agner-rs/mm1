@@ -3,17 +3,17 @@ resolver = "2"
 members = [ "crates/*"]
 
 [workspace.dependencies]
-mm1-address = {path = "crates/mm1-address", version = "=0.5.4" }
-mm1-common = {path = "crates/mm1-common", version = "=0.5.4" }
-mm1-core = {path = "crates/mm1-core", version = "=0.5.4" }
-mm1-logger = {path = "crates/mm1-logger", version = "=0.5.4" }
-mm1-node = {path = "crates/mm1-node", version = "=0.5.4" }
-mm1-proto = {path = "crates/mm1-proto", version = "=0.5.4" }
-mm1-proto-sup = {path = "crates/mm1-proto-sup", version = "=0.5.4" }
-mm1-proto-system = {path = "crates/mm1-proto-system", version = "=0.5.4" }
-mm1-sup = {path = "crates/mm1-sup", version = "=0.5.4" }
+mm1-address = {path = "crates/mm1-address", version = "=0.6.0" }
+mm1-common = {path = "crates/mm1-common", version = "=0.6.0" }
+mm1-core = {path = "crates/mm1-core", version = "=0.6.0" }
+mm1-logger = {path = "crates/mm1-logger", version = "=0.6.0" }
+mm1-node = {path = "crates/mm1-node", version = "=0.6.0" }
+mm1-proto = {path = "crates/mm1-proto", version = "=0.6.0" }
+mm1-proto-sup = {path = "crates/mm1-proto-sup", version = "=0.6.0" }
+mm1-proto-system = {path = "crates/mm1-proto-system", version = "=0.6.0" }
+mm1-sup = {path = "crates/mm1-sup", version = "=0.6.0" }
 
-mm1-proc-macros = {path = "crates/mm1-proc-macros", version = "=0.5.4" }
+mm1-proc-macros = {path = "crates/mm1-proc-macros", version = "=0.6.0" }
 
 either = "^1.15.0"
 eyre = "^0.6"

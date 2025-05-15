@@ -1,6 +1,6 @@
 [package]
 name = "mm1-core"
-version = "0.5.4"
+version = "0.6.0"
 edition = "2021"
 
 license = "MIT"
@@ -13,7 +13,7 @@ default = ["test-util"]
 test-util = []
 
 [dependencies]
-mm1-common = {workspace = true, features = ["logging", "futures"]}
+mm1-common = {workspace = true, features = ["logging", "futures"] }
 mm1-address.workspace = true
 mm1-proto.workspace = true
 mm1-proto-system.workspace = true
