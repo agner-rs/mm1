@@ -24,7 +24,8 @@ pub(crate) struct StartFailed<K> {
 }
 #[message]
 pub(crate) struct StopFailed {
-    reason: ErrorOf<ShutdownErrorKind>,
+    pub address: Address,
+    pub reason:  ErrorOf<ShutdownErrorKind>,
 }
 
 pub(crate) async fn shutdown<Sys, Ctx>(
@@ -37,7 +38,7 @@ pub(crate) async fn shutdown<Sys, Ctx>(
     Sys: System + Default,
 {
     if let Err(reason) = ctx.shutdown(address, stop_timeout).await {
-        send_report(ctx, sup_address, StopFailed { reason }).await;
+        send_report(ctx, sup_address, StopFailed { address, reason }).await;
     }
 }
 

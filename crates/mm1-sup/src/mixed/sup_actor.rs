@@ -118,6 +118,15 @@ where
                 log::warn!("failed to start [{}]. Initiating shutdown...", child_id);
                 decider.failed(&child_id, ctx.now());
             },
+            sup_child::StopFailed { address, reason } => {
+                log::warn!(
+                    "failed to stop {}: {}. Initiating shutdown...",
+                    address,
+                    reason
+                );
+                decider.quit(false);
+            },
+
             Exited { peer, normal_exit } => {
                 log::debug!("{} exited", peer);
                 decider.exited(peer, normal_exit, ctx.now());
