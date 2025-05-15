@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [ "*" ]
 
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to run the workflow on"
+        required: true
+        default: main
+
 env:
   CARGO_TERM_COLOR: always
 
