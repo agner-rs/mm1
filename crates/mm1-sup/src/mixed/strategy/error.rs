@@ -4,4 +4,6 @@ pub enum DeciderError {
     DuplicateKey,
     #[error("key not found")]
     KeyNotFound,
+    #[error("operation unsupported")]
+    Unsupported,
 }

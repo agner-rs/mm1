@@ -94,6 +94,7 @@ use Action::*;
         Decide,
         Started("one", Address::from_u64(1)),
         Decide,
+        Delay(Duration::from_secs(40)),
         Exited(Address::from_u64(1), false),
         Decide,
         Started("one", Address::from_u64(2)),
@@ -113,10 +114,16 @@ use Action::*;
         Decide,
         Exited(Address::from_u64(1), false),
         Decide,
-        Started("one", Address::from_u64(4)),
+        Exited(Address::from_u64(3), false),
         Exited(Address::from_u64(2), false),
         Decide,
-        Exited(Address::from_u64(3), false),
+        Started("one", Address::from_u64(4)),
+        Started("two", Address::from_u64(5)),
+        Started("three", Address::from_u64(6)),
+        Decide,
+        Exited(Address::from_u64(5), false),
+        Decide,
+        Exited(Address::from_u64(6), false),
         Exited(Address::from_u64(4), false),
         Decide,
     ]
@@ -135,15 +142,22 @@ use Action::*;
         Decide,
         Exited(Address::from_u64(1), false),
         Decide,
-        Delay(Duration::from_secs(40)),
-        Started("one", Address::from_u64(4)),
+        Exited(Address::from_u64(3), false),
         Exited(Address::from_u64(2), false),
         Decide,
+        Started("one", Address::from_u64(4)),
         Started("two", Address::from_u64(5)),
-        Exited(Address::from_u64(3), false),
+        Started("three", Address::from_u64(6)),
         Decide,
+        Delay(Duration::from_secs(40)),
         Exited(Address::from_u64(5), false),
+        Decide,
+        Exited(Address::from_u64(6), false),
         Exited(Address::from_u64(4), false),
+        Decide,
+        Started("one", Address::from_u64(7)),
+        Started("two", Address::from_u64(8)),
+        Started("three", Address::from_u64(9)),
         Decide,
     ]
     ; "add 3, started 3, exited 2, max restart intensity not reached"
@@ -163,7 +177,7 @@ use Action::*;
 #[tokio::test]
 async fn run<K>(restart_intensity: RestartIntensity, script: impl IntoIterator<Item = Action<K>>)
 where
-    OneForOne<K>: RestartStrategy<K>,
+    AllForOne<K>: RestartStrategy<K>,
     K: fmt::Display + Clone + Eq,
 {
     let _ = mm1_logger::init(&logger_config());
@@ -176,7 +190,7 @@ where
     let mut report = vec![];
 
     report.push(restart_intensity.to_string());
-    let mut decider = OneForOne::<K>::new(restart_intensity).decider();
+    let mut decider = AllForOne::<K>::new(restart_intensity).decider();
 
     for action in script {
         report.push(action.to_string());
