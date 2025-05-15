@@ -193,6 +193,20 @@ where
         }
     }
 
+    fn quit(&mut self, normal_exit: bool) {
+        self.status = match self.status {
+            SupStatus::Stopped => SupStatus::Stopped,
+            SupStatus::Stopping {
+                normal_exit: existing_normal_exit,
+            } => {
+                SupStatus::Stopping {
+                    normal_exit: normal_exit && existing_normal_exit,
+                }
+            },
+            _ => SupStatus::Stopping { normal_exit },
+        };
+    }
+
     fn next_action(
         &mut self,
         _at: tokio::time::Instant,
