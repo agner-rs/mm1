@@ -126,6 +126,32 @@ use Action::*;
     RestartIntensity { max_restarts: 1, within: Duration::from_secs(30) },
     [
         Add("one"),
+        Add("two"),
+        Add("three"),
+        Decide,
+        Started("one", Address::from_u64(1)),
+        Started("two", Address::from_u64(2)),
+        Started("three", Address::from_u64(3)),
+        Decide,
+        Exited(Address::from_u64(1), false),
+        Decide,
+        Delay(Duration::from_secs(40)),
+        Started("one", Address::from_u64(4)),
+        Exited(Address::from_u64(2), false),
+        Decide,
+        Started("two", Address::from_u64(5)),
+        Exited(Address::from_u64(3), false),
+        Decide,
+        Exited(Address::from_u64(5), false),
+        Exited(Address::from_u64(4), false),
+        Decide,
+    ]
+    ; "add 3, started 3, exited 2, max restart intensity not reached"
+)]
+#[test_case(
+    RestartIntensity { max_restarts: 1, within: Duration::from_secs(30) },
+    [
+        Add("one"),
         Decide,
         Started("one", Address::from_u64(1)),
         Decide,

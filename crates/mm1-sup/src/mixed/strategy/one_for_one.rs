@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 use std::fmt;
-use std::hash::Hash;
 
 use either::Either;
 use mm1_address::address::Address;
@@ -76,7 +75,7 @@ where
 
 impl<K> Decider for OneForOneDecider<K>
 where
-    K: fmt::Display + Eq + Hash,
+    K: fmt::Display + Eq,
 {
     type Error = DeciderError;
     type Key = K;
