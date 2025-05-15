@@ -39,7 +39,7 @@ impl RestartIntensity {
 impl Default for RestartIntensity {
     fn default() -> Self {
         Self {
-            max_restarts: 1,
+            max_restarts: 0,
             within:       Duration::MAX,
         }
     }

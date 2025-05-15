@@ -8,8 +8,7 @@ expression: report
 - ">>> Start(one)"
 - "STARTED [one] / <:1>"
 - DECIDE
-- DELAY 40s
-- "EXITED  <:1>"
+- "EXITED  <:1> normal_exit=false"
 - DECIDE
 - ">>> Start(one)"
 - "STARTED [one] / <:2>"

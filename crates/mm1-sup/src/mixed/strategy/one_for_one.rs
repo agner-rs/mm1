@@ -12,6 +12,7 @@ use crate::mixed::strategy::{DeciderError, OneForOne, RestartStrategy};
 
 pub struct OneForOneDecider<K> {
     restart_intensity: RestartIntensity,
+    restart_stats:     RestartStats,
     states:            Vec<(K, State)>,
     orphans:           HashSet<Address>,
     status:            SupStatus,
@@ -21,7 +22,6 @@ pub struct OneForOneDecider<K> {
 struct State {
     status: Status,
     target: Target,
-    starts: RestartStats,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -62,11 +62,14 @@ where
     type Decider = OneForOneDecider<K>;
 
     fn decider(&self) -> Self::Decider {
+        let restart_intensity = self.restart_intensity;
+        let restart_stats = restart_intensity.new_stats();
         OneForOneDecider {
-            restart_intensity: self.restart_intensity,
-            states:            Default::default(),
-            orphans:           Default::default(),
-            status:            SupStatus::Running,
+            restart_intensity,
+            restart_stats,
+            states: Default::default(),
+            orphans: Default::default(),
+            status: SupStatus::Running,
         }
     }
 }
@@ -87,7 +90,6 @@ where
             State {
                 status: Status::Stopped,
                 target: Target::Running,
-                starts: self.restart_intensity.new_stats(),
             },
         ));
         Ok(())
@@ -104,7 +106,7 @@ where
         state.target = Target::Removed;
     }
 
-    fn started(&mut self, key: &Self::Key, reported_address: Address) {
+    fn started(&mut self, key: &Self::Key, reported_address: Address, _at: tokio::time::Instant) {
         assert!(!self.states.iter().any(|(_, s)|
                 matches!(s.status,
                     Status::Running { address } | Status::Terminating { address } if address == reported_address
@@ -136,7 +138,7 @@ where
         }
     }
 
-    fn exited(&mut self, reported_addr: Address) {
+    fn exited(&mut self, reported_addr: Address, normal_exit: bool, at: tokio::time::Instant) {
         let Some(state) = self.states.iter_mut().find_map(|(_, s)| {
             matches!(s.status,
                     Status::Running { address } |
@@ -151,16 +153,27 @@ where
             return;
         };
 
-        match state.status {
-            Status::Running { address } | Status::Terminating { address } => {
+        match (state.status, normal_exit) {
+            (Status::Terminating { address }, _) | (Status::Running { address }, true) => {
                 assert_eq!(address, reported_addr);
+                state.status = Status::Stopped;
+            },
+            (Status::Running { address }, false) => {
+                assert_eq!(address, reported_addr);
+                if let Err(reason) = self
+                    .restart_intensity
+                    .report_exit(&mut self.restart_stats, at)
+                {
+                    log::info!("restart intensity exceeded; giving up. Reason: {}", reason);
+                    self.status = SupStatus::Stopping { normal_exit: false };
+                }
                 state.status = Status::Stopped;
             },
             _ => unreachable!("how could this state be selected?"),
         }
     }
 
-    fn failed(&mut self, key: &Self::Key) {
+    fn failed(&mut self, key: &Self::Key, _at: tokio::time::Instant) {
         if let Some(state) = self
             .states
             .iter_mut()
@@ -180,7 +193,7 @@ where
 
     fn next_action(
         &mut self,
-        at: tokio::time::Instant,
+        _at: tokio::time::Instant,
     ) -> Result<Option<Action<'_, Self::Key>>, Self::Error> {
         self.states.retain(|(_k, state)| {
             !matches!(
@@ -235,15 +248,10 @@ where
                 // Should not happen
                 (Status::Stopped, Target::Removed) => unreachable!("filtered out above"),
 
+                // Do something!
                 (Status::Stopped, Target::Running) => {
-                    if let Err(reason) = self.restart_intensity.report_exit(&mut state.starts, at) {
-                        log::info!("giving up on {}: {}", key, reason);
-                        self.status = SupStatus::Stopping { normal_exit: false };
-                        return Ok(Some(Action::Noop))
-                    } else {
-                        state.status = Status::Starting;
-                        return Ok(Some(Action::Start { child_id: key }))
-                    }
+                    state.status = Status::Starting;
+                    return Ok(Some(Action::Start { child_id: key }))
                 },
                 (Status::Running { address }, Target::Stopped | Target::Removed) => {
                     state.status = Status::Terminating { address };

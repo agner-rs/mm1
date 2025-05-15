@@ -112,15 +112,15 @@ where
             sup_child::Started::<K> { child_id, address } => {
                 log::debug!("[{}] started as {}. Linking...", child_id, address);
                 ctx.link(address).await;
-                decider.started(&child_id, address)
+                decider.started(&child_id, address, ctx.now())
             },
             sup_child::StartFailed::<K> { child_id } => {
                 log::warn!("failed to start [{}]. Initiating shutdown...", child_id);
-                decider.failed(&child_id);
+                decider.failed(&child_id, ctx.now());
             },
-            Exited { peer, .. } => {
+            Exited { peer, normal_exit } => {
                 log::debug!("{} exited", peer);
-                decider.exited(peer)
+                decider.exited(peer, normal_exit, ctx.now());
             },
 
             unexpected @ _ => log::warn!("unexpected message: {:?}", unexpected),

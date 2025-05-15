@@ -10,7 +10,7 @@ enum Action<K = usize> {
     Rm(K),
     Decide,
     Started(K, Address),
-    Exited(Address),
+    Exited(Address, bool),
     Delay(Duration),
 }
 
@@ -38,7 +38,7 @@ use Action::*;
         Started("one", Address::from_u64(1)),
         Rm("one"),
         Decide,
-        Exited(Address::from_u64(1)),
+        Exited(Address::from_u64(1), false),
         Decide,
     ]
     ; "add, started, remove"
@@ -63,7 +63,7 @@ use Action::*;
         Decide,
         Started("one", Address::from_u64(1)),
         Decide,
-        Exited(Address::from_u64(1)),
+        Exited(Address::from_u64(1), false),
         Decide,
     ]
     ; "add, started, exited, max restart intensity reached"
@@ -79,10 +79,10 @@ use Action::*;
         Started("two", Address::from_u64(2)),
         Started("three", Address::from_u64(3)),
         Decide,
-        Exited(Address::from_u64(1)),
+        Exited(Address::from_u64(1), false),
         Decide,
-        Exited(Address::from_u64(2)),
-        Exited(Address::from_u64(3)),
+        Exited(Address::from_u64(2), false),
+        Exited(Address::from_u64(3), false),
         Decide,
     ]
     ; "add several, started, exited, max restart intensity reached"
@@ -94,12 +94,33 @@ use Action::*;
         Decide,
         Started("one", Address::from_u64(1)),
         Decide,
-        Delay(Duration::from_secs(40)),
-        Exited(Address::from_u64(1)),
+        Exited(Address::from_u64(1), false),
         Decide,
         Started("one", Address::from_u64(2)),
     ]
     ; "add, started, exited, max restart intensity not reached"
+)]
+#[test_case(
+    RestartIntensity { max_restarts: 1, within: Duration::from_secs(30) },
+    [
+        Add("one"),
+        Add("two"),
+        Add("three"),
+        Decide,
+        Started("one", Address::from_u64(1)),
+        Started("two", Address::from_u64(2)),
+        Started("three", Address::from_u64(3)),
+        Decide,
+        Exited(Address::from_u64(1), false),
+        Decide,
+        Started("one", Address::from_u64(4)),
+        Exited(Address::from_u64(2), false),
+        Decide,
+        Exited(Address::from_u64(3), false),
+        Exited(Address::from_u64(4), false),
+        Decide,
+    ]
+    ; "add 3, started 3, exited 2, max restart intensity reached"
 )]
 #[test_case(
     RestartIntensity { max_restarts: 1, within: Duration::from_secs(30) },
@@ -139,11 +160,11 @@ where
                 Ok(())
             },
             Started(key, addr) => {
-                decider.started(&key, addr);
+                decider.started(&key, addr, tokio::time::Instant::now());
                 Ok(())
             },
-            Exited(addr) => {
-                decider.exited(addr);
+            Exited(addr, normal_exit) => {
+                decider.exited(addr, normal_exit, tokio::time::Instant::now());
                 Ok(())
             },
             Add(key) => decider.add(key),
@@ -188,7 +209,7 @@ where
             Self::Rm(k) => write!(f, "RM      [{}]", k),
             Self::Decide => write!(f, "DECIDE"),
             Self::Started(k, a) => write!(f, "STARTED [{}] / {}", k, a),
-            Self::Exited(a) => write!(f, "EXITED  {}", a),
+            Self::Exited(a, n) => write!(f, "EXITED  {} normal_exit={}", a, n),
             Self::Delay(d) => write!(f, "DELAY {:?}", d),
         }
     }
