@@ -1,0 +1,9 @@
+---
+source: crates/mm1-message-codec-serde/src/json/tests.rs
+expression: message_names
+---
+[
+    "mm1_message_codec_serde::json::tests::messages::M1",
+    "mm1_message_codec_serde::json::tests::messages::M2",
+    "mm1_message_codec_serde::json::tests::messages::M3",
+]

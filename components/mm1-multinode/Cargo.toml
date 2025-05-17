@@ -1,0 +1,21 @@
+[package]
+name = "mm1-multinode"
+version = "0.5.4"
+edition = "2021"
+
+license = "MIT"
+authors = ["That Roma <mm1@thatroma.me>"]
+repository = "https://github.com/agner-rs/mm1"
+description = "M/M/1! Queueing, do you speak it?!"
+
+[features]
+default = ["serde-json"]
+serde = ["dep:mm1-message-codec-serde", "mm1-address/serde"]
+serde-json = ["serde", "mm1-message-codec-serde/json"]
+
+[dependencies]
+mm1-address.workspace = true
+mm1-core.workspace = true
+mm1-message-codec.workspace = true
+mm1-message-codec-serde = {workspace = true, optional = true}
+

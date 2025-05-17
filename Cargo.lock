@@ -450,6 +450,9 @@ dependencies = [
  "mm1-common",
  "mm1-core",
  "mm1-logger",
+ "mm1-message-codec",
+ "mm1-message-codec-serde",
+ "mm1-multinode",
  "mm1-node",
  "mm1-proto",
  "mm1-proto-sup",
@@ -463,9 +466,7 @@ dependencies = [
 name = "mm1-address"
 version = "0.5.4"
 dependencies = [
- "either",
  "insta",
- "mm1-common",
  "parking_lot",
  "serde",
  "thiserror",
@@ -477,7 +478,6 @@ version = "0.5.4"
 dependencies = [
  "mm1-proc-macros",
  "pin-project",
- "serde",
  "thiserror",
  "tokio",
  "tracing",
@@ -487,7 +487,6 @@ dependencies = [
 name = "mm1-core"
 version = "0.5.4"
 dependencies = [
- "either",
  "eyre",
  "futures",
  "mm1-address",
@@ -495,8 +494,6 @@ dependencies = [
  "mm1-proc-macros",
  "mm1-proto",
  "mm1-proto-system",
- "serde",
- "thiserror",
  "tokio",
  "tracing",
 ]
@@ -512,6 +509,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "mm1-message-codec"
+version = "0.5.4"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
+name = "mm1-message-codec-serde"
+version = "0.5.4"
+dependencies = [
+ "insta",
+ "mm1-address",
+ "mm1-core",
+ "mm1-message-codec",
+ "mm1-proc-macros",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "mm1-multinode"
+version = "0.5.4"
+dependencies = [
+ "mm1-address",
+ "mm1-core",
+ "mm1-message-codec",
+ "mm1-message-codec-serde",
+]
+
+[[package]]
 name = "mm1-node"
 version = "0.5.4"
 dependencies = [
@@ -522,11 +549,9 @@ dependencies = [
  "mm1-common",
  "mm1-core",
  "mm1-logger",
- "mm1-proc-macros",
  "mm1-proto",
  "mm1-proto-system",
  "num_cpus",
- "parking_lot",
  "pin-project",
  "scc",
  "serde",
@@ -550,11 +575,8 @@ dependencies = [
 name = "mm1-proto"
 version = "0.5.4"
 dependencies = [
- "either",
- "mm1-common",
  "mm1-proc-macros",
  "parking_lot",
- "serde",
 ]
 
 [[package]]
@@ -565,7 +587,6 @@ dependencies = [
  "mm1-common",
  "mm1-proto",
  "mm1-proto-system",
- "serde",
 ]
 
 [[package]]
@@ -575,7 +596,6 @@ dependencies = [
  "mm1-address",
  "mm1-common",
  "mm1-proto",
- "serde",
 ]
 
 [[package]]
@@ -593,7 +613,6 @@ dependencies = [
  "mm1-proto-sup",
  "mm1-proto-system",
  "parking_lot",
- "serde",
  "test-case",
  "thiserror",
  "tokio",
@@ -848,6 +867,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.90",
+]
+
+[[package]]
+name = "serde_json"
+version = "1.0.140"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20068b6e96dc6c9bd23e01df8827e6c7e1f2fddd43c21810382803c136b99373"
+dependencies = [
+ "itoa",
+ "memchr",
+ "ryu",
+ "serde",
 ]
 
 [[package]]

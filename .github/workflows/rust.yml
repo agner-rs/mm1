@@ -68,8 +68,23 @@ jobs:
             cargo install cargo-nextest --locked
           fi
     
+      - name: "Check: no default features"
+        run: cargo check --workspace --all-targets --no-default-features -p mm1
+      
+      - name: "Check: feature=runtime"
+        run: cargo check --workspace --all-targets --no-default-features -p mm1 --features runtime
+      
+      - name: "Check: feature=sup"
+        run: cargo check --workspace --all-targets --no-default-features -p mm1 --features sup
+
+      - name: "Check: feature=multinode"
+        run: cargo check  --workspace --all-targets --no-default-features -p mm1 --features multinode
+
+      - name: "Check: feature=multinode-serde"
+        run: cargo check --workspace --all-targets --no-default-features -p mm1 --features multinode-serde
+
       - name: Run Clippy
-        run: cargo clippy --all-features --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-features --all-targets -- -D warnings
     
       - name: Run tests with cargo nextest
-        run: cargo nextest run --all-targets --all-features
+        run: cargo nextest run --workspace --all-targets --all-features
