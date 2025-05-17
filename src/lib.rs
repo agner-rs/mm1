@@ -156,9 +156,6 @@ pub mod core {
         /// A convenience trait for request-response interation with other
         /// actors.
         pub use mm1_core::context::{Ask, AskErrorKind};
-        #[doc(hidden)]
-        /// Plumbing APIs
-        pub use mm1_core::context::{Call, TryCall};
         /// Create another context, having an address distinct from the original
         /// context's one.
         pub use mm1_core::context::{Fork, ForkErrorKind};

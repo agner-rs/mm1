@@ -1,21 +1,146 @@
 use std::future::Future;
 use std::time::Duration;
 
+use futures::FutureExt;
 use mm1_address::address::Address;
+use mm1_address::subnet::NetMask;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::futures::timeout::FutureTimeoutExt;
-use mm1_core::context::{Fork, InitDone, Linking, Recv, Start, Stop, TellErrorKind, Watching};
+use mm1_common::types::Never;
+use mm1_core::context::{
+    Fork, ForkErrorKind, InitDone, Linking, Now, Quit, Recv, RecvErrorKind, Start, Stop, Tell,
+    TellErrorKind, Watching,
+};
 use mm1_core::envelope::{Envelope, EnvelopeInfo, dispatch};
+use mm1_proto::Message;
 use mm1_proto_system::{InitAck, SpawnErrorKind, StartErrorKind, WatchRef};
 use tokio::sync::oneshot;
+use tokio::time::Instant;
 use tracing::trace;
 
 use crate::runtime::config::EffectiveActorConfig;
-use crate::runtime::container;
 use crate::runtime::context::ActorContext;
 use crate::runtime::runnable::BoxedRunnable;
 use crate::runtime::sys_call::SysCall;
 use crate::runtime::sys_msg::{ExitReason, SysLink, SysMsg};
+use crate::runtime::{container, mq};
+
+impl Quit for ActorContext {
+    async fn quit_ok(&mut self) -> Never {
+        self.call.invoke(SysCall::Exit(Ok(()))).await;
+        std::future::pending().await
+    }
+
+    async fn quit_err<E>(&mut self, reason: E) -> Never
+    where
+        E: std::error::Error + Send + Sync + 'static,
+    {
+        self.call.invoke(SysCall::Exit(Err(reason.into()))).await;
+        std::future::pending().await
+    }
+}
+
+impl Fork for ActorContext {
+    async fn fork(&mut self) -> Result<Self, ErrorOf<ForkErrorKind>> {
+        let address_lease = self
+            .subnet_pool
+            .lease(NetMask::M_64)
+            .map_err(|lease_error| {
+                ErrorOf::new(ForkErrorKind::ResourceConstraint, lease_error.to_string())
+            })?;
+        let actor_address = address_lease.address;
+
+        let (tx_priority, rx_priority) = mq::unbounded();
+        let (tx_regular, rx_regular) = mq::bounded(
+            self.rt_config
+                .actor_config(&self.actor_key)
+                .fork_inbox_size(),
+        );
+        let tx_system_weak = self.tx_system_weak.clone();
+        let tx_system = tx_system_weak
+            .upgrade()
+            .ok_or_else(|| ErrorOf::new(ForkErrorKind::InternalError, "tx_system_weak.upgrade"))?;
+
+        self.call
+            .invoke(SysCall::ForkAdded(
+                address_lease.address,
+                tx_priority.downgrade(),
+            ))
+            .await;
+
+        let () = self
+            .rt_api
+            .register(address_lease, tx_system, tx_priority, tx_regular);
+
+        let subnet_pool = self.subnet_pool.clone();
+        let rt_api = self.rt_api.clone();
+        let rt_config = self.rt_config.clone();
+
+        let actor_key = self.actor_key.clone();
+
+        let context = Self {
+            rt_api,
+            rt_config,
+            actor_address,
+            rx_priority,
+            rx_regular,
+            tx_system_weak,
+            call: self.call.clone(),
+            actor_key,
+            subnet_pool,
+            ack_to: None,
+            unregister_on_drop: true,
+        };
+
+        Ok(context)
+    }
+
+    async fn run<F, Fut>(self, fun: F)
+    where
+        F: FnOnce(Self) -> Fut,
+        F: Send + 'static,
+        Fut: std::future::Future + Send + 'static,
+    {
+        let call = self.call.clone();
+        let fut = fun(self).map(|_| ()).boxed();
+        call.invoke(SysCall::Spawn(fut)).await;
+    }
+}
+
+impl Now for ActorContext {
+    type Instant = Instant;
+
+    fn now(&self) -> Self::Instant {
+        Instant::now()
+    }
+}
+
+impl Recv for ActorContext {
+    fn address(&self) -> Address {
+        self.actor_address
+    }
+
+    async fn recv(&mut self) -> Result<Envelope, ErrorOf<RecvErrorKind>> {
+        let (priority, inbound_opt) = tokio::select! {
+            biased;
+
+            inbound_opt = self.rx_priority.recv() => (true, inbound_opt),
+            inbound_opt = self.rx_regular.recv() => (false, inbound_opt),
+        };
+
+        trace!(
+            "received [priority: {}; inbound: {:?}]",
+            priority, inbound_opt
+        );
+
+        inbound_opt.ok_or(ErrorOf::new(RecvErrorKind::Closed, "closed"))
+    }
+
+    async fn close(&mut self) {
+        self.rx_regular.close();
+        self.rx_priority.close();
+    }
+}
 
 impl Start<BoxedRunnable<Self>> for ActorContext {
     fn spawn(
@@ -81,6 +206,19 @@ impl Watching for ActorContext {
 impl InitDone for ActorContext {
     fn init_done(&mut self, address: Address) -> impl Future<Output = ()> + Send {
         do_init_done(self, address)
+    }
+}
+
+impl Tell for ActorContext {
+    fn tell<M>(
+        &mut self,
+        to: Address,
+        msg: M,
+    ) -> impl Future<Output = Result<(), ErrorOf<TellErrorKind>>> + Send
+    where
+        M: Message,
+    {
+        std::future::ready(do_tell(self, to, msg))
     }
 }
 
@@ -260,4 +398,18 @@ async fn do_init_done(context: &mut ActorContext, address: Address) {
     };
     let envelope = Envelope::new(EnvelopeInfo::new(ack_to_address), message);
     let _ = context.rt_api.send(true, envelope.into_erased());
+}
+
+fn do_tell(
+    context: &mut ActorContext,
+    to: Address,
+    msg: impl Message,
+) -> Result<(), ErrorOf<TellErrorKind>> {
+    let info = EnvelopeInfo::new(to);
+    let outbound = Envelope::new(info, msg).into_erased();
+    trace!("sending [outbound: {:?}]", outbound);
+    context
+        .rt_api
+        .send(false, outbound)
+        .map_err(|k| ErrorOf::new(k, ""))
 }

@@ -1,5 +1,4 @@
 mod ask;
-mod call;
 mod fork;
 mod linking;
 mod now;
@@ -11,7 +10,6 @@ mod tell;
 mod watching;
 
 pub use ask::{Ask, AskErrorKind};
-pub use call::{Call, TryCall};
 pub use fork::{Fork, ForkErrorKind};
 pub use linking::Linking;
 pub use now::Now;
