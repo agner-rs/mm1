@@ -15,7 +15,7 @@ use mm1_proto_system::Exited;
 use crate::common::child_spec::ChildSpec;
 use crate::mixed::decider::{Action, Decider};
 use crate::mixed::strategy::RestartStrategy;
-use crate::mixed::{spec_builder, sup_child, ErasedActorFactory, MixedSup};
+use crate::mixed::{ErasedActorFactory, MixedSup, spec_builder, sup_child};
 
 pub async fn mixed_sup<Runnable, Ctx, RS, CS, K>(
     ctx: &mut Ctx,
@@ -30,7 +30,6 @@ where
     K: fmt::Display,
     K: Hash + Eq,
     K: Message,
-
     ChildSpec<ErasedActorFactory<Runnable>>: Send + Sync + 'static,
 {
     ctx.set_trap_exit(true).await;

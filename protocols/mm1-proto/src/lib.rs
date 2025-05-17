@@ -8,7 +8,7 @@ mod message;
 mod unique;
 
 pub use local::Local;
-pub use message::message;
 // pub use traversable::{AnyError, Traversable};
 pub use message::Message;
+pub use message::message;
 pub use unique::Unique;

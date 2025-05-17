@@ -11,7 +11,7 @@ use mm1_proto::message;
 use mm1_proto_sup::uniform;
 use mm1_sup::common::child_spec::{ChildSpec, ChildType, InitType};
 use mm1_sup::common::factory::ActorFactoryMut;
-use mm1_sup::uniform::{uniform_sup, UniformSup};
+use mm1_sup::uniform::{UniformSup, uniform_sup};
 
 fn logger_config() -> mm1_logger::LoggingConfig {
     use mm1_logger::*;

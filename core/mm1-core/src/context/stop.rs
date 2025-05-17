@@ -39,31 +39,37 @@ pub trait Stop {
 
             let watch_ref = fork.watch(peer).await;
 
-            let mut shutdown_sequence = pin!(async {
-                self.exit(peer).await;
-                tokio::time::sleep(stop_timeout).await;
-                self.kill(peer).await;
-            }
-            .fuse());
-
-            let mut recv_result = pin!(async {
-                loop {
-                    dispatch!(match fork
-                        .recv()
-                        .await
-                        .map_err(|e| e.map_kind(ShutdownErrorKind::Recv))?
-                    {
-                        down @ Down { .. } if down.watch_ref == watch_ref && down.peer == peer => {
-                            break Ok(())
-                        },
-
-                        unexpected @ _ => {
-                            warn!("unexpected message: {:?}", unexpected);
-                        },
-                    })
+            let mut shutdown_sequence = pin!(
+                async {
+                    self.exit(peer).await;
+                    tokio::time::sleep(stop_timeout).await;
+                    self.kill(peer).await;
                 }
-            }
-            .fuse());
+                .fuse()
+            );
+
+            let mut recv_result = pin!(
+                async {
+                    loop {
+                        dispatch!(match fork
+                            .recv()
+                            .await
+                            .map_err(|e| e.map_kind(ShutdownErrorKind::Recv))?
+                        {
+                            down @ Down { .. }
+                                if down.watch_ref == watch_ref && down.peer == peer =>
+                            {
+                                break Ok(())
+                            },
+
+                            unexpected @ _ => {
+                                warn!("unexpected message: {:?}", unexpected);
+                            },
+                        })
+                    }
+                }
+                .fuse()
+            );
 
             loop {
                 tokio::select! {

@@ -7,7 +7,7 @@ use mm1_common::log;
 use mm1_core::context::{
     Fork, Linking, Quit, Recv, ShutdownErrorKind, Start, Stop, Tell, Watching,
 };
-use mm1_proto::{message, Message};
+use mm1_proto::{Message, message};
 use mm1_proto_system::StartErrorKind;
 
 use crate::common::child_spec::{ChildSpec, InitType};

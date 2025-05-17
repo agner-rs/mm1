@@ -12,7 +12,7 @@ mod level_filter_trie;
 pub fn init(config: &LoggingConfig) -> Result<(), AnyError> {
     use tracing_subscriber::prelude::*;
     use tracing_subscriber::util::SubscriberInitExt;
-    use tracing_subscriber::{filter, Layer};
+    use tracing_subscriber::{Layer, filter};
 
     let filter = level_filter_trie::FilterTrie::from_statements(&config.log_target_filter);
 

@@ -5,7 +5,7 @@ use mm1_address::address::Address;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::futures::timeout::FutureTimeoutExt;
 use mm1_core::context::{Fork, InitDone, Linking, Recv, Start, Stop, TellErrorKind, Watching};
-use mm1_core::envelope::{dispatch, Envelope, EnvelopeInfo};
+use mm1_core::envelope::{Envelope, EnvelopeInfo, dispatch};
 use mm1_proto_system::{InitAck, SpawnErrorKind, StartErrorKind, WatchRef};
 use tokio::sync::oneshot;
 use tracing::trace;

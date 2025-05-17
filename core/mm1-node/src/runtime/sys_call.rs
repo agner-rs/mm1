@@ -1,7 +1,7 @@
 use core::fmt;
 use std::future::Future;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use futures::Stream;
 use mm1_address::address::Address;

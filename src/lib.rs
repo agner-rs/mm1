@@ -5,6 +5,15 @@
 pub mod proto {
     //! Protocols. Actors interact by communication.
 
+    /// A Message-wrapper over a non-Message type, showing that that piece of
+    /// data is not supposed to cross the node boundary.
+    pub use mm1_proto::Local;
+    /// A trait showing that the type implementing it can be sent between the
+    /// actors.
+    pub use mm1_proto::Message;
+    /// A cloneable Message-wrapper over a non-clonable (and thus non-Message)
+    /// type.
+    pub use mm1_proto::Unique;
     /// A proc-macro attribute to make a message out of a type.
     ///
     /// Example:
@@ -21,15 +30,6 @@ pub mod proto {
     /// }
     /// ```
     pub use mm1_proto::message;
-    /// A Message-wrapper over a non-Message type, showing that that piece of
-    /// data is not supposed to cross the node boundary.
-    pub use mm1_proto::Local;
-    /// A trait showing that the type implementing it can be sent between the
-    /// actors.
-    pub use mm1_proto::Message;
-    /// A cloneable Message-wrapper over a non-clonable (and thus non-Message)
-    /// type.
-    pub use mm1_proto::Unique;
     #[cfg(feature = "sup")]
     /// The protocol to communicate with supervisors.
     /// See [`sup`](crate::sup).
@@ -127,13 +127,13 @@ pub mod core {
     pub mod envelope {
         //! An [`Envelope`] is a type-erasing container for the sent messages.
 
-        /// A macro helping to match an [`Envelope`].
-        pub use mm1_core::envelope::dispatch;
         /// A type-erasing container for the message that has been sent.
         pub use mm1_core::envelope::Envelope;
         /// An opaque type containing some information about the message that
         /// has been sent.
         pub use mm1_core::envelope::EnvelopeInfo;
+        /// A macro helping to match an [`Envelope`].
+        pub use mm1_core::envelope::dispatch;
     }
 
     pub mod context {
@@ -195,15 +195,15 @@ pub mod sup {
         //! Uniform supervisor — the actor, that supervises the children of the
         //! same type.
 
-        /// The behaviour function of the uniform supervisor actor.
-        pub use mm1_sup::uniform::uniform_sup;
         /// The recipe for a supervisor.
         pub use mm1_sup::uniform::UniformSup;
         pub use mm1_sup::uniform::UniformSupFailure;
+        /// The behaviour function of the uniform supervisor actor.
+        pub use mm1_sup::uniform::uniform_sup;
     }
 }
 
 #[cfg(feature = "runtime")]
 pub mod runtime {
-    pub use mm1_node::runtime::{config, Local, Rt};
+    pub use mm1_node::runtime::{Local, Rt, config};
 }

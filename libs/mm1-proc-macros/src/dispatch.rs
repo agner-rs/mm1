@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use quote::{quote, ToTokens};
-use syn::{parse_macro_input, Arm, Expr, Pat};
+use quote::{ToTokens, quote};
+use syn::{Arm, Expr, Pat, parse_macro_input};
 
 pub(crate) fn dispatch(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as Expr);

@@ -163,8 +163,7 @@ impl Recv for ActorContext {
 
         trace!(
             "received [priority: {}; inbound: {:?}]",
-            priority,
-            inbound_opt
+            priority, inbound_opt
         );
 
         inbound_opt.ok_or(ErrorOf::new(RecvErrorKind::Closed, "closed"))

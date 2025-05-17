@@ -306,7 +306,7 @@ mod fmt {
 
 #[cfg(test)]
 mod tests {
-    use super::{util, Pool};
+    use super::{Pool, util};
 
     #[test]
     fn leading_and_trailing_zeroes_and_ones() {

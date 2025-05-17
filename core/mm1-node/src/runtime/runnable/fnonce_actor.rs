@@ -133,4 +133,6 @@ impl_actor_func_with_args!(T0, T1, T2, T3, T5, T6, T7, T8, T9, T10, T11);
 impl_actor_func_with_args!(T0, T1, T2, T3, T5, T6, T7, T8, T9, T10, T11, T12);
 impl_actor_func_with_args!(T0, T1, T2, T3, T5, T6, T7, T8, T9, T10, T11, T12, T13);
 impl_actor_func_with_args!(T0, T1, T2, T3, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
-impl_actor_func_with_args!(T0, T1, T2, T3, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15);
+impl_actor_func_with_args!(
+    T0, T1, T2, T3, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15
+);

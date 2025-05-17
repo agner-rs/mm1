@@ -229,7 +229,7 @@ where
             SupStatus::Stopped => Either::Right(std::iter::empty()),
         };
         let mut all_children_stopped = true;
-        for (ref key, ref mut state) in states_iter_mut {
+        for &mut (ref key, ref mut state) in states_iter_mut {
             let status = state.status;
             let target = match self.status {
                 SupStatus::Running => state.target,

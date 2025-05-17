@@ -5,7 +5,7 @@ use mm1_common::types::Never;
 use mm1_core::context::{Fork, InitDone, Quit, Recv, Start, Stop, Tell};
 use mm1_core::envelope::dispatch;
 use mm1_node::runtime::config::Mm1Config;
-use mm1_node::runtime::{runnable, Local, Rt};
+use mm1_node::runtime::{Local, Rt, runnable};
 use mm1_proto::message;
 
 #[test]

@@ -8,7 +8,7 @@ mod sup_child;
 use std::pin::Pin;
 use std::sync::Arc;
 
-pub use sup_actor::{mixed_sup, MixedSupError};
+pub use sup_actor::{MixedSupError, mixed_sup};
 
 use crate::common::factory::ActorFactory;
 

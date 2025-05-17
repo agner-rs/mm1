@@ -9,7 +9,7 @@ use mm1_node::runtime::{Local, Rt};
 use mm1_proto::message;
 use mm1_proto_system::Exited;
 use tokio::runtime::Runtime;
-use tokio::sync::{oneshot, Notify};
+use tokio::sync::{Notify, oneshot};
 
 fn logger_config() -> mm1_logger::LoggingConfig {
     use mm1_logger::*;

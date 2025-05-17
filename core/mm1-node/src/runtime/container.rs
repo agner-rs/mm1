@@ -270,17 +270,19 @@ impl Container {
                     },
 
                     (_, Either::Right(SysCall::ForkAdded(fork_address, tx_priority))) => {
-                        assert!(job_entries
-                            .insert(
-                                fork_address,
-                                JobEntry {
-                                    linked_to: Default::default(),
-                                    watched_by: Default::default(),
-                                    watches: Default::default(),
-                                    tx_priority,
-                                }
-                            )
-                            .is_none());
+                        assert!(
+                            job_entries
+                                .insert(
+                                    fork_address,
+                                    JobEntry {
+                                        linked_to: Default::default(),
+                                        watched_by: Default::default(),
+                                        watches: Default::default(),
+                                        tx_priority,
+                                    }
+                                )
+                                .is_none()
+                        );
                     },
 
                     (_, Either::Left(SysMsg::ForkDone(fork_address))) => {

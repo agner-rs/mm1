@@ -1,7 +1,7 @@
 [package]
 name = "mm1-core"
 version = "0.5.4"
-edition = "2021"
+edition = "2024"
 
 license = "MIT"
 authors = ["That Roma <mm1@thatroma.me>"]

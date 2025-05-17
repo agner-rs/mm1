@@ -1,7 +1,7 @@
 use either::Either;
 use proc_macro::TokenStream;
-use quote::{format_ident, quote, ToTokens};
-use syn::{parse_macro_input, Data, DeriveInput, Fields, GenericParam};
+use quote::{ToTokens, format_ident, quote};
+use syn::{Data, DeriveInput, Fields, GenericParam, parse_macro_input};
 
 pub(crate) fn derive_traversable(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
