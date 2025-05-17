@@ -6,9 +6,6 @@ mod actor_exit;
 mod fnonce_actor;
 
 pub use fnonce_actor::{ActorRunBoxed, ActorRunFnOnce};
-use mm1_proto_system::Runnable;
-
-use super::{ActorContext, Local};
 
 pub trait ActorRun<Ctx> {
     fn run<'run>(self, context: &'run mut Ctx) -> impl Future<Output = Never> + Send + 'run
@@ -33,14 +30,6 @@ where
 
 pub struct FnOnceRunnable<F>(F);
 pub struct BoxedRunnable<Ctx>(Box<dyn fnonce_actor::ActorRunBoxed<Ctx>>, &'static str);
-
-impl Runnable for BoxedRunnable<ActorContext> {
-    type System = Local;
-
-    fn run_at(&self) -> Self::System {
-        Default::default()
-    }
-}
 
 impl<Ctx> BoxedRunnable<Ctx> {
     pub fn func_name(&self) -> &'static str {

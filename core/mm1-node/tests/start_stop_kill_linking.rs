@@ -11,7 +11,7 @@ fn test_linking_with_trap_exit() {
 
     async fn main<C>(ctx: &mut C)
     where
-        C: Start<Local> + Linking<Local> + Stop<Local>,
+        C: Start<Local> + Linking + Stop + Recv,
     {
         ctx.set_trap_exit(true).await;
 
@@ -83,7 +83,7 @@ fn test_watching_no_trap_exit() {
 
     async fn main<C>(ctx: &mut C)
     where
-        C: Start<Local> + Watching<Local> + Stop<Local>,
+        C: Start<Local> + Watching + Stop + Recv,
     {
         let quick = ctx
             .start(Local::actor(quick), false, Duration::from_millis(1))
@@ -172,7 +172,7 @@ fn test_shutdown() {
 
     async fn main<C>(ctx: &mut C)
     where
-        C: Fork + Recv + Start<Local> + Watching<Local> + Stop<Local>,
+        C: Fork + Recv + Start<Local> + Watching + Stop,
     {
         let quick = ctx
             .start(Local::actor(quick), false, Duration::from_millis(1))
@@ -218,14 +218,14 @@ fn logger_config() -> mm1_logger::LoggingConfig {
 
 async fn quick<C>(ctx: &mut C)
 where
-    C: InitDone<Local> + Recv,
+    C: InitDone + Recv,
 {
     ctx.init_done(ctx.address()).await;
 }
 
 async fn obedient<C>(ctx: &mut C)
 where
-    C: InitDone<Local> + Recv,
+    C: InitDone + Recv,
 {
     ctx.init_done(ctx.address()).await;
 
@@ -233,7 +233,7 @@ where
 }
 async fn stubborn<C>(ctx: &mut C)
 where
-    C: InitDone<Local> + Recv + Linking<Local>,
+    C: InitDone + Recv + Linking,
 {
     ctx.set_trap_exit(true).await;
     ctx.init_done(ctx.address()).await;

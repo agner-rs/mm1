@@ -2,7 +2,14 @@ use mm1_address::address::Address;
 use mm1_common::impl_error_kind;
 use mm1_proto::message;
 
-use crate::spawn::SpawnErrorKind;
+#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[message]
+pub enum SpawnErrorKind {
+    InternalError,
+    ResourceConstraint,
+}
+
+impl_error_kind!(SpawnErrorKind);
 
 #[derive(Debug)]
 #[message]

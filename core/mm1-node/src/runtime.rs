@@ -14,4 +14,5 @@ mod system;
 
 pub use context::ActorContext;
 pub use rt::Rt;
-pub use system::{Local, Remote};
+use runnable::BoxedRunnable;
+pub type Local = BoxedRunnable<ActorContext>;

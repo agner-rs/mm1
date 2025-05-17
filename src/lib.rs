@@ -205,5 +205,5 @@ pub mod sup {
 
 #[cfg(feature = "runtime")]
 pub mod runtime {
-    pub use mm1_node::runtime::{config, Local, Remote, Rt};
+    pub use mm1_node::runtime::{config, Local, Rt};
 }

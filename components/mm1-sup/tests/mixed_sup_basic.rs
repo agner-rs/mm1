@@ -35,12 +35,8 @@ fn test_01() {
 
 async fn main<Ctx>(ctx: &mut Ctx)
 where
-    Ctx: Fork + Recv + Tell + Quit + Now<Instant = Instant>,
-    Ctx: InitDone<Local>,
-    Ctx: Linking<Local>,
-    Ctx: Watching<Local>,
-    Ctx: Start<Local>,
-    Ctx: Stop<Local>,
+    Ctx: Now<Instant = Instant>,
+    Ctx: Fork + Recv + Tell + Quit + InitDone + Linking + Watching + Start<Local> + Stop,
 {
     let sup = MixedSup::new(OneForOne::new(RestartIntensity {
         max_restarts: 3,
@@ -87,8 +83,7 @@ async fn w1<Ctx>(_ctx: &mut Ctx) {
 
 async fn w2<Ctx>(_ctx: &mut Ctx)
 where
-    Ctx: Recv,
-    Ctx: InitDone<Local>,
+    Ctx: Recv + InitDone,
 {
     log::info!("how do you do?");
     // ctx.init_done(ctx.address()).await;

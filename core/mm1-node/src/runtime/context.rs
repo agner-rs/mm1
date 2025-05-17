@@ -19,6 +19,8 @@ use crate::runtime::rt_api::RtApi;
 use crate::runtime::sys_call::{self, SysCall};
 use crate::runtime::sys_msg::SysMsg;
 
+mod impl_context_api;
+
 pub struct ActorContext {
     pub(crate) rt_api:             RtApi,
     pub(crate) rt_config:          Arc<Mm1Config>,

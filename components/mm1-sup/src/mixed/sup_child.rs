@@ -8,7 +8,7 @@ use mm1_core::context::{
     Fork, Linking, Quit, Recv, ShutdownErrorKind, Start, Stop, Tell, Watching,
 };
 use mm1_proto::{message, Message};
-use mm1_proto_system::{StartErrorKind, System};
+use mm1_proto_system::StartErrorKind;
 
 use crate::common::child_spec::{ChildSpec, InitType};
 
@@ -28,30 +28,26 @@ pub(crate) struct StopFailed {
     pub reason:  ErrorOf<ShutdownErrorKind>,
 }
 
-pub(crate) async fn shutdown<Sys, Ctx>(
+pub(crate) async fn shutdown<Ctx>(
     ctx: &mut Ctx,
     sup_address: Address,
     address: Address,
     stop_timeout: Duration,
 ) where
-    Ctx: Recv + Tell + Fork + Stop<Sys> + Watching<Sys>,
-    Sys: System + Default,
+    Ctx: Recv + Tell + Fork + Stop + Watching,
 {
     if let Err(reason) = ctx.shutdown(address, stop_timeout).await {
         send_report(ctx, sup_address, StopFailed { address, reason }).await;
     }
 }
 
-pub(crate) async fn run<K, Sys, Ctx>(
+pub(crate) async fn run<K, Runnable, Ctx>(
     ctx: &mut Ctx,
     sup_address: Address,
     child_id: K,
-    child_spec: ChildSpec<Sys::Runnable>,
+    child_spec: ChildSpec<Runnable>,
 ) where
-    Sys: System,
-    Ctx: Linking<Sys>,
-    Ctx: Start<Sys>,
-    Ctx: Quit + Tell,
+    Ctx: Linking + Start<Runnable> + Quit + Tell,
     K: fmt::Display,
     Started<K>: Message,
     StartFailed<K>: Message,
@@ -84,15 +80,13 @@ where
     ctx.tell(to, report).await.expect("failed to send report");
 }
 
-async fn do_start<Sys, Ctx>(
+async fn do_start<Runnable, Ctx>(
     ctx: &mut Ctx,
-    runnable: Sys::Runnable,
+    runnable: Runnable,
     init_type: InitType,
 ) -> Result<Address, ErrorOf<StartErrorKind>>
 where
-    Sys: System,
-    Ctx: Linking<Sys>,
-    Ctx: Start<Sys>,
+    Ctx: Linking + Start<Runnable>,
 {
     match init_type {
         InitType::NoAck => {

@@ -1,14 +1,13 @@
-use core::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
 use mm1_address::address::Address;
 use mm1_common::log::info;
-use mm1_core::context::{Call, Fork, Recv, Tell, TryCall};
+use mm1_core::context::{Fork, InitDone, Linking, Quit, Recv, Start, Stop, Tell};
 use mm1_core::envelope::dispatch;
 use mm1_node::runtime::{Local, Rt};
 use mm1_proto::message;
-use mm1_proto_system::{Exit, Exited, InitAck, SpawnRequest, TrapExit};
+use mm1_proto_system::Exited;
 use tokio::runtime::Runtime;
 use tokio::sync::{oneshot, Notify};
 
@@ -46,22 +45,13 @@ fn main_actor_forks() {
     let (tx, rx) = oneshot::channel::<()>();
     async fn main<C>(ctx: &mut C, tx: oneshot::Sender<()>)
     where
-        C: TryCall<Local, SpawnRequest<Local>, CallOk = Address>,
+        C: Start<Local>,
     {
         info!("I'm main!");
 
         let (tx_next, rx_next) = oneshot::channel();
         let runnable = Local::actor((child, (tx_next,)));
-        let _ = ctx
-            .call(
-                Local,
-                SpawnRequest::<Local> {
-                    runnable,
-                    ack_to: None,
-                    link_to: Default::default(),
-                },
-            )
-            .await;
+        let _ = ctx.spawn(runnable, false).await;
         rx_next.await.expect("rx_next.expect");
         tx.send(()).expect("tx.send");
     }
@@ -96,21 +86,15 @@ fn child_actor_panics() {
     let (tx, rx) = oneshot::channel();
     async fn main<C>(ctx: &mut C, tx: oneshot::Sender<Exited>)
     where
-        C: Recv + Call<Local, TrapExit> + TryCall<Local, SpawnRequest<Local>, CallOk = Address>,
+        C: Recv + Linking + Start<Local>,
     {
         info!("I'm main!");
 
-        ctx.call(Local, TrapExit { enable: true }).await;
+        ctx.set_trap_exit(true).await;
         let _ = ctx
-            .call(
-                Local,
-                SpawnRequest::<Local> {
-                    runnable: Local::actor(child),
-                    ack_to:   None,
-                    link_to:  vec![ctx.address()],
-                },
-            )
-            .await;
+            .spawn(Local::actor(child), true)
+            .await
+            .expect("spawn failed");
 
         let _ = dispatch!(match ctx.recv().await.expect("ctx.recv") {
             exited @ Exited { .. } => tx.send(exited),
@@ -142,23 +126,14 @@ fn message_is_sent_and_received() {
 
     async fn main<C>(ctx: &mut C, tx: oneshot::Sender<()>)
     where
-        C: Recv + TryCall<Local, SpawnRequest<Local>, CallOk = Address> + Tell,
+        C: Recv + Tell + Start<Local>,
     {
         info!("I'm main!");
 
-        let _ = ctx
-            .call(
-                Local,
-                SpawnRequest {
-                    runnable: Local::actor(child),
-                    ack_to:   Some(ctx.address()),
-                    link_to:  vec![ctx.address()],
-                },
-            )
-            .await;
-        let child_address = dispatch!(match ctx.recv().await.expect("recv") {
-            InitAck { address } => address,
-        });
+        let child_address = ctx
+            .start(Local::actor(child), true, Duration::from_secs(1))
+            .await
+            .expect("start failed");
         let _ = ctx
             .tell(
                 child_address,
@@ -175,17 +150,11 @@ fn message_is_sent_and_received() {
 
     async fn child<C>(ctx: &mut C)
     where
-        C: Recv + Call<Local, InitAck> + Tell,
+        C: Recv + Tell + InitDone,
     {
         info!("I'm child!");
 
-        ctx.call(
-            Local,
-            InitAck {
-                address: ctx.address(),
-            },
-        )
-        .await;
+        ctx.init_done(ctx.address()).await;
 
         let reply_to = dispatch!(match ctx.recv().await.expect("recv") {
             Request { reply_to } => reply_to,
@@ -206,32 +175,16 @@ fn child_actor_force_exit_with_trapexit() {
     let (tx, rx) = oneshot::channel();
     async fn main<C>(ctx: &mut C, tx: oneshot::Sender<Exited>)
     where
-        C: Recv
-            + Call<Local, TrapExit>
-            + Call<Local, Exit>
-            + TryCall<Local, SpawnRequest<Local>, CallOk = Address>,
-        C::CallError: fmt::Debug,
+        C: Recv + Linking + Quit + Start<Local> + Stop,
     {
         info!("I'm main!");
 
-        ctx.call(Local, TrapExit { enable: true }).await;
-        let _ = ctx
-            .call(
-                Local,
-                SpawnRequest::<Local> {
-                    runnable: Local::actor(child),
-                    ack_to:   Some(ctx.address()),
-                    link_to:  vec![ctx.address()],
-                },
-            )
+        ctx.set_trap_exit(true).await;
+        let child_addr = ctx
+            .start(Local::actor(child), true, Duration::from_secs(1))
             .await
-            .expect("start-request->outcome");
-
-        let child_addr = dispatch!(match ctx.recv().await.expect("ctx.recv") {
-            InitAck { address } => address,
-        });
-
-        ctx.call(Local, Exit { peer: child_addr }).await;
+            .expect("start failed");
+        ctx.exit(child_addr).await;
 
         let _ = dispatch!(match ctx.recv().await.expect("ctx.recv") {
             exited @ Exited { peer, .. } if *peer == child_addr => tx.send(exited),
@@ -239,17 +192,11 @@ fn child_actor_force_exit_with_trapexit() {
     }
     async fn child<C>(ctx: &mut C)
     where
-        C: Recv + Call<Local, InitAck>,
+        C: Recv + InitDone,
     {
         info!("I'm child!");
 
-        ctx.call(
-            Local,
-            InitAck {
-                address: ctx.address(),
-            },
-        )
-        .await;
+        ctx.init_done(ctx.address()).await;
         std::future::pending().await
     }
 

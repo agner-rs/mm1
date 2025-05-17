@@ -8,11 +8,11 @@ use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::impl_error_kind;
 use mm1_proc_macros::dispatch;
 use mm1_proto::message;
-use mm1_proto_system::{self as system, Down, System};
+use mm1_proto_system::Down;
 use tracing::warn;
 
 use super::{ForkErrorKind, Recv, RecvErrorKind};
-use crate::context::{Call, Fork, Watching};
+use crate::context::{Fork, Watching};
 
 #[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[message]
@@ -22,19 +22,14 @@ pub enum ShutdownErrorKind {
     Recv(RecvErrorKind),
 }
 
-pub trait Stop<Sys>:
-    Call<Sys, system::Exit, Outcome = bool> + Call<Sys, system::Kill, Outcome = bool>
-where
-    Sys: System,
-{
+pub trait Stop {
     fn shutdown(
         &mut self,
         peer: Address,
         stop_timeout: Duration,
     ) -> impl Future<Output = Result<(), ErrorOf<ShutdownErrorKind>>> + Send
     where
-        Sys: Default,
-        Self: Watching<Sys> + Fork + Recv,
+        Self: Watching + Fork + Recv,
     {
         async move {
             let mut fork = self
@@ -79,26 +74,8 @@ where
         }
     }
 
-    fn exit(&mut self, peer: Address) -> impl Future<Output = bool> + Send
-    where
-        Sys: Default,
-    {
-        async move { self.call(Sys::default(), system::Exit { peer }).await }
-    }
-
-    fn kill(&mut self, peer: Address) -> impl Future<Output = bool> + Send
-    where
-        Sys: Default,
-    {
-        async move { self.call(Sys::default(), system::Kill { peer }).await }
-    }
-}
-
-impl<Sys, T> Stop<Sys> for T
-where
-    T: Call<Sys, system::Exit, Outcome = bool> + Call<Sys, system::Kill, Outcome = bool>,
-    Sys: System,
-{
+    fn exit(&mut self, peer: Address) -> impl Future<Output = bool> + Send;
+    fn kill(&mut self, peer: Address) -> impl Future<Output = bool> + Send;
 }
 
 impl_error_kind!(ShutdownErrorKind);

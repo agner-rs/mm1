@@ -12,7 +12,7 @@ use mm1_core::envelope::dispatch;
 use mm1_proto::message;
 use mm1_proto_sup::uniform::{self as unisup};
 use mm1_proto_system::{
-    StartErrorKind, StopErrorKind, System, {self as system},
+    StartErrorKind, StopErrorKind, {self as system},
 };
 
 use crate::common::child_spec::{ChildSpec, InitType};
@@ -38,20 +38,14 @@ impl<F> UniformSup<F> {
     }
 }
 
-pub async fn uniform_sup<Sys, Ctx, F>(
+pub async fn uniform_sup<R, Ctx, F>(
     ctx: &mut Ctx,
     sup_spec: UniformSup<F>,
 ) -> Result<(), UniformSupFailure>
 where
-    Sys: System + Default,
-
-    Ctx: Fork + Recv + Tell + Quit,
-    Ctx: InitDone<Sys>,
-    Ctx: Linking<Sys>,
-    Ctx: Watching<Sys>,
-    Ctx: Start<Sys>,
-    Ctx: Stop<Sys>,
-    F: ActorFactory<Runnable = Sys::Runnable>,
+    R: Send + 'static,
+    Ctx: Fork + Recv + Tell + Quit + InitDone + Linking + Watching + Start<F::Runnable> + Stop,
+    F: ActorFactory<Runnable = R>,
     F::Args: Send,
 {
     let UniformSup { child_spec } = sup_spec;
@@ -157,16 +151,14 @@ where
     }
 }
 
-async fn do_start_child<Sys, Ctx>(
+async fn do_start_child<Runnable, Ctx>(
     ctx: &mut Ctx,
     sup_address: Address,
     init_type: InitType,
-    runnable: Sys::Runnable,
+    runnable: Runnable,
 ) -> unisup::StartResponse
 where
-    Sys: System + Default,
-    Ctx: Recv + Tell,
-    Ctx: Start<Sys>,
+    Ctx: Recv + Tell + Start<Runnable>,
 {
     debug!("starting child [init_type: {:?}]", init_type,);
 
@@ -191,16 +183,14 @@ where
     }
 }
 
-async fn do_stop_child<Sys, Ctx>(
+async fn do_stop_child<Ctx>(
     ctx: &mut Ctx,
     _sup_address: Address,
     stop_timeout: Duration,
     child_address: Address,
 ) -> unisup::StopResponse
 where
-    Sys: System + Default,
-    Ctx: Recv + Fork,
-    Ctx: Stop<Sys> + Watching<Sys>,
+    Ctx: Recv + Fork + Stop + Watching,
 {
     debug!(
         "stopping child [child_address: {}, stop_timeout: {:?}]",

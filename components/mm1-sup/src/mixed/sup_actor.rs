@@ -10,33 +10,28 @@ use mm1_core::context::{
 };
 use mm1_core::envelope::dispatch;
 use mm1_proto::Message;
-use mm1_proto_system::{Exited, System};
+use mm1_proto_system::Exited;
 
 use crate::common::child_spec::ChildSpec;
 use crate::mixed::decider::{Action, Decider};
 use crate::mixed::strategy::RestartStrategy;
 use crate::mixed::{spec_builder, sup_child, ErasedActorFactory, MixedSup};
 
-pub async fn mixed_sup<Sys, Ctx, RS, CS, K>(
+pub async fn mixed_sup<Runnable, Ctx, RS, CS, K>(
     ctx: &mut Ctx,
     sup_spec: MixedSup<RS, CS>,
 ) -> Result<(), MixedSupError>
 where
-    Sys: System + Default,
-
-    Ctx: Fork + Recv + Tell + Quit + Now<Instant = tokio::time::Instant>,
-    Ctx: InitDone<Sys>,
-    Ctx: Linking<Sys>,
-    Ctx: Watching<Sys>,
-    Ctx: Start<Sys>,
-    Ctx: Stop<Sys>,
-    CS: spec_builder::CollectInto<K, Sys::Runnable>,
+    Runnable: Send,
+    Ctx: Now<Instant = tokio::time::Instant>,
+    Ctx: Fork + Recv + Tell + Quit + InitDone + Linking + Watching + Stop + Start<Runnable>,
+    CS: spec_builder::CollectInto<K, Runnable>,
     RS: RestartStrategy<K>,
     K: fmt::Display,
     K: Hash + Eq,
     K: Message,
 
-    ChildSpec<ErasedActorFactory<Sys::Runnable>>: Send + Sync + 'static,
+    ChildSpec<ErasedActorFactory<Runnable>>: Send + Sync + 'static,
 {
     ctx.set_trap_exit(true).await;
 

@@ -5,13 +5,10 @@ use std::time::Duration;
 use mm1_address::address::Address;
 use mm1_common::log::{debug, info};
 use mm1_common::types::Never;
-use mm1_core::context::{Ask, Call, Fork, Quit, Recv, Tell, TryCall};
+use mm1_core::context::{Ask, Fork, InitDone, Quit, Recv, Start, Tell};
 use mm1_node::runtime::{Local, Rt};
 use mm1_proto::message;
 use mm1_proto_sup::uniform;
-use mm1_proto_system::{
-    InitAck, SpawnRequest, System, {self as system},
-};
 use mm1_sup::common::child_spec::{ChildSpec, ChildType, InitType};
 use mm1_sup::common::factory::ActorFactoryMut;
 use mm1_sup::uniform::{uniform_sup, UniformSup};
@@ -39,11 +36,9 @@ fn test_01() {
         worker_address: Address,
     }
 
-    async fn worker<Sys, Ctx>(ctx: &mut Ctx, reply_to: Address, delay: Duration) -> Never
+    async fn worker<Ctx>(ctx: &mut Ctx, reply_to: Address, delay: Duration) -> Never
     where
-        Sys: System + Default,
-        Ctx: Recv + Tell + Quit,
-        Ctx: Call<Sys, system::InitAck>,
+        Ctx: Recv + Tell + Quit + InitDone,
     {
         static WORKER_ID: AtomicUsize = AtomicUsize::new(0);
         let worker_id = WORKER_ID.fetch_add(1, Ordering::Relaxed);
@@ -51,13 +46,7 @@ fn test_01() {
             "worker[{}] started, replying to {} in {:?}",
             worker_id, reply_to, delay
         );
-        ctx.call(
-            Sys::default(),
-            system::InitAck {
-                address: ctx.address(),
-            },
-        )
-        .await;
+        ctx.init_done(ctx.address()).await;
 
         tokio::time::sleep(delay).await;
         let () = ctx
@@ -76,7 +65,7 @@ fn test_01() {
 
     async fn main<Ctx>(ctx: &mut Ctx)
     where
-        Ctx: Fork + Recv + Tell + TryCall<Local, SpawnRequest<Local>>,
+        Ctx: Fork + Recv + Tell + Start<Local>,
     {
         let factory = ActorFactoryMut::new(|(reply_to, duration): (Address, Duration)| {
             Local::actor((worker, (reply_to, duration)))
@@ -92,25 +81,10 @@ fn test_01() {
         let sup = UniformSup::new(child);
         let sup_runnable = Local::actor((uniform_sup, (sup,)));
 
-        let _ = ctx
-            .call(
-                Local,
-                SpawnRequest {
-                    runnable: sup_runnable,
-                    ack_to:   Some(ctx.address()),
-                    link_to:  vec![ctx.address()],
-                },
-            )
-            .await;
-        let (init_ack, _) = ctx
-            .recv()
+        let sup_addr = ctx
+            .start(sup_runnable, true, Duration::from_secs(1))
             .await
-            .expect("recv")
-            .cast::<InitAck>()
-            .expect("cast")
-            .take();
-
-        let sup_addr = init_ack.address;
+            .expect("failed to run `sup_runnable`");
         let main_addr = ctx.address();
 
         info!("MAIN: {}", main_addr);

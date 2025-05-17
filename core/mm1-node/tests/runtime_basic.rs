@@ -2,12 +2,11 @@ use std::time::Duration;
 
 use mm1_address::address::Address;
 use mm1_common::types::Never;
-use mm1_core::context::{Call, Fork, Quit, Recv, Tell, TryCall};
+use mm1_core::context::{Fork, InitDone, Quit, Recv, Start, Stop, Tell};
 use mm1_core::envelope::dispatch;
 use mm1_node::runtime::config::Mm1Config;
 use mm1_node::runtime::{runnable, Local, Rt};
 use mm1_proto::message;
-use mm1_proto_system::{InitAck, Kill, SpawnRequest};
 
 #[test]
 fn hello_runtime() {
@@ -27,7 +26,7 @@ fn hello_runtime() {
 
 async fn main<Ctx>(ctx: &mut Ctx)
 where
-    Ctx: Recv + Fork + Tell + TryCall<Local, SpawnRequest<Local>, CallOk = Address>,
+    Ctx: Recv + Fork + Tell + Start<Local>,
 {
     eprintln!("Hello! I'm the-main! [addr: {}]", ctx.address());
 
@@ -35,14 +34,7 @@ where
     let mut addresses = vec![];
 
     while let Ok(started_address) = ctx
-        .call(
-            Local,
-            SpawnRequest {
-                runnable: Local::actor((child, (idxs.next().unwrap(),))),
-                ack_to:   Some(ctx.address()),
-                link_to:  Default::default(),
-            },
-        )
+        .spawn(Local::actor((child, (idxs.next().unwrap(),))), false)
         .await
     {
         eprintln!("- {}", started_address);
@@ -66,38 +58,16 @@ where
         });
     }
 
-    while let Ok(inbound) = ctx.recv().await {
-        let ack_from = dispatch!(match inbound {
-            InitAck { address } => address,
-        });
-        eprintln!("# ACKED {}", ack_from);
-        let _ = ctx
-            .tell(
-                ack_from,
-                ImMain {
-                    address: ctx.address(),
-                },
-            )
-            .await;
-    }
-
     tokio::time::sleep(Duration::from_millis(10)).await
 }
 
 async fn child<Ctx>(ctx: &mut Ctx, idx: usize) -> Never
 where
-    Ctx:
-        Recv + Quit + Tell + Call<Local, InitAck, Outcome = ()> + Call<Local, Kill, Outcome = bool>,
+    Ctx: Recv + Quit + Tell + InitDone + Stop,
 {
     eprintln!("* Hello! I'm [{:>3}]. I live at {}", idx, ctx.address());
     tokio::task::yield_now().await;
-    ctx.call(
-        Local,
-        InitAck {
-            address: ctx.address(),
-        },
-    )
-    .await;
+    ctx.init_done(ctx.address()).await;
     dispatch!(match ctx.recv().await.expect("no message") {
         Request { reply_to, message } => {
             eprintln!(
@@ -112,7 +82,7 @@ where
         ImMain { address } => address,
     });
     eprintln!("Sending StopRequest to {}", main_address);
-    let _ = ctx.call(Local, Kill { peer: main_address }).await;
+    let _ = ctx.kill(main_address).await;
 
     ctx.quit_ok().await
 }
