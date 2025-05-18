@@ -50,6 +50,7 @@ members = [
 [workspace.dependencies]
 mm1-core = {path = "core/mm1-core", version = "=0.5.4" }
 mm1-node = {path = "core/mm1-node", version = "=0.5.4" }
+mm1-test-rt = {path = "core/mm1-test-rt", version = "=0.5.4" }
 
 mm1-message-codec = {path = "components/mm1-message-codec", version = "=0.5.4" }
 mm1-message-codec-serde = {path = "components/mm1-message-codec-serde", version = "=0.5.4" }
@@ -65,6 +66,7 @@ mm1-proto = {path = "protocols/mm1-proto", version = "=0.5.4" }
 mm1-proto-sup = {path = "protocols/mm1-proto-sup", version = "=0.5.4" }
 mm1-proto-system = {path = "protocols/mm1-proto-system", version = "=0.5.4" }
 
+derive_more = "^2.0"
 either = "^1.15.0"
 eyre = "^0.6"
 futures = "^0.3"
