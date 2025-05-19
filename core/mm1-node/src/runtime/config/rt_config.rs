@@ -3,27 +3,32 @@ use std::time::Duration;
 
 use tokio::runtime::{Builder, Runtime};
 
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct RtConfigs {
     default: Option<RtConfig>,
 
-    #[serde(flatten)]
+    #[cfg_attr(feature = "serde", serde(flatten))]
     named: HashMap<String, RtConfig>,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 struct RtConfig {
-    #[serde(default = "defaults::worker_threads")]
+    #[cfg_attr(feature = "serde", serde(default = "defaults::worker_threads"))]
     worker_threads:             usize,
-    #[serde(default = "defaults::blocking_threads_max")]
+    #[cfg_attr(feature = "serde", serde(default = "defaults::blocking_threads_max"))]
     blocking_threads_max:       usize,
-    #[serde(default = "defaults::blocking_thread_keep_alive")]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default = "defaults::blocking_thread_keep_alive")
+    )]
     blocking_thread_keep_alive: Duration,
-    #[serde(default = "defaults::thread_stack_size")]
+    #[cfg_attr(feature = "serde", serde(default = "defaults::thread_stack_size"))]
     thread_stack_size:          usize,
-    #[serde(default = "defaults::enable_io")]
+    #[cfg_attr(feature = "serde", serde(default = "defaults::enable_io"))]
     enable_io:                  bool,
-    #[serde(default = "defaults::enable_time")]
+    #[cfg_attr(feature = "serde", serde(default = "defaults::enable_time"))]
     enable_time:                bool,
 }
 

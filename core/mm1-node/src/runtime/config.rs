@@ -63,6 +63,7 @@ pub mod consts {
     pub const DEFAULT_ACTOR_INBOX_SIZE: usize = 1024;
 }
 
+#[cfg(feature = "serde")]
 mod defaults {
     use mm1_address::subnet::NetAddress;
 

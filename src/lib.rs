@@ -204,3 +204,8 @@ pub mod sup {
 pub mod runtime {
     pub use mm1_node::runtime::{Local, Rt, config};
 }
+
+#[cfg(feature = "test-util")]
+pub mod test {
+    pub use mm1_test_rt::rt;
+}

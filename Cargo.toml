@@ -16,6 +16,7 @@ multinode-serde = ["multinode", "dep:mm1-message-codec-serde", "mm1-multinode/se
 multinode-serde-json = ["multinode-serde", "mm1-multinode/serde-json"]
 runtime = ["dep:mm1-node"]
 sup = ["dep:mm1-sup", "dep:mm1-proto-sup"]
+test-util = ["dep:mm1-test-rt"]
 
 [dependencies]
 mm1-address.workspace = true
@@ -29,6 +30,7 @@ mm1-sup = { workspace = true, optional = true }
 mm1-message-codec = { workspace = true, optional = true }
 mm1-message-codec-serde = { workspace = true, optional = true }
 mm1-multinode = { workspace = true, optional = true }
+mm1-test-rt = { workspace = true, optional = true }
 
 [dev-dependencies]
 mm1-logger.workspace = true
