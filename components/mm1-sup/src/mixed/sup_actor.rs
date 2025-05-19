@@ -28,7 +28,7 @@ where
     CS: spec_builder::CollectInto<K, Runnable>,
     RS: RestartStrategy<K>,
     K: fmt::Display,
-    K: Hash + Eq,
+    K: Clone + Hash + Eq,
     K: Message,
     ChildSpec<ErasedActorFactory<Runnable>>: Send + Sync + 'static,
 {
