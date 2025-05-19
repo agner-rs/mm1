@@ -651,6 +651,7 @@ dependencies = [
  "mm1-core",
  "mm1-logger",
  "mm1-proto-system",
+ "parking_lot",
  "thiserror",
  "tokio",
 ]

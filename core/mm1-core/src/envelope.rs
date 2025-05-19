@@ -77,6 +77,14 @@ impl Envelope<AnyMessage> {
         self.message.peek()
     }
 
+    pub fn is<M>(&self) -> bool
+    where
+        M: Message,
+    {
+        // XXX that is a bit sloppy, alright
+        self.message.peek::<M>().is_some()
+    }
+
     pub fn tid(&self) -> TypeId {
         self.message.tid()
     }

@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use mm1_address::address::Address;
 use mm1_address::pool::Pool as SubnetPool;
-use mm1_address::subnet::NetMask;
+use mm1_address::subnet::{NetAddress, NetMask};
 use mm1_common::log::{debug, info};
 use mm1_common::types::Never;
 use mm1_core::context::{Ask, Fork, InitDone, Quit, Recv, Start, Tell};
@@ -15,8 +15,8 @@ use mm1_proto_sup::uniform;
 use mm1_sup::common::child_spec::{ChildSpec, ChildType, InitType};
 use mm1_sup::common::factory::{ActorFactory, ActorFactoryMut};
 use mm1_sup::uniform::{UniformSup, uniform_sup};
-use mm1_test_rt::query;
-use mm1_test_rt::runtime::TestRuntime;
+use mm1_test_rt::rt::event::EventResolve;
+use mm1_test_rt::rt::{TaskKey, query};
 use tokio::time;
 
 fn logger_config() -> mm1_logger::LoggingConfig {
@@ -167,6 +167,7 @@ async fn test_02() {
 
     #[derive(Debug, Clone, Copy)]
     struct Runnable<A> {
+        #[allow(dead_code)]
         seq_no: usize,
         args:   A,
     }
@@ -188,9 +189,15 @@ async fn test_02() {
     }
 
     let node_subnet = SubnetPool::new("<ff:>/32".parse().unwrap());
-    let sup_lease = node_subnet.lease(NetMask::M_64).unwrap();
+    let lease_a = node_subnet.lease(NetMask::M_56).unwrap();
+    let subnet_sup = SubnetPool::new(NetAddress {
+        address: lease_a.address,
+        mask:    lease_a.mask,
+    });
+    let lease_sup = subnet_sup.lease(NetMask::M_64).unwrap();
+    let address_sup = lease_sup.address;
 
-    eprintln!("SUP: {}", sup_lease.address);
+    info!("SUP: {}", lease_a.address);
 
     let child_spec = ChildSpec {
         launcher:     Factory::default(),
@@ -199,86 +206,159 @@ async fn test_02() {
         stop_timeout: Duration::from_secs(1),
     };
     let uniform_sup = UniformSup::new(child_spec);
-    let mut rt = TestRuntime::<Runnable<&'static str>>::new()
+    let rt = mm1_test_rt::rt::Runtime::<Runnable<&'static str>>::new()
         .with_actor(
-            sup_lease.address,
+            address_sup,
+            Some(lease_a),
             (mm1_sup::uniform::uniform_sup, (uniform_sup,)),
         )
+        .await
         .unwrap();
 
-    let (addr, set_trap_exit) = rt
+    let set_trap_exit = rt
         .next_event()
         .await
         .unwrap()
-        .expect_query::<query::SetTrapExit>();
-    assert_eq!(addr, sup_lease.address);
+        .unwrap()
+        .convert::<query::SetTrapExit>()
+        .unwrap();
+    assert_eq!(set_trap_exit.task_key.actor, address_sup);
     assert!(set_trap_exit.enable);
-    let _ = set_trap_exit.outcome_tx.send(());
+    set_trap_exit.resolve(());
 
-    let (addr, init_done) = rt
+    let init_done = rt
         .next_event()
         .await
         .unwrap()
-        .expect_query::<query::InitDone>();
-    assert_eq!(addr, sup_lease.address);
-    assert_eq!(init_done.address, sup_lease.address);
-    let _ = init_done.outcome_tx.send(());
+        .unwrap()
+        .convert::<query::InitDone>()
+        .unwrap();
+    assert_eq!(init_done.task_key.actor, address_sup);
+    assert_eq!(init_done.address, address_sup);
+    init_done.resolve(());
 
-    let event = rt.next_event().await.unwrap();
-    let (addr, recv) = event.expect_query::<query::Recv>();
-    assert_eq!(addr, sup_lease.address);
-
-    let client_lease = node_subnet.lease(NetMask::M_64).unwrap();
-
+    let recv = rt
+        .next_event()
+        .await
+        .unwrap()
+        .unwrap()
+        .convert::<query::Recv>()
+        .unwrap();
+    assert_eq!(recv.task_key.actor, address_sup);
+    let lease_client = node_subnet.lease(NetMask::M_64).unwrap();
+    let address_client = lease_client.address;
     let envelope = Envelope::new(
-        EnvelopeInfo::new(addr),
+        EnvelopeInfo::new(address_sup),
         mm1_proto_sup::uniform::StartRequest {
-            reply_to: client_lease.address,
+            reply_to: address_client,
             args:     "hello!",
         },
     )
     .into_erased();
-    let _ = recv.outcome_tx.send(Ok(envelope));
+    recv.resolve(Ok(envelope));
 
-    let (addr, fork) = rt
+    let fork = rt
         .next_event()
         .await
         .unwrap()
-        .expect_query::<query::Fork<_>>();
-    assert_eq!(addr, sup_lease.address);
-    let fork_lease = node_subnet.lease(NetMask::M_64).unwrap();
-    let _ = fork.outcome_tx.send(Ok(
-        rt.new_fork_context(sup_lease.address, fork_lease.address)
-    ));
+        .unwrap()
+        .convert::<query::Fork<_>>()
+        .unwrap();
+    assert_eq!(fork.task_key.actor, address_sup);
+    let lease_fork = subnet_sup.lease(NetMask::M_60).unwrap();
+    let address_fork = lease_fork.address;
+    let fork_context = rt.new_context(TaskKey::fork(address_sup, address_fork), Some(lease_fork));
+    fork.resolve(Ok(fork_context));
 
-    let (addr, fork_run) = rt.next_event().await.unwrap().expect_query::<query::Run>();
-    assert_eq!(addr, sup_lease.address);
-    rt.add_fork_task(sup_lease.address, fork_run.task).unwrap();
-
-    let (addr, spawn) = rt
+    let fork_run = rt
         .next_event()
         .await
         .unwrap()
-        .expect_query::<query::Spawn<_>>();
-    let _ = spawn.runnable.seq_no;
-    assert_eq!(spawn.runnable.args, "hello!");
+        .unwrap()
+        .convert::<query::ForkRun>()
+        .unwrap();
+    assert_eq!(fork_run.task_key.actor, address_sup);
+    assert_eq!(fork_run.task_key.context, address_fork);
+    let fork_pending = fork_run.resolve().await;
 
-    assert_eq!(addr, sup_lease.address);
-    let spawn_lease = node_subnet.lease(NetMask::M_64).unwrap();
-    let _ = spawn.outcome_tx.send(Ok(spawn_lease.address));
+    let recv = rt
+        .next_event()
+        .await
+        .unwrap()
+        .unwrap()
+        .convert::<query::Recv>()
+        .unwrap();
+    assert_eq!(recv.task_key.actor, address_sup);
+    assert_eq!(recv.task_key.context, address_sup);
 
-    let (addr, tell) = rt.next_event().await.unwrap().expect_query::<query::Tell>();
-    assert_eq!(addr, sup_lease.address);
-    assert_eq!(tell.envelope.info().to, sup_lease.address);
-    let _ = tell.outcome_tx.send(Ok(()));
+    fork_pending.run().await.unwrap();
 
-    let (addr, tell) = rt.next_event().await.unwrap().expect_query::<query::Tell>();
-    assert_eq!(addr, sup_lease.address);
-    assert_eq!(tell.envelope.info().to, client_lease.address);
-    let (response, _) = tell
-        .envelope
+    let spawn = rt
+        .next_event()
+        .await
+        .unwrap()
+        .unwrap()
+        .convert::<query::Spawn<_>>()
+        .unwrap();
+    assert_eq!(spawn.task_key.actor, address_sup);
+    assert_eq!(spawn.task_key.context, address_fork);
+    let (runnable, spawn) = spawn.take_runnable();
+    assert_eq!(runnable.args, "hello!");
+
+    let lease_child = node_subnet.lease(NetMask::M_50).unwrap();
+    let address_child = lease_child.address;
+    spawn.resolve(Ok(address_child));
+
+    let mut tell = rt
+        .next_event()
+        .await
+        .unwrap()
+        .unwrap()
+        .convert::<query::Tell>()
+        .unwrap();
+    assert_eq!(tell.task_key.actor, address_sup);
+    assert_eq!(tell.task_key.context, address_fork);
+    assert_eq!(tell.envelope.info().to, address_sup);
+    let envelope = tell.take_envelope();
+
+    recv.resolve(Ok(envelope));
+
+    let link = rt
+        .next_event()
+        .await
+        .unwrap()
+        .unwrap()
+        .convert::<query::Link>()
+        .unwrap();
+    assert_eq!(link.task_key.actor, address_sup);
+    assert_eq!(link.task_key.context, address_sup);
+    assert_eq!(link.peer, address_child);
+    link.resolve(());
+
+    let _recv = rt
+        .next_event()
+        .await
+        .unwrap()
+        .unwrap()
+        .convert::<query::Recv>()
+        .unwrap();
+
+    tell.resolve(Ok(()));
+
+    let mut tell = rt
+        .next_event()
+        .await
+        .unwrap()
+        .unwrap()
+        .convert::<query::Tell>()
+        .unwrap();
+    assert_eq!(tell.task_key.actor, address_sup);
+    assert_eq!(tell.task_key.context, address_fork);
+    let envelope = tell.take_envelope();
+    assert_eq!(envelope.info().to, address_client);
+    let (response, _envelope) = envelope
         .cast::<mm1_proto_sup::uniform::StartResponse>()
         .unwrap()
         .take();
-    assert_eq!(response.unwrap(), spawn_lease.address);
+    assert_eq!(response.unwrap(), address_child);
 }
