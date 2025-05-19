@@ -5,7 +5,7 @@ use mm1_address::address::Address;
 use mm1_address::pool::Lease as AddressLease;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::types::Never;
-use mm1_core::context::{ForkErrorKind, RecvErrorKind, TellErrorKind};
+use mm1_core::context::{ForkErrorKind, RecvErrorKind, SendErrorKind};
 use mm1_core::envelope::Envelope;
 use mm1_proto_system::{SpawnErrorKind, StartErrorKind, WatchRef};
 use tokio::sync::oneshot;
@@ -105,7 +105,7 @@ pub struct Tell {
     pub envelope: Envelope,
 
     #[debug(skip)]
-    pub(crate) outcome_tx: oneshot::Sender<Result<(), ErrorOf<TellErrorKind>>>,
+    pub(crate) outcome_tx: oneshot::Sender<Result<(), ErrorOf<SendErrorKind>>>,
 }
 
 #[derive(derive_more::Debug)]

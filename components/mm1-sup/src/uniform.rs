@@ -6,7 +6,8 @@ use mm1_common::errors::error_kind::HasErrorKind;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::log::{debug, warn};
 use mm1_core::context::{
-    Fork, ForkErrorKind, InitDone, Linking, Quit, Recv, RecvErrorKind, Start, Stop, Tell, Watching,
+    Fork, ForkErrorKind, InitDone, Linking, Messaging, Quit, RecvErrorKind, Start, Stop, Tell,
+    Watching,
 };
 use mm1_core::envelope::dispatch;
 use mm1_proto::message;
@@ -44,7 +45,7 @@ pub async fn uniform_sup<R, Ctx, F>(
 ) -> Result<(), UniformSupFailure>
 where
     R: Send + 'static,
-    Ctx: Fork + Recv + Tell + Quit + InitDone + Linking + Watching + Start<F::Runnable> + Stop,
+    Ctx: Fork + Messaging + Quit + InitDone + Linking + Watching + Start<F::Runnable> + Stop,
     F: ActorFactory<Runnable = R>,
     F::Args: Send,
 {
@@ -158,7 +159,7 @@ async fn do_start_child<Runnable, Ctx>(
     runnable: Runnable,
 ) -> unisup::StartResponse
 where
-    Ctx: Recv + Tell + Start<Runnable>,
+    Ctx: Messaging + Start<Runnable>,
 {
     debug!("starting child [init_type: {:?}]", init_type,);
 
@@ -190,7 +191,7 @@ async fn do_stop_child<Ctx>(
     child_address: Address,
 ) -> unisup::StopResponse
 where
-    Ctx: Recv + Fork + Stop + Watching,
+    Ctx: Fork + Stop + Watching + Messaging,
 {
     debug!(
         "stopping child [child_address: {}, stop_timeout: {:?}]",

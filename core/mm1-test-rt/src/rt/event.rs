@@ -2,8 +2,8 @@ use std::ops::Deref;
 
 use mm1_address::address::Address;
 use mm1_common::errors::error_of::ErrorOf;
-use mm1_core::context::{ForkErrorKind, RecvErrorKind, TellErrorKind};
-use mm1_core::envelope::{Envelope, EnvelopeInfo};
+use mm1_core::context::{ForkErrorKind, RecvErrorKind, SendErrorKind};
+use mm1_core::envelope::{Envelope, EnvelopeHeader};
 use mm1_proto_system::{SpawnErrorKind, StartErrorKind, WatchRef};
 use tokio::sync::oneshot;
 
@@ -326,7 +326,7 @@ impl<R> Event<R, query::Spawn<R>> {
 
 impl<R> Event<R, query::Tell> {
     pub fn take_envelope(&mut self) -> Envelope {
-        let info = EnvelopeInfo::new(self.kind.envelope.info().to);
+        let info = EnvelopeHeader::to_address(self.kind.envelope.info().to);
         std::mem::replace(
             &mut self.kind.envelope,
             Envelope::new(info, ()).into_erased(),
@@ -445,7 +445,7 @@ impl<R> From<query::Fork<R>> for oneshot::Sender<Result<Context<R>, ErrorOf<Fork
     }
 }
 
-impl From<query::Tell> for oneshot::Sender<Result<(), ErrorOf<TellErrorKind>>> {
+impl From<query::Tell> for oneshot::Sender<Result<(), ErrorOf<SendErrorKind>>> {
     fn from(value: query::Tell) -> Self {
         value.outcome_tx
     }

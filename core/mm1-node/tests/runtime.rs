@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use mm1_address::address::Address;
 use mm1_common::log::info;
-use mm1_core::context::{Fork, InitDone, Linking, Quit, Recv, Start, Stop, Tell};
+use mm1_core::context::{Fork, InitDone, Linking, Messaging, Quit, Start, Stop, Tell};
 use mm1_core::envelope::dispatch;
 use mm1_node::runtime::{Local, Rt};
 use mm1_proto::message;
@@ -86,7 +86,7 @@ fn child_actor_panics() {
     let (tx, rx) = oneshot::channel();
     async fn main<C>(ctx: &mut C, tx: oneshot::Sender<Exited>)
     where
-        C: Recv + Linking + Start<Local>,
+        C: Messaging + Linking + Start<Local>,
     {
         info!("I'm main!");
 
@@ -126,7 +126,7 @@ fn message_is_sent_and_received() {
 
     async fn main<C>(ctx: &mut C, tx: oneshot::Sender<()>)
     where
-        C: Recv + Tell + Start<Local>,
+        C: Messaging + Start<Local>,
     {
         info!("I'm main!");
 
@@ -150,7 +150,7 @@ fn message_is_sent_and_received() {
 
     async fn child<C>(ctx: &mut C)
     where
-        C: Recv + Tell + InitDone,
+        C: Messaging + InitDone,
     {
         info!("I'm child!");
 
@@ -175,7 +175,7 @@ fn child_actor_force_exit_with_trapexit() {
     let (tx, rx) = oneshot::channel();
     async fn main<C>(ctx: &mut C, tx: oneshot::Sender<Exited>)
     where
-        C: Recv + Linking + Quit + Start<Local> + Stop,
+        C: Messaging + Linking + Quit + Start<Local> + Stop,
     {
         info!("I'm main!");
 
@@ -192,7 +192,7 @@ fn child_actor_force_exit_with_trapexit() {
     }
     async fn child<C>(ctx: &mut C)
     where
-        C: Recv + InitDone,
+        C: Messaging + InitDone,
     {
         info!("I'm child!");
 
@@ -209,7 +209,7 @@ fn child_actor_force_exit_with_trapexit() {
 fn actor_fork_run() {
     async fn main<C>(ctx: &mut C)
     where
-        C: Recv + Tell + Fork,
+        C: Messaging + Fork,
     {
         #[derive(Debug)]
         #[message]

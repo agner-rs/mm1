@@ -1,7 +1,7 @@
 pub mod ping_pong {
 
     use mm1_address::address::Address;
-    use mm1_core::context::{Recv, Tell};
+    use mm1_core::context::{Messaging, Tell};
     use mm1_proto::message;
 
     #[derive(Debug)]
@@ -27,7 +27,7 @@ pub mod ping_pong {
 
     pub async fn server<Ctx>(ctx: &mut Ctx) -> Result<(), eyre::Report>
     where
-        Ctx: Tell + Recv,
+        Ctx: Messaging,
     {
         loop {
             let inbound = ctx.recv().await?;

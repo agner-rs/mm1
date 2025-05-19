@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use mm1_common::futures::timeout::FutureTimeoutExt;
-use mm1_core::context::{Fork, InitDone, Linking, Recv, Start, Stop, Watching};
+use mm1_core::context::{Fork, InitDone, Linking, Messaging, Start, Stop, Watching};
 use mm1_node::runtime::{Local, Rt};
 use mm1_proto_system::{Down, Exited};
 
@@ -11,7 +11,7 @@ fn test_linking_with_trap_exit() {
 
     async fn main<C>(ctx: &mut C)
     where
-        C: Start<Local> + Linking + Stop + Recv,
+        C: Start<Local> + Linking + Stop + Messaging,
     {
         ctx.set_trap_exit(true).await;
 
@@ -83,7 +83,7 @@ fn test_watching_no_trap_exit() {
 
     async fn main<C>(ctx: &mut C)
     where
-        C: Start<Local> + Watching + Stop + Recv,
+        C: Start<Local> + Watching + Stop + Messaging,
     {
         let quick = ctx
             .start(Local::actor(quick), false, Duration::from_millis(1))
@@ -172,7 +172,7 @@ fn test_shutdown() {
 
     async fn main<C>(ctx: &mut C)
     where
-        C: Fork + Recv + Start<Local> + Watching + Stop,
+        C: Fork + Messaging + Start<Local> + Watching + Stop,
     {
         let quick = ctx
             .start(Local::actor(quick), false, Duration::from_millis(1))
@@ -218,14 +218,14 @@ fn logger_config() -> mm1_logger::LoggingConfig {
 
 async fn quick<C>(ctx: &mut C)
 where
-    C: InitDone + Recv,
+    C: InitDone + Messaging,
 {
     ctx.init_done(ctx.address()).await;
 }
 
 async fn obedient<C>(ctx: &mut C)
 where
-    C: InitDone + Recv,
+    C: InitDone + Messaging,
 {
     ctx.init_done(ctx.address()).await;
 
@@ -233,7 +233,7 @@ where
 }
 async fn stubborn<C>(ctx: &mut C)
 where
-    C: InitDone + Recv + Linking,
+    C: InitDone + Messaging + Linking,
 {
     ctx.set_trap_exit(true).await;
     ctx.init_done(ctx.address()).await;

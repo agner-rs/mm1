@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use mm1_core::envelope::{Envelope, EnvelopeInfo};
+use mm1_core::envelope::{Envelope, EnvelopeHeader};
 use mm1_core::prim::Message;
 use mm1_message_codec::codec::{Outcome, Process, SupportedTypes};
 
@@ -51,7 +51,7 @@ where
             Ok(m) => m.take(),
             Err(e) => return Ok(Outcome::Rejected(e)),
         };
-        let EnvelopeInfo { to, .. } = envelope.info();
+        let EnvelopeHeader { to, .. } = envelope.info();
         let message = serde_json::to_string(&message)?;
         let output = Packet {
             to: *to,
@@ -83,7 +83,7 @@ where
         }
 
         let message: M = serde_json::from_slice::<M>(packet.message.as_ref())?;
-        let info = EnvelopeInfo::new(packet.to);
+        let info = EnvelopeHeader::to_address(packet.to);
         let envelope = Envelope::new(info, message).into_erased();
 
         Ok(Outcome::Done(envelope))

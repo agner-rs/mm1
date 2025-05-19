@@ -1,21 +1,17 @@
-mod ask;
 mod fork;
 mod linking;
+mod messaging;
 mod now;
 mod quit;
-mod recv;
 mod start;
 mod stop;
-mod tell;
 mod watching;
 
-pub use ask::{Ask, AskErrorKind};
 pub use fork::{Fork, ForkErrorKind};
 pub use linking::Linking;
+pub use messaging::{Ask, AskErrorKind, Messaging, RecvErrorKind, SendErrorKind, Tell};
 pub use now::Now;
 pub use quit::Quit;
-pub use recv::{Recv, RecvErrorKind};
 pub use start::{InitDone, Start};
 pub use stop::{ShutdownErrorKind, Stop};
-pub use tell::{Tell, TellErrorKind};
 pub use watching::Watching;

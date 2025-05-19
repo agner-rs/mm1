@@ -7,8 +7,8 @@ use mm1_address::pool::Pool as SubnetPool;
 use mm1_address::subnet::{NetAddress, NetMask};
 use mm1_common::log::{debug, info};
 use mm1_common::types::Never;
-use mm1_core::context::{Ask, Fork, InitDone, Quit, Recv, Start, Tell};
-use mm1_core::envelope::{Envelope, EnvelopeInfo};
+use mm1_core::context::{Ask, Fork, InitDone, Messaging, Quit, Start, Tell};
+use mm1_core::envelope::{Envelope, EnvelopeHeader};
 use mm1_node::runtime::{Local, Rt};
 use mm1_proto::message;
 use mm1_proto_sup::uniform;
@@ -44,7 +44,7 @@ fn test_01() {
 
     async fn worker<Ctx>(ctx: &mut Ctx, reply_to: Address, delay: Duration) -> Never
     where
-        Ctx: Recv + Tell + Quit + InitDone,
+        Ctx: Messaging + Quit + InitDone,
     {
         static WORKER_ID: AtomicUsize = AtomicUsize::new(0);
         let worker_id = WORKER_ID.fetch_add(1, Ordering::Relaxed);
@@ -71,7 +71,7 @@ fn test_01() {
 
     async fn main<Ctx>(ctx: &mut Ctx)
     where
-        Ctx: Fork + Recv + Tell + Start<Local>,
+        Ctx: Fork + Messaging + Start<Local>,
     {
         let factory = ActorFactoryMut::new(|(reply_to, duration): (Address, Duration)| {
             Local::actor((worker, (reply_to, duration)))
@@ -248,7 +248,7 @@ async fn test_02() {
     let lease_client = node_subnet.lease(NetMask::M_64).unwrap();
     let address_client = lease_client.address;
     let envelope = Envelope::new(
-        EnvelopeInfo::new(address_sup),
+        EnvelopeHeader::to_address(address_sup),
         mm1_proto_sup::uniform::StartRequest {
             reply_to: address_client,
             args:     "hello!",

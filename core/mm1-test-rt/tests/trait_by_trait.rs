@@ -6,8 +6,8 @@ use mm1_address::address::Address;
 use mm1_address::pool::Pool as SubnetPool;
 use mm1_address::subnet::NetMask;
 use mm1_common::log;
-use mm1_core::context::{Fork, InitDone, Linking, Quit, Recv, Start, Stop, Tell, Watching};
-use mm1_core::envelope::{Envelope, EnvelopeInfo};
+use mm1_core::context::{Fork, InitDone, Linking, Messaging, Quit, Start, Stop, Tell, Watching};
+use mm1_core::envelope::{Envelope, EnvelopeHeader};
 use mm1_core::prim::message;
 use mm1_proto_system::WatchRef;
 use mm1_test_rt::rt::event::{EventResolve, EventResolveResult};
@@ -183,7 +183,7 @@ async fn t_recv() {
     assert_eq!(query.task_key.actor, address_a);
     assert_eq!(query.task_key.context, address_a);
 
-    let envelope = Envelope::new(EnvelopeInfo::new(address_a), Hello).into_erased();
+    let envelope = Envelope::new(EnvelopeHeader::to_address(address_a), Hello).into_erased();
     query.resolve_ok(envelope);
 
     let main_actor_done = rt
@@ -203,7 +203,7 @@ async fn t_recv() {
 
     async fn a<C>(ctx: &mut C)
     where
-        C: Recv,
+        C: Messaging,
     {
         let envelope = ctx.recv().await.unwrap();
         log::info!("received {:?}", envelope);
@@ -250,7 +250,7 @@ async fn t_init_done() {
 
     async fn a<C>(ctx: &mut C)
     where
-        C: InitDone + Recv,
+        C: InitDone + Messaging,
     {
         ctx.init_done(ctx.address()).await
     }
@@ -296,7 +296,7 @@ async fn t_recv_close() {
 
     async fn a<C>(ctx: &mut C)
     where
-        C: Recv,
+        C: Messaging,
     {
         let envelope = ctx.close().await;
         log::info!("received {:?}", envelope);
@@ -361,7 +361,8 @@ async fn t_fork_and_run() {
         .unwrap();
 
     let reply_to = query_fork_recv.task_key.context;
-    query_fork_recv.resolve_ok(Envelope::new(EnvelopeInfo::new(reply_to), Hello).into_erased());
+    query_fork_recv
+        .resolve_ok(Envelope::new(EnvelopeHeader::to_address(reply_to), Hello).into_erased());
 
     let task_done = rt
         .next_event()
@@ -373,7 +374,8 @@ async fn t_fork_and_run() {
     assert_eq!(task_done.task_key, TaskKey::fork(address_a, address_b));
 
     let reply_to = query_main_recv.task_key.context;
-    query_main_recv.resolve_ok(Envelope::new(EnvelopeInfo::new(reply_to), Hello).into_erased());
+    query_main_recv
+        .resolve_ok(Envelope::new(EnvelopeHeader::to_address(reply_to), Hello).into_erased());
 
     let main_actor_done = rt
         .next_event()
@@ -392,7 +394,7 @@ async fn t_fork_and_run() {
 
     async fn a<C>(ctx: &mut C)
     where
-        C: Fork + Recv,
+        C: Fork + Messaging,
     {
         let fork = ctx.fork().await.unwrap();
         log::info!("forked {:?}", fork.address());
@@ -459,7 +461,7 @@ async fn t_tell() {
 
     async fn a<C>(ctx: &mut C, to: Address)
     where
-        C: Tell,
+        C: Messaging,
     {
         log::info!("sending to {}", to);
         ctx.tell(to, Hello).await.unwrap();

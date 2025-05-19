@@ -5,7 +5,7 @@ use std::hash::Hash;
 use mm1_common::errors::error_kind::HasErrorKind;
 use mm1_common::log;
 use mm1_core::context::{
-    Fork, ForkErrorKind, InitDone, Linking, Now, Quit, Recv, RecvErrorKind, Start, Stop, Tell,
+    Fork, ForkErrorKind, InitDone, Linking, Messaging, Now, Quit, RecvErrorKind, Start, Stop,
     Watching,
 };
 use mm1_core::envelope::dispatch;
@@ -24,7 +24,7 @@ pub async fn mixed_sup<Runnable, Ctx, RS, CS, K>(
 where
     Runnable: Send,
     Ctx: Now<Instant = tokio::time::Instant>,
-    Ctx: Fork + Recv + Tell + Quit + InitDone + Linking + Watching + Stop + Start<Runnable>,
+    Ctx: Fork + Messaging + Quit + InitDone + Linking + Watching + Stop + Start<Runnable>,
     CS: spec_builder::CollectInto<K, Runnable>,
     RS: RestartStrategy<K>,
     K: fmt::Display,

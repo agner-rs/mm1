@@ -11,7 +11,7 @@ use crate::message::AnyMessage;
 static ENVELOPE_SEQ_NO: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug)]
-pub struct EnvelopeInfo {
+pub struct EnvelopeHeader {
     pub to:         Address,
     #[allow(dead_code)]
     no:             u64,
@@ -22,12 +22,12 @@ pub struct EnvelopeInfo {
 }
 
 pub struct Envelope<M = AnyMessage> {
-    info:    EnvelopeInfo,
+    info:    EnvelopeHeader,
     message: M,
 }
 
-impl EnvelopeInfo {
-    pub fn new(to: Address) -> Self {
+impl EnvelopeHeader {
+    pub fn to_address(to: Address) -> Self {
         Self {
             to,
             no: ENVELOPE_SEQ_NO.fetch_add(1, Ordering::Relaxed),
@@ -49,11 +49,11 @@ where
 }
 
 impl<M> Envelope<M> {
-    pub fn new(info: EnvelopeInfo, message: M) -> Self {
+    pub fn new(info: EnvelopeHeader, message: M) -> Self {
         Self { info, message }
     }
 
-    pub fn info(&self) -> &EnvelopeInfo {
+    pub fn info(&self) -> &EnvelopeHeader {
         &self.info
     }
 }
@@ -81,8 +81,7 @@ impl Envelope<AnyMessage> {
     where
         M: Message,
     {
-        // XXX that is a bit sloppy, alright
-        self.message.peek::<M>().is_some()
+        self.message.is::<M>()
     }
 
     pub fn tid(&self) -> TypeId {

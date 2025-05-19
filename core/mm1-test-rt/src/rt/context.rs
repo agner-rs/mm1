@@ -3,10 +3,9 @@ use mm1_address::address::Address;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::types::Never;
 use mm1_core::context::{
-    Fork, InitDone, Linking, Quit, Recv, RecvErrorKind, Start, Stop, Tell, Watching,
+    Fork, InitDone, Linking, Messaging, Quit, RecvErrorKind, Start, Stop, Watching,
 };
-use mm1_core::envelope::{Envelope, EnvelopeInfo};
-use mm1_core::prim::Message;
+use mm1_core::envelope::Envelope;
 use mm1_proto_system::{SpawnErrorKind, StartErrorKind};
 use tokio::sync::{mpsc, oneshot};
 
@@ -65,45 +64,6 @@ where
                     runnable,
                     link,
                     start_timeout,
-                    outcome_tx,
-                }
-            },
-            OnRxFailure::Panic,
-        )
-        .await
-    }
-}
-
-impl<R> Recv for Context<R>
-where
-    R: Send,
-{
-    fn address(&self) -> Address {
-        self.task_key.context
-    }
-
-    async fn close(&mut self) {
-        let task_key = self.task_key;
-        invoke(
-            &self.queries_tx,
-            move |outcome_tx| {
-                query::RecvClose {
-                    task_key,
-                    outcome_tx,
-                }
-            },
-            OnRxFailure::Panic,
-        )
-        .await
-    }
-
-    async fn recv(&mut self) -> Result<Envelope, ErrorOf<RecvErrorKind>> {
-        let task_key = self.task_key;
-        invoke(
-            &self.queries_tx,
-            move |outcome_tx| {
-                query::Recv {
-                    task_key,
                     outcome_tx,
                 }
             },
@@ -201,20 +161,49 @@ where
     }
 }
 
-impl<R> Tell for Context<R>
+impl<R> Messaging for Context<R>
 where
     R: Send,
 {
-    async fn tell<M>(
-        &mut self,
-        to: Address,
-        msg: M,
-    ) -> Result<(), ErrorOf<mm1_core::context::TellErrorKind>>
-    where
-        M: Message,
-    {
+    fn address(&self) -> Address {
+        self.task_key.context
+    }
+
+    async fn close(&mut self) {
         let task_key = self.task_key;
-        let envelope = Envelope::new(EnvelopeInfo::new(to), msg).into_erased();
+        invoke(
+            &self.queries_tx,
+            move |outcome_tx| {
+                query::RecvClose {
+                    task_key,
+                    outcome_tx,
+                }
+            },
+            OnRxFailure::Panic,
+        )
+        .await
+    }
+
+    async fn recv(&mut self) -> Result<Envelope, ErrorOf<RecvErrorKind>> {
+        let task_key = self.task_key;
+        invoke(
+            &self.queries_tx,
+            move |outcome_tx| {
+                query::Recv {
+                    task_key,
+                    outcome_tx,
+                }
+            },
+            OnRxFailure::Panic,
+        )
+        .await
+    }
+
+    async fn send(
+        &mut self,
+        envelope: Envelope,
+    ) -> Result<(), ErrorOf<mm1_core::context::SendErrorKind>> {
+        let task_key = self.task_key;
 
         invoke(
             &self.queries_tx,

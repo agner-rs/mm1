@@ -34,7 +34,7 @@ async fn actor_accepts_two_args<C>(_context: &mut C, name: &str, idx: usize) {
 
 async fn run_it<C, A>(context: &mut C, actor: A)
 where
-    C: Quit + Recv,
+    C: Quit + Messaging,
     A: ActorRun<C>,
 {
     time::timeout(Duration::from_millis(1), actor.run(context))
@@ -45,7 +45,7 @@ where
 
 struct Context(Address);
 
-impl Recv for Context {
+impl Messaging for Context {
     fn address(&self) -> Address {
         self.0
     }
@@ -55,6 +55,10 @@ impl Recv for Context {
     }
 
     async fn close(&mut self) {}
+
+    async fn send(&mut self, _envelope: Envelope) -> Result<(), ErrorOf<SendErrorKind>> {
+        Ok(())
+    }
 }
 
 impl Quit for Context {

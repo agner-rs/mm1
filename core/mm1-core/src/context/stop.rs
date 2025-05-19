@@ -11,7 +11,7 @@ use mm1_proto::message;
 use mm1_proto_system::Down;
 use tracing::warn;
 
-use super::{ForkErrorKind, Recv, RecvErrorKind};
+use super::{ForkErrorKind, Messaging, RecvErrorKind};
 use crate::context::{Fork, Watching};
 
 #[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -29,7 +29,7 @@ pub trait Stop {
         stop_timeout: Duration,
     ) -> impl Future<Output = Result<(), ErrorOf<ShutdownErrorKind>>> + Send
     where
-        Self: Watching + Fork + Recv,
+        Self: Watching + Fork + Messaging,
     {
         async move {
             let mut fork = self

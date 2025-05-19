@@ -14,7 +14,7 @@ struct TypeInfo {
 }
 
 impl AnyMessage {
-    pub(crate) fn new<T>(value: T) -> Self
+    pub fn new<T>(value: T) -> Self
     where
         T: Message,
     {
@@ -26,14 +26,14 @@ impl AnyMessage {
         Self { info, message }
     }
 
-    pub(crate) fn peek<T>(&self) -> Option<&T>
+    pub fn peek<T>(&self) -> Option<&T>
     where
         T: Message,
     {
         self.message.downcast_ref()
     }
 
-    pub(crate) fn cast<T>(self) -> Result<T, Self>
+    pub fn cast<T>(self) -> Result<T, Self>
     where
         T: Message,
     {
@@ -44,11 +44,18 @@ impl AnyMessage {
             .map_err(move |message| Self { info, message })
     }
 
-    pub(crate) fn tid(&self) -> TypeId {
+    pub fn is<T>(&self) -> bool
+    where
+        T: Message,
+    {
+        self.message.is::<T>()
+    }
+
+    pub fn tid(&self) -> TypeId {
         self.info.id
     }
 
-    pub(crate) fn type_name(&self) -> &'static str {
+    pub fn type_name(&self) -> &'static str {
         self.info.name
     }
 }

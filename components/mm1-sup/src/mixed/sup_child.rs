@@ -5,7 +5,7 @@ use mm1_address::address::Address;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::log;
 use mm1_core::context::{
-    Fork, Linking, Quit, Recv, ShutdownErrorKind, Start, Stop, Tell, Watching,
+    Fork, Linking, Messaging, Quit, ShutdownErrorKind, Start, Stop, Tell, Watching,
 };
 use mm1_proto::{Message, message};
 use mm1_proto_system::StartErrorKind;
@@ -34,7 +34,7 @@ pub(crate) async fn shutdown<Ctx>(
     address: Address,
     stop_timeout: Duration,
 ) where
-    Ctx: Recv + Tell + Fork + Stop + Watching,
+    Ctx: Messaging + Fork + Stop + Watching,
 {
     if let Err(reason) = ctx.shutdown(address, stop_timeout).await {
         send_report(ctx, sup_address, StopFailed { address, reason }).await;
@@ -47,7 +47,7 @@ pub(crate) async fn run<K, Runnable, Ctx>(
     child_id: K,
     child_spec: ChildSpec<Runnable>,
 ) where
-    Ctx: Linking + Start<Runnable> + Quit + Tell,
+    Ctx: Linking + Start<Runnable> + Quit + Messaging,
     K: fmt::Display,
     Started<K>: Message,
     StartFailed<K>: Message,
@@ -74,7 +74,7 @@ pub(crate) async fn run<K, Runnable, Ctx>(
 
 async fn send_report<Ctx, M>(ctx: &mut Ctx, to: Address, report: M)
 where
-    Ctx: Tell,
+    Ctx: Messaging,
     M: Message,
 {
     ctx.tell(to, report).await.expect("failed to send report");

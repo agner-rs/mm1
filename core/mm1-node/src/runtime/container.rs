@@ -10,7 +10,7 @@ use mm1_address::pool::{Lease as AddressLease, LeaseError, Pool as SubnetPool};
 use mm1_address::subnet::NetMask;
 use mm1_common::futures::catch_panic::CatchPanicExt;
 use mm1_common::types::AnyError;
-use mm1_core::envelope::{Envelope, EnvelopeInfo};
+use mm1_core::envelope::{Envelope, EnvelopeHeader};
 use mm1_proto_system::{self as system};
 use tracing::{instrument, trace};
 
@@ -419,9 +419,11 @@ impl Container {
                                         peer:        sender,
                                         normal_exit: matches!(reason, ExitReason::Normal),
                                     };
-                                    let envelope =
-                                        Envelope::new(EnvelopeInfo::new(receiver), message)
-                                            .into_erased();
+                                    let envelope = Envelope::new(
+                                        EnvelopeHeader::to_address(receiver),
+                                        message,
+                                    )
+                                    .into_erased();
                                     let _ = tx_priority.send(envelope);
                                 }
                             }
@@ -562,9 +564,11 @@ impl Container {
                                         watch_ref,
                                         normal_exit: matches!(reason, ExitReason::Normal),
                                     };
-                                    let envelope =
-                                        Envelope::new(EnvelopeInfo::new(receiver), message)
-                                            .into_erased();
+                                    let envelope = Envelope::new(
+                                        EnvelopeHeader::to_address(receiver),
+                                        message,
+                                    )
+                                    .into_erased();
                                     let _ = tx_priority.send(envelope);
                                 }
                             }

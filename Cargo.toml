@@ -22,15 +22,16 @@ test-util = ["dep:mm1-test-rt"]
 mm1-address.workspace = true
 mm1-common = {workspace = true, features = ["futures"]}
 mm1-core.workspace = true
+mm1-message-codec = { workspace = true, optional = true }
+mm1-message-codec-serde = { workspace = true, optional = true }
+mm1-multinode = { workspace = true, optional = true }
 mm1-node = { workspace = true, optional = true }
 mm1-proto.workspace = true
 mm1-proto-system.workspace = true
 mm1-proto-sup = { workspace = true, optional = true }
 mm1-sup = { workspace = true, optional = true }
-mm1-message-codec = { workspace = true, optional = true }
-mm1-message-codec-serde = { workspace = true, optional = true }
-mm1-multinode = { workspace = true, optional = true }
 mm1-test-rt = { workspace = true, optional = true }
+mm1-timer = {workspace = true, optional = true}
 
 [dev-dependencies]
 mm1-logger.workspace = true
@@ -58,6 +59,7 @@ mm1-message-codec = {path = "components/mm1-message-codec", version = "=0.5.4" }
 mm1-message-codec-serde = {path = "components/mm1-message-codec-serde", version = "=0.5.4" }
 mm1-multinode = {path = "components/mm1-multinode", version = "=0.5.4" }
 mm1-sup = {path = "components/mm1-sup", version = "=0.5.4" }
+mm1-timer = {path = "components/mm1-timer", version = "=0.5.4" }
 
 mm1-address = {path = "libs/mm1-address", version = "=0.5.4" }
 mm1-common = {path = "libs/mm1-common", version = "=0.5.4" }
@@ -67,6 +69,7 @@ mm1-proc-macros = {path = "libs/mm1-proc-macros", version = "=0.5.4" }
 mm1-proto = {path = "protocols/mm1-proto", version = "=0.5.4" }
 mm1-proto-sup = {path = "protocols/mm1-proto-sup", version = "=0.5.4" }
 mm1-proto-system = {path = "protocols/mm1-proto-system", version = "=0.5.4" }
+mm1-proto-timer = {path = "protocols/mm1-proto-timer", version = "=0.5.4"}
 
 derive_more = "^2.0"
 either = "^1.15.0"

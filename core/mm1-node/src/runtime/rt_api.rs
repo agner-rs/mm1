@@ -4,7 +4,7 @@ use std::sync::Arc;
 use mm1_address::address::Address;
 use mm1_address::pool::{Lease, Pool as SubnetPool};
 use mm1_address::subnet::{NetAddress, NetMask};
-use mm1_core::context::TellErrorKind;
+use mm1_core::context::SendErrorKind;
 use mm1_core::envelope::Envelope;
 use mq::TrySendError;
 use tokio::runtime::Handle;
@@ -91,34 +91,34 @@ impl RtApi {
         )
     }
 
-    pub(crate) fn sys_send(&self, to: Address, sys_msg: SysMsg) -> Result<(), TellErrorKind> {
+    pub(crate) fn sys_send(&self, to: Address, sys_msg: SysMsg) -> Result<(), SendErrorKind> {
         trace!("sys_send [to: {}; sys_msg: {:?}]", to, sys_msg);
 
         let entry = self
             .inner
             .registry
             .get(&to)
-            .ok_or(TellErrorKind::NotFound)?;
+            .ok_or(SendErrorKind::NotFound)?;
         let tx_system = &entry.get().tx_system;
         let () = tx_system
             .send(sys_msg)
-            .map_err(|_e| TellErrorKind::Closed)?;
+            .map_err(|_e| SendErrorKind::Closed)?;
         Ok(())
     }
 
-    pub(crate) fn send(&self, priority: bool, inbound: Envelope) -> Result<(), TellErrorKind> {
+    pub(crate) fn send(&self, priority: bool, inbound: Envelope) -> Result<(), SendErrorKind> {
         let to = inbound.info().to;
         let entry = self
             .inner
             .registry
             .get(&to)
-            .ok_or(TellErrorKind::NotFound)?;
+            .ok_or(SendErrorKind::NotFound)?;
         if priority {
             entry
                 .get()
                 .tx_priority
                 .send(inbound)
-                .map_err(|_| TellErrorKind::Closed)
+                .map_err(|_| SendErrorKind::Closed)
                 .map(|_| ())
         } else {
             entry
@@ -127,8 +127,8 @@ impl RtApi {
                 .try_send(inbound)
                 .map_err(|e| {
                     match e {
-                        TrySendError::Closed(_) => TellErrorKind::Closed,
-                        TrySendError::Full(_) => TellErrorKind::Full,
+                        TrySendError::Closed(_) => SendErrorKind::Closed,
+                        TrySendError::Full(_) => SendErrorKind::Full,
                     }
                 })
                 .map(|_| ())

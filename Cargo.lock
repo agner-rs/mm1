@@ -480,6 +480,7 @@ dependencies = [
  "mm1-proto-system",
  "mm1-sup",
  "mm1-test-rt",
+ "mm1-timer",
  "thiserror",
  "tokio",
 ]
@@ -621,6 +622,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mm1-proto-timer"
+version = "0.5.4"
+dependencies = [
+ "mm1-address",
+]
+
+[[package]]
 name = "mm1-sup"
 version = "0.5.4"
 dependencies = [
@@ -655,6 +663,13 @@ dependencies = [
  "parking_lot",
  "thiserror",
  "tokio",
+]
+
+[[package]]
+name = "mm1-timer"
+version = "0.5.4"
+dependencies = [
+ "mm1-proto-timer",
 ]
 
 [[package]]

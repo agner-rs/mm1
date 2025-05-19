@@ -131,7 +131,7 @@ pub mod core {
         pub use mm1_core::envelope::Envelope;
         /// An opaque type containing some information about the message that
         /// has been sent.
-        pub use mm1_core::envelope::EnvelopeInfo;
+        pub use mm1_core::envelope::EnvelopeHeader;
         /// A macro helping to match an [`Envelope`].
         pub use mm1_core::envelope::dispatch;
     }
@@ -159,12 +159,10 @@ pub mod core {
         /// Create another context, having an address distinct from the original
         /// context's one.
         pub use mm1_core::context::{Fork, ForkErrorKind};
-        /// Receive inbound messages, get own address.
-        pub use mm1_core::context::{Recv, RecvErrorKind};
+        /// Send and receive messages.
+        pub use mm1_core::context::{Messaging, RecvErrorKind, SendErrorKind};
         /// Stop other actors.
         pub use mm1_core::context::{ShutdownErrorKind, Stop};
-        /// Send messages to other actors.
-        pub use mm1_core::context::{Tell, TellErrorKind};
     }
 }
 

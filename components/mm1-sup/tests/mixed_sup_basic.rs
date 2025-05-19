@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use mm1_common::log;
-use mm1_core::context::{Fork, InitDone, Linking, Now, Quit, Recv, Start, Stop, Tell, Watching};
+use mm1_core::context::{Fork, InitDone, Linking, Messaging, Now, Quit, Start, Stop, Watching};
 use mm1_node::runtime::{Local, Rt};
 use mm1_sup::common::child_spec::{ChildSpec, ChildType, InitType};
 use mm1_sup::common::factory::ActorFactoryMut;
@@ -36,7 +36,7 @@ fn test_01() {
 async fn main<Ctx>(ctx: &mut Ctx)
 where
     Ctx: Now<Instant = Instant>,
-    Ctx: Fork + Recv + Tell + Quit + InitDone + Linking + Watching + Start<Local> + Stop,
+    Ctx: Fork + Messaging + Quit + InitDone + Linking + Watching + Start<Local> + Stop,
 {
     let sup = MixedSup::new(OneForOne::new(RestartIntensity {
         max_restarts: 3,
@@ -83,7 +83,7 @@ async fn w1<Ctx>(_ctx: &mut Ctx) {
 
 async fn w2<Ctx>(_ctx: &mut Ctx)
 where
-    Ctx: Recv + InitDone,
+    Ctx: Messaging + InitDone,
 {
     log::info!("how do you do?");
     // ctx.init_done(ctx.address()).await;

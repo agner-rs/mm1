@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use mm1_address::address::Address;
 use mm1_common::types::Never;
-use mm1_core::context::{Fork, InitDone, Quit, Recv, Start, Stop, Tell};
+use mm1_core::context::{Fork, InitDone, Messaging, Quit, Start, Stop, Tell};
 use mm1_core::envelope::dispatch;
 use mm1_node::runtime::config::Mm1Config;
 use mm1_node::runtime::{Local, Rt, runnable};
@@ -26,7 +26,7 @@ fn hello_runtime() {
 
 async fn main<Ctx>(ctx: &mut Ctx)
 where
-    Ctx: Recv + Fork + Tell + Start<Local>,
+    Ctx: Fork + Messaging + Start<Local>,
 {
     eprintln!("Hello! I'm the-main! [addr: {}]", ctx.address());
 
@@ -63,7 +63,7 @@ where
 
 async fn child<Ctx>(ctx: &mut Ctx, idx: usize) -> Never
 where
-    Ctx: Recv + Quit + Tell + InitDone + Stop,
+    Ctx: Quit + Messaging + InitDone + Stop,
 {
     eprintln!("* Hello! I'm [{:>3}]. I live at {}", idx, ctx.address());
     tokio::task::yield_now().await;

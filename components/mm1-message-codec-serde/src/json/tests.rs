@@ -1,6 +1,6 @@
 use insta::{assert_debug_snapshot, assert_yaml_snapshot};
 use mm1_address::address::Address;
-use mm1_core::envelope::{Envelope, EnvelopeInfo};
+use mm1_core::envelope::{Envelope, EnvelopeHeader};
 use mm1_message_codec::codec::Process;
 use mm1_message_codec::compose::Dispatcher;
 use serde_json::json;
@@ -57,25 +57,29 @@ fn macro_ergonomics() {
         >::new(StandardExtractor), 
         < messages::M1, messages::M2, messages::M3 >);
     let m1 = Envelope::new(
-        EnvelopeInfo::new(Address::from_u64(1)),
+        EnvelopeHeader::to_address(Address::from_u64(1)),
         messages::M1 { m_1: 1 },
     )
     .into_erased();
     let m2 = Envelope::new(
-        EnvelopeInfo::new(Address::from_u64(2)),
+        EnvelopeHeader::to_address(Address::from_u64(2)),
         messages::M2 {
             m_2: "this is m2".into(),
         },
     )
     .into_erased();
     let m3 = Envelope::new(
-        EnvelopeInfo::new(Address::from_u64(4)),
+        EnvelopeHeader::to_address(Address::from_u64(4)),
         messages::M3 {
             m_3: json!({"hello": "there"}),
         },
     )
     .into_erased();
-    let m4 = Envelope::new(EnvelopeInfo::new(Address::from_u64(1)), messages::M4).into_erased();
+    let m4 = Envelope::new(
+        EnvelopeHeader::to_address(Address::from_u64(1)),
+        messages::M4,
+    )
+    .into_erased();
 
     let mut packets = vec![];
 
@@ -104,9 +108,9 @@ fn macro_ergonomics() {
             (), 
             String, 
             Packet<String, String>, 
-            Envelope, 
+            Envelope,
             serde_json::Error
-        >::new(StandardExtractor), 
+        >::new(StandardExtractor),
         < messages::M1, messages::M2, messages::M3 >);
 
     let mut message_names = vec![];

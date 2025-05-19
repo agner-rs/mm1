@@ -2,7 +2,7 @@ pub mod ping_pong {
     use std::time::Duration;
 
     use mm1_address::address::Address;
-    use mm1_core::context::{Ask, Fork, Recv, Tell};
+    use mm1_core::context::{Ask, Fork, Messaging, Tell};
     use mm1_core::envelope::dispatch;
     use mm1_proto::message;
     use tokio::time;
@@ -30,7 +30,7 @@ pub mod ping_pong {
 
     pub async fn server<Ctx>(ctx: &mut Ctx) -> Result<(), eyre::Report>
     where
-        Ctx: Recv + Tell,
+        Ctx: Messaging,
     {
         loop {
             let keep_running = dispatch!(match ctx.recv().await? {
@@ -62,7 +62,7 @@ pub mod ping_pong {
         timeout: Duration,
     ) -> Result<(), eyre::Report>
     where
-        Ctx: Recv + Tell + Fork,
+        Ctx: Messaging + Fork,
     {
         for seq_num in 1..=(times as u64) {
             dispatch!(match time::timeout(

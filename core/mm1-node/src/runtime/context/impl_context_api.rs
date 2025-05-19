@@ -8,11 +8,10 @@ use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::futures::timeout::FutureTimeoutExt;
 use mm1_common::types::Never;
 use mm1_core::context::{
-    Fork, ForkErrorKind, InitDone, Linking, Now, Quit, Recv, RecvErrorKind, Start, Stop, Tell,
-    TellErrorKind, Watching,
+    Fork, ForkErrorKind, InitDone, Linking, Messaging, Now, Quit, RecvErrorKind, SendErrorKind,
+    Start, Stop, Watching,
 };
-use mm1_core::envelope::{Envelope, EnvelopeInfo, dispatch};
-use mm1_proto::Message;
+use mm1_core::envelope::{Envelope, EnvelopeHeader, dispatch};
 use mm1_proto_system::{InitAck, SpawnErrorKind, StartErrorKind, WatchRef};
 use tokio::sync::oneshot;
 use tokio::time::Instant;
@@ -115,33 +114,6 @@ impl Now for ActorContext {
     }
 }
 
-impl Recv for ActorContext {
-    fn address(&self) -> Address {
-        self.actor_address
-    }
-
-    async fn recv(&mut self) -> Result<Envelope, ErrorOf<RecvErrorKind>> {
-        let (priority, inbound_opt) = tokio::select! {
-            biased;
-
-            inbound_opt = self.rx_priority.recv() => (true, inbound_opt),
-            inbound_opt = self.rx_regular.recv() => (false, inbound_opt),
-        };
-
-        trace!(
-            "received [priority: {}; inbound: {:?}]",
-            priority, inbound_opt
-        );
-
-        inbound_opt.ok_or(ErrorOf::new(RecvErrorKind::Closed, "closed"))
-    }
-
-    async fn close(&mut self) {
-        self.rx_regular.close();
-        self.rx_priority.close();
-    }
-}
-
 impl Start<BoxedRunnable<Self>> for ActorContext {
     fn spawn(
         &mut self,
@@ -209,16 +181,37 @@ impl InitDone for ActorContext {
     }
 }
 
-impl Tell for ActorContext {
-    fn tell<M>(
+impl Messaging for ActorContext {
+    fn address(&self) -> Address {
+        self.actor_address
+    }
+
+    async fn recv(&mut self) -> Result<Envelope, ErrorOf<RecvErrorKind>> {
+        let (priority, inbound_opt) = tokio::select! {
+            biased;
+
+            inbound_opt = self.rx_priority.recv() => (true, inbound_opt),
+            inbound_opt = self.rx_regular.recv() => (false, inbound_opt),
+        };
+
+        trace!(
+            "received [priority: {}; inbound: {:?}]",
+            priority, inbound_opt
+        );
+
+        inbound_opt.ok_or(ErrorOf::new(RecvErrorKind::Closed, "closed"))
+    }
+
+    async fn close(&mut self) {
+        self.rx_regular.close();
+        self.rx_priority.close();
+    }
+
+    fn send(
         &mut self,
-        to: Address,
-        msg: M,
-    ) -> impl Future<Output = Result<(), ErrorOf<TellErrorKind>>> + Send
-    where
-        M: Message,
-    {
-        std::future::ready(do_tell(self, to, msg))
+        envelope: Envelope,
+    ) -> impl Future<Output = Result<(), ErrorOf<SendErrorKind>>> + Send {
+        std::future::ready(do_send(self, envelope))
     }
 }
 
@@ -327,7 +320,7 @@ async fn do_spawn(
     Ok(actor_address)
 }
 
-fn do_exit(context: &mut ActorContext, this: Address, peer: Address) -> Result<(), TellErrorKind> {
+fn do_exit(context: &mut ActorContext, this: Address, peer: Address) -> Result<(), SendErrorKind> {
     context.rt_api.sys_send(
         peer,
         SysMsg::Link(SysLink::Exit {
@@ -338,7 +331,7 @@ fn do_exit(context: &mut ActorContext, this: Address, peer: Address) -> Result<(
     )
 }
 
-fn do_kill(context: &mut ActorContext, peer: Address) -> Result<(), TellErrorKind> {
+fn do_kill(context: &mut ActorContext, peer: Address) -> Result<(), SendErrorKind> {
     context.rt_api.sys_send(peer, SysMsg::Kill)
 }
 
@@ -396,17 +389,11 @@ async fn do_init_done(context: &mut ActorContext, address: Address) {
     let Some(ack_to_address) = context.ack_to.take() else {
         return;
     };
-    let envelope = Envelope::new(EnvelopeInfo::new(ack_to_address), message);
+    let envelope = Envelope::new(EnvelopeHeader::to_address(ack_to_address), message);
     let _ = context.rt_api.send(true, envelope.into_erased());
 }
 
-fn do_tell(
-    context: &mut ActorContext,
-    to: Address,
-    msg: impl Message,
-) -> Result<(), ErrorOf<TellErrorKind>> {
-    let info = EnvelopeInfo::new(to);
-    let outbound = Envelope::new(info, msg).into_erased();
+fn do_send(context: &mut ActorContext, outbound: Envelope) -> Result<(), ErrorOf<SendErrorKind>> {
     trace!("sending [outbound: {:?}]", outbound);
     context
         .rt_api

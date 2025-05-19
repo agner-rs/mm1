@@ -1,6 +1,6 @@
 use messages::*;
 use mm1_address::address::Address;
-use mm1_core::envelope::{Envelope, EnvelopeInfo, dispatch};
+use mm1_core::envelope::{Envelope, EnvelopeHeader, dispatch};
 
 pub mod messages {
     use mm1_proto::message;
@@ -50,7 +50,7 @@ const ADDR: Address = Address::from_u64(111);
 fn test_01() {
     dispatch(
         Envelope::new(
-            EnvelopeInfo::new(Address::from_u64(222)),
+            EnvelopeHeader::to_address(Address::from_u64(222)),
             Pong { seq_num: 0 },
         )
         .into_erased(),
@@ -62,7 +62,7 @@ fn test_02() {
     assert_eq!(
         dispatch(
             Envelope::new(
-                EnvelopeInfo::new(Address::from_u64(222)),
+                EnvelopeHeader::to_address(Address::from_u64(222)),
                 Ping {
                     reply_to: ADDR,
                     seq_num:  5,
@@ -75,7 +75,7 @@ fn test_02() {
     assert_eq!(
         dispatch(
             Envelope::new(
-                EnvelopeInfo::new(Address::from_u64(222)),
+                EnvelopeHeader::to_address(Address::from_u64(222)),
                 Ping {
                     reply_to: ADDR,
                     seq_num:  15,
@@ -88,7 +88,7 @@ fn test_02() {
     assert_eq!(
         dispatch(
             Envelope::new(
-                EnvelopeInfo::new(Address::from_u64(222)),
+                EnvelopeHeader::to_address(Address::from_u64(222)),
                 Ping {
                     reply_to: ADDR,
                     seq_num:  10,
@@ -104,7 +104,11 @@ fn test_02() {
 fn test_03() {
     assert_eq!(
         dispatch(
-            Envelope::new(EnvelopeInfo::new(Address::from_u64(222)), messages::AUnit).into_erased()
+            Envelope::new(
+                EnvelopeHeader::to_address(Address::from_u64(222)),
+                messages::AUnit
+            )
+            .into_erased()
         ),
         4
     );
@@ -118,7 +122,7 @@ fn test_04() {
     assert_eq!(
         dispatch(
             Envelope::new(
-                EnvelopeInfo::new(Address::from_u64(222)),
+                EnvelopeHeader::to_address(Address::from_u64(222)),
                 messages::ATuple("1".into(), "2".into())
             )
             .into_erased()
@@ -128,7 +132,7 @@ fn test_04() {
     assert_eq!(
         dispatch(
             Envelope::new(
-                EnvelopeInfo::new(Address::from_u64(222)),
+                EnvelopeHeader::to_address(Address::from_u64(222)),
                 messages::ATuple("2".into(), "1".into())
             )
             .into_erased()
@@ -138,7 +142,7 @@ fn test_04() {
     assert_eq!(
         dispatch(
             Envelope::new(
-                EnvelopeInfo::new(Address::from_u64(222)),
+                EnvelopeHeader::to_address(Address::from_u64(222)),
                 messages::ATuple("_".into(), "_".into())
             )
             .into_erased()
@@ -152,7 +156,7 @@ fn test_05() {
     assert_eq!(
         dispatch(
             Envelope::new(
-                EnvelopeInfo::new(Address::from_u64(222)),
+                EnvelopeHeader::to_address(Address::from_u64(222)),
                 messages::AStruct {
                     s: "1".into(),
                     i: 2,
@@ -165,7 +169,7 @@ fn test_05() {
     assert_eq!(
         dispatch(
             Envelope::new(
-                EnvelopeInfo::new(Address::from_u64(222)),
+                EnvelopeHeader::to_address(Address::from_u64(222)),
                 messages::AStruct {
                     s: "2".into(),
                     i: 0,
@@ -178,7 +182,7 @@ fn test_05() {
     assert_eq!(
         dispatch(
             Envelope::new(
-                EnvelopeInfo::new(Address::from_u64(222)),
+                EnvelopeHeader::to_address(Address::from_u64(222)),
                 messages::AStruct {
                     s: "3".into(),
                     i: 3,
@@ -195,7 +199,7 @@ fn test_06() {
     assert_eq!(
         dispatch(
             Envelope::new(
-                EnvelopeInfo::new(Address::from_u64(222)),
+                EnvelopeHeader::to_address(Address::from_u64(222)),
                 Forward {
                     forward_to: ADDR,
                     message:    Ping {
@@ -211,7 +215,7 @@ fn test_06() {
     assert_eq!(
         dispatch(
             Envelope::new(
-                EnvelopeInfo::new(Address::from_u64(222)),
+                EnvelopeHeader::to_address(Address::from_u64(222)),
                 Forward {
                     forward_to: Address::from_u64(ADDR.into_u64().reverse_bits()),
                     message:    Ping {
@@ -227,7 +231,7 @@ fn test_06() {
     assert_eq!(
         dispatch(
             Envelope::new(
-                EnvelopeInfo::new(Address::from_u64(222)),
+                EnvelopeHeader::to_address(Address::from_u64(222)),
                 Forward {
                     forward_to: ADDR,
                     message:    Pong { seq_num: 1 },
