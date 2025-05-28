@@ -1,5 +1,5 @@
 [package]
-name = "mm1-proto-sup"
+name = "mm1-proto-timer"
 version = "0.5.4"
 edition = "2024"
 
@@ -16,6 +16,7 @@ serde = ["dep:serde"]
 mm1-address.workspace = true
 mm1-common.workspace = true
 mm1-proto.workspace = true
-mm1-proto-system.workspace = true
 
 serde = {workspace = true, features = ["derive"], optional = true}
+
+derive_more = {workspace = true, features = ["debug"]}

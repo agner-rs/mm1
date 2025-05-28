@@ -22,7 +22,7 @@ pub struct EnvelopeHeader {
 }
 
 pub struct Envelope<M = AnyMessage> {
-    info:    EnvelopeHeader,
+    header:  EnvelopeHeader,
     message: M,
 }
 
@@ -42,19 +42,25 @@ where
     M: Message,
 {
     pub fn into_erased(self) -> Envelope<AnyMessage> {
-        let Self { info, message } = self;
+        let Self {
+            header: info,
+            message,
+        } = self;
         let message = AnyMessage::new(message);
-        Envelope { info, message }
+        Envelope {
+            header: info,
+            message,
+        }
     }
 }
 
 impl<M> Envelope<M> {
-    pub fn new(info: EnvelopeHeader, message: M) -> Self {
-        Self { info, message }
+    pub fn new(header: EnvelopeHeader, message: M) -> Self {
+        Self { header, message }
     }
 
     pub fn info(&self) -> &EnvelopeHeader {
-        &self.info
+        &self.header
     }
 }
 
@@ -63,10 +69,23 @@ impl Envelope<AnyMessage> {
     where
         M: Message,
     {
-        let Self { info, message } = self;
+        let Self {
+            header: info,
+            message,
+        } = self;
         match message.cast() {
-            Ok(message) => Ok(Envelope { info, message }),
-            Err(message) => Err(Self { info, message }),
+            Ok(message) => {
+                Ok(Envelope {
+                    header: info,
+                    message,
+                })
+            },
+            Err(message) => {
+                Err(Self {
+                    header: info,
+                    message,
+                })
+            },
         }
     }
 
@@ -97,7 +116,7 @@ impl<M> Envelope<M> {
         (
             self.message,
             Envelope {
-                info:    self.info,
+                header:  self.header,
                 message: (),
             },
         )
@@ -110,7 +129,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Envelope")
-            .field("info", &self.info)
+            .field("info", &self.header)
             .field("message", &self.message)
             .finish()
     }

@@ -3,11 +3,12 @@ use mm1_address::address::Address;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::types::Never;
 use mm1_core::context::{
-    Fork, InitDone, Linking, Messaging, Quit, RecvErrorKind, Start, Stop, Watching,
+    Fork, InitDone, Linking, Messaging, Now, Quit, RecvErrorKind, Start, Stop, Watching,
 };
 use mm1_core::envelope::Envelope;
 use mm1_proto_system::{SpawnErrorKind, StartErrorKind};
 use tokio::sync::{mpsc, oneshot};
+use tokio::time::Instant;
 
 use crate::rt::{Context, Query, TaskKey, query};
 
@@ -25,6 +26,17 @@ impl TaskKey {
             actor,
             context: fork,
         }
+    }
+}
+
+impl<R> Now for Context<R>
+where
+    R: Send,
+{
+    type Instant = Instant;
+
+    fn now(&self) -> Self::Instant {
+        Instant::now()
     }
 }
 

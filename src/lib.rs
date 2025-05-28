@@ -203,6 +203,16 @@ pub mod runtime {
     pub use mm1_node::runtime::{Local, Rt, config};
 }
 
+#[cfg(feature = "timer")]
+pub mod timer {
+    pub use mm1_timer::api::{TimerApi, TimerError, new_tokio_timer};
+
+    pub mod plumbing {
+        pub use mm1_proto_timer as timer_protocol;
+        pub use mm1_timer::actor::timer_actor;
+    }
+}
+
 #[cfg(feature = "test-util")]
 pub mod test {
     pub use mm1_test_rt::rt;
