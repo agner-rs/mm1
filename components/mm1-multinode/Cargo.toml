@@ -1,6 +1,6 @@
 [package]
 name = "mm1-multinode"
-version = "0.5.4"
+version = "0.6.0"
 edition = "2024"
 
 license = "MIT"
@@ -17,5 +17,5 @@ serde-json = ["serde", "mm1-message-codec-serde/json"]
 mm1-address.workspace = true
 mm1-core.workspace = true
 mm1-message-codec.workspace = true
-mm1-message-codec-serde = {workspace = true, optional = true}
+mm1-message-codec-serde = {workspace = true, optional = true, version = "0.6.0" }
 

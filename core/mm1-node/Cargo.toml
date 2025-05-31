@@ -1,6 +1,6 @@
 [package]
 name = "mm1-node"
-version = "0.5.4"
+version = "0.6.0"
 edition = "2024"
 
 license = "MIT"
@@ -13,7 +13,7 @@ default = ["serde"]
 serde = ["dep:serde", "mm1-address/serde"]
 
 [dependencies]
-mm1-common = {workspace = true, features = ["futures", "logging"]}
+mm1-common = {workspace = true, features = ["futures", "logging"], version = "0.6.0" }
 mm1-core.workspace = true
 mm1-proto.workspace = true
 mm1-proto-system.workspace = true

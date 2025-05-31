@@ -1,6 +1,6 @@
 [package]
 name = "mm1-message-codec-serde"
-version = "0.5.4"
+version = "0.6.0"
 edition = "2024"
 
 license = "MIT"
@@ -15,7 +15,7 @@ json = ["dep:serde_json"]
 [dependencies]
 mm1-proc-macros.workspace = true
 
-mm1-address = {workspace = true, features = ["serde"]}
+mm1-address = {workspace = true, features = ["serde"], version = "0.6.0" }
 mm1-core.workspace = true
 mm1-message-codec.workspace = true
 

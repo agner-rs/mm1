@@ -1,6 +1,6 @@
 [package]
 name = "mm1-timer"
-version = "0.5.4"
+version = "0.6.0"
 edition = "2024"
 
 license = "MIT"
@@ -32,6 +32,6 @@ test-case.workspace = true
 tokio = {workspace = true, features = ["rt", "macros", "time", "test-util"]}
 
 mm1-logger.workspace = true
-mm1-proto-timer = {workspace = true, features = ["serde"]}
+mm1-proto-timer = {workspace = true, features = ["serde"], version = "0.6.0" }
 mm1-test-rt.workspace = true
 mm1-node.workspace = true
