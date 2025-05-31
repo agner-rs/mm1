@@ -20,7 +20,6 @@ mm1-core.workspace = true
 mm1-proto-timer.workspace = true
 
 futures.workspace = true
-slotmap.workspace = true
 thiserror.workspace = true
 tokio = {workspace = true, features = ["macros"]}
 

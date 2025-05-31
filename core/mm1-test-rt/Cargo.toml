@@ -12,7 +12,6 @@ mm1-proto-system.workspace = true
 
 derive_more = { workspace = true, features = ["debug", "from", "try_into"] }
 futures.workspace = true
-parking_lot.workspace = true
 thiserror.workspace = true
 tokio = {workspace = true, features = ["sync", "time"]}
 

@@ -471,9 +471,6 @@ dependencies = [
  "mm1-common",
  "mm1-core",
  "mm1-logger",
- "mm1-message-codec",
- "mm1-message-codec-serde",
- "mm1-multinode",
  "mm1-node",
  "mm1-proto",
  "mm1-proto-sup",
@@ -530,36 +527,6 @@ dependencies = [
  "structopt",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "mm1-message-codec"
-version = "0.6.0"
-dependencies = [
- "thiserror",
-]
-
-[[package]]
-name = "mm1-message-codec-serde"
-version = "0.6.0"
-dependencies = [
- "insta",
- "mm1-address",
- "mm1-core",
- "mm1-message-codec",
- "mm1-proc-macros",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "mm1-multinode"
-version = "0.6.0"
-dependencies = [
- "mm1-address",
- "mm1-core",
- "mm1-message-codec",
- "mm1-message-codec-serde",
 ]
 
 [[package]]
@@ -628,8 +595,6 @@ name = "mm1-proto-timer"
 version = "0.6.0"
 dependencies = [
  "derive_more",
- "mm1-address",
- "mm1-common",
  "mm1-proto",
  "serde",
 ]
@@ -666,7 +631,6 @@ dependencies = [
  "mm1-core",
  "mm1-logger",
  "mm1-proto-system",
- "parking_lot",
  "thiserror",
  "tokio",
 ]
@@ -686,7 +650,6 @@ dependencies = [
  "mm1-test-rt",
  "serde",
  "serde_json",
- "slotmap",
  "test-case",
  "thiserror",
  "tokio",
@@ -1004,15 +967,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "slotmap"
-version = "1.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbff4acf519f630b3a3ddcfaea6c06b42174d9a44bc70c620e9ed1649d58b82a"
-dependencies = [
- "version_check",
-]
-
-[[package]]
 name = "smallvec"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1154,9 +1108,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.45.0"
+version = "1.45.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2513ca694ef9ede0fb23fe71a4ee4107cb102b9dc1930f6d0fd77aae068ae165"
+checksum = "75ef51a33ef1da925cea3e4eb122833cb377c61439ca401b770f54902b806779"
 dependencies = [
  "backtrace",
  "libc",

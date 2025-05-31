@@ -39,21 +39,6 @@ pub mod proto {
     pub use mm1_proto_system as system;
 }
 
-#[doc(hidden)]
-#[cfg(feature = "multinode")]
-pub mod message_codec {
-    pub use mm1_message_codec::{codec, compose};
-
-    pub mod codecs {
-        #[cfg(feature = "multinode-serde")]
-        pub mod serde {
-            pub use mm1_message_codec_serde::extractors::StandardExtractor;
-            pub use mm1_message_codec_serde::json;
-            pub use mm1_message_codec_serde::packet::Packet;
-        }
-    }
-}
-
 pub mod address {
     //! Addresses, masks, subnets.
     //!
