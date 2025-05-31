@@ -21,7 +21,7 @@ mm1-proto-timer.workspace = true
 
 futures.workspace = true
 thiserror.workspace = true
-tokio = {workspace = true, features = ["macros"]}
+tokio = {workspace = true, features = ["rt", "macros"]}
 
 [dev-dependencies]
 insta.workspace = true
