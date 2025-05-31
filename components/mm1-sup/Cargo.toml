@@ -8,6 +8,8 @@ authors = ["That Roma <mm1@thatroma.me>"]
 repository = "https://github.com/agner-rs/mm1"
 description = "M/M/1! Queueing, do you speak it?!"
 
+exclude = ["**/*.snap"]
+
 [dependencies]
 mm1-address.workspace = true
 mm1-common = {workspace = true, features = ["logging"], version = "0.6.0" }
