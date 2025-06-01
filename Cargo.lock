@@ -497,6 +497,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "mm1-ask"
+version = "0.6.1"
+dependencies = [
+ "derive_more",
+ "mm1-address",
+ "mm1-common",
+ "mm1-core",
+ "mm1-proto-ask",
+ "mm1-test-rt",
+ "tokio",
+]
+
+[[package]]
 name = "mm1-common"
 version = "0.6.1"
 dependencies = [
@@ -514,9 +527,11 @@ dependencies = [
  "eyre",
  "futures",
  "mm1-address",
+ "mm1-ask",
  "mm1-common",
  "mm1-proc-macros",
  "mm1-proto",
+ "mm1-proto-ask",
  "mm1-proto-system",
  "tokio",
  "tracing",
@@ -604,6 +619,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mm1-proto-ask"
+version = "0.6.1"
+dependencies = [
+ "mm1-address",
+ "mm1-proto",
+ "serde",
+]
+
+[[package]]
 name = "mm1-proto-sup"
 version = "0.6.1"
 dependencies = [
@@ -639,11 +663,13 @@ dependencies = [
  "either",
  "insta",
  "mm1-address",
+ "mm1-ask",
  "mm1-common",
  "mm1-core",
  "mm1-logger",
  "mm1-node",
  "mm1-proto",
+ "mm1-proto-ask",
  "mm1-proto-sup",
  "mm1-proto-system",
  "mm1-test-rt",

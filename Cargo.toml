@@ -65,6 +65,7 @@ mm1-sup = {path = "components/mm1-sup", version = "=0.6.1" }
 mm1-timer = {path = "components/mm1-timer", version = "=0.6.1" }
 
 mm1-address = {path = "libs/mm1-address", version = "=0.6.1" }
+mm1-ask = {path = "libs/mm1-ask", version = "=0.6.1" }
 mm1-common = {path = "libs/mm1-common", version = "=0.6.1" }
 mm1-logger = {path = "libs/mm1-logger", version = "=0.6.1" }
 mm1-message-codec = {path = "libs/mm1-message-codec", version = "=0.6.1" }
@@ -72,6 +73,7 @@ mm1-message-codec-serde = {path = "libs/mm1-message-codec-serde", version = "=0.
 mm1-proc-macros = {path = "libs/mm1-proc-macros", version = "=0.6.1" }
 
 mm1-proto = {path = "protocols/mm1-proto", version = "=0.6.1" }
+mm1-proto-ask = {path = "protocols/mm1-proto-ask", version = "=0.6.1" }
 mm1-proto-sup = {path = "protocols/mm1-proto-sup", version = "=0.6.1" }
 mm1-proto-system = {path = "protocols/mm1-proto-system", version = "=0.6.1" }
 mm1-proto-timer = {path = "protocols/mm1-proto-timer", version = "=0.6.1" }

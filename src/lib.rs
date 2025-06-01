@@ -136,11 +136,10 @@ pub mod core {
         pub use mm1_core::context::Quit;
         /// Start other actors.
         pub use mm1_core::context::Start;
+        /// A convenience trait to simply send a message to another actor.
+        pub use mm1_core::context::Tell;
         /// Watch/unwatch the termination of other actors.
         pub use mm1_core::context::Watching;
-        /// A convenience traits for simple interation with other
-        /// actors.
-        pub use mm1_core::context::{Ask, AskErrorKind, Tell};
         /// Create another context, having an address distinct from the original
         /// context's one.
         pub use mm1_core::context::{Fork, ForkErrorKind};

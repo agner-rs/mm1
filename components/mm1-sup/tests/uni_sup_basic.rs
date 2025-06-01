@@ -5,9 +5,10 @@ use std::time::Duration;
 use mm1_address::address::Address;
 use mm1_address::pool::Pool as SubnetPool;
 use mm1_address::subnet::{NetAddress, NetMask};
+use mm1_ask::Ask;
 use mm1_common::log::{debug, info};
 use mm1_common::types::Never;
-use mm1_core::context::{Ask, Fork, InitDone, Messaging, Quit, Start, Tell};
+use mm1_core::context::{Fork, InitDone, Messaging, Quit, Start, Tell};
 use mm1_core::envelope::{Envelope, EnvelopeHeader};
 use mm1_node::runtime::{Local, Rt};
 use mm1_proto::message;
@@ -71,7 +72,7 @@ fn test_01() {
 
     async fn main<Ctx>(ctx: &mut Ctx)
     where
-        Ctx: Fork + Messaging + Start<Local>,
+        Ctx: Fork + Messaging + Start<Local> + Ask,
     {
         let factory = ActorFactoryMut::new(|(reply_to, duration): (Address, Duration)| {
             Local::actor((worker, (reply_to, duration)))
@@ -98,18 +99,16 @@ fn test_01() {
 
         let mut workers = HashSet::new();
         for i in 0..128 {
-            let (start_response, _) = ctx
-                .ask(sup_addr, |reply_to| {
+            let start_response: uniform::StartResponse = ctx
+                .ask(
+                    sup_addr,
                     uniform::StartRequest {
-                        reply_to,
                         args: (main_addr, Duration::from_millis(i % 1024)),
-                    }
-                })
+                    },
+                    Duration::from_millis(100),
+                )
                 .await
-                .expect("ask")
-                .cast::<uniform::StartResponse>()
-                .expect("cast")
-                .take();
+                .expect("ask");
             let started = start_response.expect("start-response");
             debug!("started[{}]: {}", i, started);
 
@@ -134,18 +133,16 @@ fn test_01() {
             );
             debug!("WORKER[{}]@{} said Hi", worker_id, worker_address);
 
-            let (stop_response, _) = ctx
-                .ask(sup_addr, |reply_to| {
+            let stop_response: uniform::StopResponse = ctx
+                .ask(
+                    sup_addr,
                     uniform::StopRequest {
-                        reply_to,
                         child: worker_address,
-                    }
-                })
+                    },
+                    Duration::from_millis(100),
+                )
                 .await
-                .expect("ask")
-                .cast::<uniform::StopResponse>()
-                .expect("cast")
-                .take();
+                .expect("ask");
 
             let () = stop_response.expect("stop-response");
 
@@ -249,9 +246,12 @@ async fn test_02() {
     let address_client = lease_client.address;
     let envelope = Envelope::new(
         EnvelopeHeader::to_address(address_sup),
-        mm1_proto_sup::uniform::StartRequest {
-            reply_to: address_client,
-            args:     "hello!",
+        mm1_proto_ask::Request {
+            header:  mm1_proto_ask::RequestHeader {
+                id:       (),
+                reply_to: address_client,
+            },
+            payload: mm1_proto_sup::uniform::StartRequest { args: "hello!" },
         },
     )
     .into_erased();
@@ -357,8 +357,8 @@ async fn test_02() {
     let envelope = tell.take_envelope();
     assert_eq!(envelope.info().to, address_client);
     let (response, _envelope) = envelope
-        .cast::<mm1_proto_sup::uniform::StartResponse>()
+        .cast::<mm1_proto_ask::Response<mm1_proto_sup::uniform::StartResponse>>()
         .unwrap()
         .take();
-    assert_eq!(response.unwrap(), address_child);
+    assert_eq!(response.payload.unwrap(), address_child);
 }

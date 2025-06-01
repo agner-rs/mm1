@@ -12,9 +12,11 @@ exclude = ["**/*.snap"]
 
 [dependencies]
 mm1-address.workspace = true
+mm1-ask.workspace = true
 mm1-common = {workspace = true, features = ["logging"] }
 mm1-core.workspace = true
 mm1-proto.workspace = true
+mm1-proto-ask.workspace = true
 mm1-proto-sup.workspace = true
 mm1-proto-system.workspace = true
 

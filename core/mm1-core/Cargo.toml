@@ -27,5 +27,7 @@ tokio = {workspace = true, features = ["time", "macros"]}
 tracing.workspace = true
 
 [dev-dependencies]
+mm1-ask.workspace = true
+mm1-proto-ask.workspace = true
 eyre.workspace = true
 

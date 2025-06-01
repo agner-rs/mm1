@@ -5,7 +5,6 @@ use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::impl_error_kind;
 use mm1_proto::{Message, message};
 
-use super::{Fork, ForkErrorKind};
 use crate::envelope::{Envelope, EnvelopeHeader};
 
 #[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -40,44 +39,6 @@ pub trait Messaging {
 
 impl_error_kind!(SendErrorKind);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum AskErrorKind {
-    Fork(ForkErrorKind),
-    Tell(SendErrorKind),
-    Recv(RecvErrorKind),
-}
-
-pub trait Ask: Messaging + Fork {
-    fn ask<Req>(
-        &mut self,
-        to: Address,
-        make_request: impl FnOnce(Address) -> Req + Send,
-    ) -> impl Future<Output = Result<Envelope, ErrorOf<AskErrorKind>>> + Send
-    where
-        Req: Message,
-    {
-        async move {
-            let mut forked = self
-                .fork()
-                .await
-                .map_err(|e| e.map_kind(AskErrorKind::Fork))?;
-
-            let reply_to = forked.address();
-            let request = make_request(reply_to);
-            self.tell(to, request)
-                .await
-                .map_err(|e| e.map_kind(AskErrorKind::Tell))?;
-
-            let inbound = forked
-                .recv()
-                .await
-                .map_err(|e| e.map_kind(AskErrorKind::Recv))?;
-
-            Ok(inbound)
-        }
-    }
-}
-
 pub trait Tell: Messaging {
     fn tell<M>(
         &mut self,
@@ -93,7 +54,4 @@ pub trait Tell: Messaging {
     }
 }
 
-impl_error_kind!(AskErrorKind);
-
-impl<T> Ask for T where T: Messaging + Fork {}
 impl<T> Tell for T where T: Messaging {}

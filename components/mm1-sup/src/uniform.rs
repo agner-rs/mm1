@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::time::Duration;
 
 use mm1_address::address::Address;
+use mm1_ask::Reply;
 use mm1_common::errors::error_kind::HasErrorKind;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::log::{debug, warn};
@@ -11,6 +12,7 @@ use mm1_core::context::{
 };
 use mm1_core::envelope::dispatch;
 use mm1_proto::message;
+use mm1_proto_ask::Request;
 use mm1_proto_sup::uniform::{self as unisup};
 use mm1_proto_system::{
     StartErrorKind, StopErrorKind, {self as system},
@@ -45,7 +47,8 @@ pub async fn uniform_sup<R, Ctx, F>(
 ) -> Result<(), UniformSupFailure>
 where
     R: Send + 'static,
-    Ctx: Fork + Messaging + Quit + InitDone + Linking + Watching + Start<F::Runnable> + Stop,
+    Ctx:
+        Fork + Messaging + Quit + InitDone + Linking + Watching + Start<F::Runnable> + Stop + Reply,
     F: ActorFactory<Runnable = R>,
     F::Args: Send,
 {
@@ -68,7 +71,10 @@ where
 
     loop {
         dispatch!(match ctx.recv().await.map_err(UniformSupFailure::recv)? {
-            unisup::StartRequest::<F::Args> { reply_to, args } => {
+            Request::<_, ()> {
+                header: reply_to,
+                payload: unisup::StartRequest::<F::Args> { args },
+            } => {
                 debug!("start request [reply_to: {}]", reply_to);
 
                 let runnable = factory.produce(args);
@@ -79,7 +85,7 @@ where
                         async move {
                             let result =
                                 do_start_child(&mut ctx, sup_address, init_type, runnable).await;
-                            let _ = ctx.tell(reply_to, result).await;
+                            let _ = ctx.reply(reply_to, result).await;
                         }
                     })
                     .await;
@@ -89,7 +95,10 @@ where
                 assert!(started_children.insert(child));
             },
 
-            unisup::StopRequest { reply_to, child } => {
+            Request::<_, ()> {
+                header: reply_to,
+                payload: unisup::StopRequest { child },
+            } => {
                 debug!("stop request [reply_to: {}; child: {}]", reply_to, child);
 
                 if stopping_children.insert(child) {
@@ -100,13 +109,13 @@ where
                             async move {
                                 let result =
                                     do_stop_child(&mut ctx, sup_address, stop_timeout, child).await;
-                                let _ = ctx.tell(reply_to, result).await;
+                                let _ = ctx.reply(reply_to, result).await;
                             }
                         })
                         .await;
                 } else {
                     let _ = ctx
-                        .tell(
+                        .reply(
                             reply_to,
                             unisup::StopResponse::Err(ErrorOf::new(
                                 StopErrorKind::NotFound,

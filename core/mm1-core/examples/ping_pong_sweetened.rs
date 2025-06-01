@@ -2,16 +2,16 @@ pub mod ping_pong {
     use std::time::Duration;
 
     use mm1_address::address::Address;
-    use mm1_core::context::{Ask, Fork, Messaging, Tell};
+    use mm1_ask::{Ask, Reply};
+    use mm1_core::context::{Fork, Messaging, Tell};
     use mm1_core::envelope::dispatch;
     use mm1_proto::message;
-    use tokio::time;
+    use mm1_proto_ask::Request;
 
     #[derive(Debug)]
     #[message]
     pub struct Ping {
-        reply_to: Address,
-        seq_num:  u64,
+        seq_num: u64,
     }
 
     #[derive(Debug)]
@@ -30,12 +30,15 @@ pub mod ping_pong {
 
     pub async fn server<Ctx>(ctx: &mut Ctx) -> Result<(), eyre::Report>
     where
-        Ctx: Messaging,
+        Ctx: Messaging + Reply,
     {
         loop {
             let keep_running = dispatch!(match ctx.recv().await? {
-                Ping { reply_to, seq_num } => {
-                    let _ = ctx.tell(reply_to, Pong { seq_num }).await;
+                Request::<_, ()> {
+                    header: reply_to,
+                    payload: Ping { seq_num },
+                } => {
+                    let _ = ctx.reply(reply_to, Pong { seq_num }).await;
                     true
                 },
                 Forward::<Ping> {
@@ -65,14 +68,7 @@ pub mod ping_pong {
         Ctx: Messaging + Fork,
     {
         for seq_num in 1..=(times as u64) {
-            dispatch!(match time::timeout(
-                timeout,
-                ctx.ask(to, |reply_to| Ping { reply_to, seq_num }),
-            )
-            .await??
-            {
-                Pong { .. } => (),
-            });
+            let Pong { .. } = ctx.ask(to, Ping { seq_num }, timeout).await?;
         }
         Ok(())
     }
