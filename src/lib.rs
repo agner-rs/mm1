@@ -138,9 +138,9 @@ pub mod core {
         pub use mm1_core::context::Start;
         /// Watch/unwatch the termination of other actors.
         pub use mm1_core::context::Watching;
-        /// A convenience trait for request-response interation with other
+        /// A convenience traits for simple interation with other
         /// actors.
-        pub use mm1_core::context::{Ask, AskErrorKind};
+        pub use mm1_core::context::{Ask, AskErrorKind, Tell};
         /// Create another context, having an address distinct from the original
         /// context's one.
         pub use mm1_core::context::{Fork, ForkErrorKind};
