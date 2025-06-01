@@ -465,7 +465,7 @@ dependencies = [
 
 [[package]]
 name = "mm1"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -485,7 +485,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-address"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "insta",
  "parking_lot",
@@ -495,7 +495,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-common"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "mm1-proc-macros",
  "pin-project",
@@ -506,7 +506,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-core"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "eyre",
  "futures",
@@ -521,7 +521,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-logger"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "serde",
  "structopt",
@@ -531,7 +531,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-node"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "async-channel",
  "either",
@@ -554,7 +554,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proc-macros"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "either",
  "proc-macro2",
@@ -564,7 +564,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "mm1-proc-macros",
  "parking_lot",
@@ -572,7 +572,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-sup"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -583,7 +583,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-system"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -592,7 +592,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-timer"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "derive_more",
  "mm1-proto",
@@ -601,7 +601,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-sup"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "either",
  "insta",
@@ -622,7 +622,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-test-rt"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "derive_more",
  "futures",
@@ -637,7 +637,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-timer"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "futures",
  "insta",

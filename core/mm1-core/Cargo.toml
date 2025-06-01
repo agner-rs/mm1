@@ -1,6 +1,6 @@
 [package]
 name = "mm1-core"
-version = "0.6.0"
+version = "0.6.1"
 edition = "2024"
 
 license = "MIT"
@@ -8,12 +8,14 @@ authors = ["That Roma <mm1@thatroma.me>"]
 repository = "https://github.com/agner-rs/mm1"
 description = "M/M/1! Queueing, do you speak it?!"
 
+exclude = ["**/*.snap"]
+
 [features]
 default = ["test-util"]
 test-util = []
 
 [dependencies]
-mm1-common = {workspace = true, features = ["logging", "futures"], version = "0.6.0" }
+mm1-common = {workspace = true, features = ["logging", "futures"] }
 mm1-address.workspace = true
 mm1-proto.workspace = true
 mm1-proto-system.workspace = true
