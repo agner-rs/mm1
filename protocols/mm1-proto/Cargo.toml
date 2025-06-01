@@ -1,0 +1,25 @@
+[package]
+name = "mm1-proto"
+version = "0.6.1"
+edition = "2024"
+
+license = "MIT"
+authors = ["That Roma <mm1@thatroma.me>"]
+repository = "https://github.com/agner-rs/mm1"
+description = "M/M/1! Queueing, do you speak it?!"
+
+exclude = ["**/*.snap"]
+
+[features]
+default = ["test-util"]
+test-util = []
+
+[dependencies]
+mm1-proc-macros.workspace = true
+
+parking_lot.workspace = true
+
+[dev-dependencies]
+# eyre.workspace = true
+# tokio = {workspace = true, features = ["time"]}
+

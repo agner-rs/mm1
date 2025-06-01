@@ -1,0 +1,93 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main", "dev", "*/dev" ]
+  pull_request:
+    branches: [ "*" ]
+
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to run the workflow on"
+        required: true
+        default: main
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+    
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+    
+      - name: Cache Cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+    
+      - name: Cache Cargo index
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-index-
+    
+      - name: Cache Cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-build-
+    
+      # - name: Cache cargo-nextest
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: ~/.cargo/bin/cargo-nextest
+      #     key: ${{ runner.os }}-cargo-nextest
+    
+      # - name: Install cargo-nextest
+      #   run: |
+      #     if [ ! -x ~/.cargo/bin/cargo-nextest ]; then
+      #       cargo install cargo-nextest --locked
+      #     fi
+    
+      - name: "Check: no default features"
+        run: cargo check --workspace --all-targets --no-default-features -p mm1
+      
+      - name: "Check: feature=runtime"
+        run: cargo check --workspace --all-targets --no-default-features -p mm1 --features runtime
+      
+      - name: "Check: feature=sup"
+        run: cargo check --workspace --all-targets --no-default-features -p mm1 --features sup
+      
+      - name: "Check: feature=timer"
+        run: cargo check --workspace --all-targets --no-default-features -p mm1 --features timer
+
+      # - name: "Check: feature=multinode"
+      #   run: cargo check  --workspace --all-targets --no-default-features -p mm1 --features multinode
+
+      # - name: "Check: feature=multinode-serde"
+      #   run: cargo check --workspace --all-targets --no-default-features -p mm1 --features multinode-serde
+
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-features --all-targets -- -D warnings
+    
+      - name: Run tests
+        run: cargo test --workspace --all-targets --all-features

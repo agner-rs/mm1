@@ -1,0 +1,24 @@
+[package]
+name = "mm1-address"
+version = "0.6.1"
+edition = "2024"
+
+license = "MIT"
+authors = ["That Roma <mm1@thatroma.me>"]
+repository = "https://github.com/agner-rs/mm1"
+description = "M/M/1! Queueing, do you speak it?!"
+
+exclude = ["**/*.snap"]
+
+[features]
+default = []
+serde = ["dep:serde"]
+
+[dependencies]
+parking_lot.workspace = true
+serde = {workspace = true, optional = true, features = ["derive"]}
+thiserror.workspace = true
+
+[dev-dependencies]
+
+insta = { version = "1.29.0", features = ["yaml", "json", "redactions"] }

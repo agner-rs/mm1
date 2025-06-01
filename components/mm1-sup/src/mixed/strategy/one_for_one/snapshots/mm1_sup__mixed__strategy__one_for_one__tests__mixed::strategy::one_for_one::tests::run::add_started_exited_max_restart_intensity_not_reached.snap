@@ -1,0 +1,14 @@
+---
+source: crates/mm1-sup/src/mixed/strategy/one_for_one/tests.rs
+expression: report
+---
+- "RestartIntensity { max_restarts: 1, within: 30s }"
+- "ADD     [one]"
+- DECIDE
+- ">>> Start(one)"
+- "STARTED [one] / <:1>"
+- DECIDE
+- "EXITED  <:1> normal_exit=false"
+- DECIDE
+- ">>> Start(one)"
+- "STARTED [one] / <:2>"
