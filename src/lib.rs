@@ -150,6 +150,18 @@ pub mod core {
     }
 }
 
+#[cfg(feature = "ask")]
+pub mod ask {
+    pub use mm1_ask::{Ask, Reply};
+
+    pub mod proto {
+        pub mod simple {
+            pub type RequestHeader = mm1_proto_ask::RequestHeader<()>;
+            pub type Request<Rq> = mm1_proto_ask::Request<Rq, ()>;
+        }
+    }
+}
+
 #[cfg(feature = "sup")]
 pub mod sup {
     //! Supervisors — the actors that manage other actors.

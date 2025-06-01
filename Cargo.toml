@@ -11,8 +11,9 @@ description = "M/M/1! Queueing, do you speak it?!"
 exclude = ["**/*.snap"]
 
 [features]
-default = ["runtime", "sup", "timer"]
+default = ["ask", "runtime", "sup", "timer"]
 
+ask = ["dep:mm1-ask", "dep:mm1-proto-ask"]
 multinode = ["dep:mm1-message-codec", "dep:mm1-multinode"]
 multinode-serde = ["multinode", "dep:mm1-message-codec-serde", "mm1-multinode/serde"]
 multinode-serde-json = ["multinode-serde", "mm1-multinode/serde-json"]
@@ -23,6 +24,7 @@ timer = ["dep:mm1-timer", "dep:mm1-proto-timer"]
 
 [dependencies]
 mm1-address = { workspace = true }
+mm1-ask = { workspace = true, optional = true }
 mm1-common = {workspace = true, features = ["futures"] }
 mm1-core = { workspace = true }
 mm1-message-codec = { workspace = true, optional = true }
@@ -30,6 +32,7 @@ mm1-message-codec-serde = { workspace = true, optional = true }
 mm1-multinode = { workspace = true, optional = true }
 mm1-node = { workspace = true, optional = true }
 mm1-proto = { workspace = true }
+mm1-proto-ask = { workspace = true, optional = true }
 mm1-proto-system = { workspace = true }
 mm1-proto-sup = { workspace = true, optional = true }
 mm1-proto-timer = { workspace = true, optional = true }

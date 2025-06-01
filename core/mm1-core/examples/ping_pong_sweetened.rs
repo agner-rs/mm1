@@ -68,7 +68,7 @@ pub mod ping_pong {
         Ctx: Messaging + Fork,
     {
         for seq_num in 1..=(times as u64) {
-            let Pong { .. } = ctx.ask(to, Ping { seq_num }, timeout).await?;
+            let Pong { .. } = ctx.fork_ask(to, Ping { seq_num }, timeout).await?;
         }
         Ok(())
     }

@@ -468,6 +468,7 @@ name = "mm1"
 version = "0.6.1"
 dependencies = [
  "mm1-address",
+ "mm1-ask",
  "mm1-common",
  "mm1-core",
  "mm1-logger",
@@ -476,6 +477,7 @@ dependencies = [
  "mm1-multinode",
  "mm1-node",
  "mm1-proto",
+ "mm1-proto-ask",
  "mm1-proto-sup",
  "mm1-proto-system",
  "mm1-proto-timer",
