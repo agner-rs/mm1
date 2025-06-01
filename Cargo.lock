@@ -465,7 +465,7 @@ dependencies = [
 
 [[package]]
 name = "mm1"
-version = "0.5.4"
+version = "0.6.1"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -488,7 +488,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-address"
-version = "0.5.4"
+version = "0.6.1"
 dependencies = [
  "insta",
  "parking_lot",
@@ -498,7 +498,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-common"
-version = "0.5.4"
+version = "0.6.1"
 dependencies = [
  "mm1-proc-macros",
  "pin-project",
@@ -509,7 +509,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-core"
-version = "0.5.4"
+version = "0.6.1"
 dependencies = [
  "eyre",
  "futures",
@@ -524,7 +524,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-logger"
-version = "0.5.4"
+version = "0.6.1"
 dependencies = [
  "serde",
  "structopt",
@@ -534,14 +534,14 @@ dependencies = [
 
 [[package]]
 name = "mm1-message-codec"
-version = "0.5.4"
+version = "0.6.1"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "mm1-message-codec-serde"
-version = "0.5.4"
+version = "0.6.1"
 dependencies = [
  "insta",
  "mm1-address",
@@ -554,7 +554,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-multinode"
-version = "0.5.4"
+version = "0.6.1"
 dependencies = [
  "mm1-address",
  "mm1-core",
@@ -564,7 +564,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-node"
-version = "0.5.4"
+version = "0.6.1"
 dependencies = [
  "async-channel",
  "either",
@@ -587,7 +587,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proc-macros"
-version = "0.5.4"
+version = "0.6.1"
 dependencies = [
  "either",
  "proc-macro2",
@@ -597,7 +597,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto"
-version = "0.5.4"
+version = "0.6.1"
 dependencies = [
  "mm1-proc-macros",
  "parking_lot",
@@ -605,7 +605,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-sup"
-version = "0.5.4"
+version = "0.6.1"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -616,7 +616,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-system"
-version = "0.5.4"
+version = "0.6.1"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -625,18 +625,16 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-timer"
-version = "0.5.4"
+version = "0.6.1"
 dependencies = [
  "derive_more",
- "mm1-address",
- "mm1-common",
  "mm1-proto",
  "serde",
 ]
 
 [[package]]
 name = "mm1-sup"
-version = "0.5.4"
+version = "0.6.1"
 dependencies = [
  "either",
  "insta",
@@ -657,7 +655,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-test-rt"
-version = "0.5.4"
+version = "0.6.1"
 dependencies = [
  "derive_more",
  "futures",
@@ -666,14 +664,13 @@ dependencies = [
  "mm1-core",
  "mm1-logger",
  "mm1-proto-system",
- "parking_lot",
  "thiserror",
  "tokio",
 ]
 
 [[package]]
 name = "mm1-timer"
-version = "0.5.4"
+version = "0.6.1"
 dependencies = [
  "futures",
  "insta",
@@ -686,7 +683,6 @@ dependencies = [
  "mm1-test-rt",
  "serde",
  "serde_json",
- "slotmap",
  "test-case",
  "thiserror",
  "tokio",
@@ -1004,15 +1000,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "slotmap"
-version = "1.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbff4acf519f630b3a3ddcfaea6c06b42174d9a44bc70c620e9ed1649d58b82a"
-dependencies = [
- "version_check",
-]
-
-[[package]]
 name = "smallvec"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1154,9 +1141,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.45.0"
+version = "1.45.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2513ca694ef9ede0fb23fe71a4ee4107cb102b9dc1930f6d0fd77aae068ae165"
+checksum = "75ef51a33ef1da925cea3e4eb122833cb377c61439ca401b770f54902b806779"
 dependencies = [
  "backtrace",
  "libc",

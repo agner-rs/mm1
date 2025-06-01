@@ -39,21 +39,6 @@ pub mod proto {
     pub use mm1_proto_system as system;
 }
 
-#[doc(hidden)]
-#[cfg(feature = "multinode")]
-pub mod message_codec {
-    pub use mm1_message_codec::{codec, compose};
-
-    pub mod codecs {
-        #[cfg(feature = "multinode-serde")]
-        pub mod serde {
-            pub use mm1_message_codec_serde::extractors::StandardExtractor;
-            pub use mm1_message_codec_serde::json;
-            pub use mm1_message_codec_serde::packet::Packet;
-        }
-    }
-}
-
 pub mod address {
     //! Addresses, masks, subnets.
     //!
@@ -153,9 +138,9 @@ pub mod core {
         pub use mm1_core::context::Start;
         /// Watch/unwatch the termination of other actors.
         pub use mm1_core::context::Watching;
-        /// A convenience trait for request-response interation with other
+        /// A convenience traits for simple interation with other
         /// actors.
-        pub use mm1_core::context::{Ask, AskErrorKind};
+        pub use mm1_core::context::{Ask, AskErrorKind, Tell};
         /// Create another context, having an address distinct from the original
         /// context's one.
         pub use mm1_core::context::{Fork, ForkErrorKind};
@@ -210,6 +195,21 @@ pub mod timer {
     pub mod plumbing {
         pub use mm1_proto_timer as timer_protocol;
         pub use mm1_timer::actor::timer_actor;
+    }
+}
+
+#[doc(hidden)]
+#[cfg(feature = "multinode")]
+pub mod message_codec {
+    pub use mm1_message_codec::{codec, compose};
+
+    pub mod codecs {
+        #[cfg(feature = "multinode-serde")]
+        pub mod serde {
+            pub use mm1_message_codec_serde::extractors::StandardExtractor;
+            pub use mm1_message_codec_serde::json;
+            pub use mm1_message_codec_serde::packet::Packet;
+        }
     }
 }
 

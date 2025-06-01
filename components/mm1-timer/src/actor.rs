@@ -82,6 +82,7 @@ where
 
                     // FIXME: should probably, in case of `Err(Full)`, yield and retry several times
                     ctx.tell(receiver, msg).await?;
+
                     task::yield_now().await;
                 }
                 log::trace!("wake:done");

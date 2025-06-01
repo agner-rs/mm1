@@ -1,6 +1,6 @@
 [package]
 name = "mm1-message-codec-serde"
-version = "0.5.4"
+version = "0.6.1"
 edition = "2024"
 
 license = "MIT"
@@ -8,6 +8,7 @@ authors = ["That Roma <mm1@thatroma.me>"]
 repository = "https://github.com/agner-rs/mm1"
 description = "M/M/1! Queueing, do you speak it?!"
 
+exclude = ["**/*.snap"]
 [features]
 default = ["json"]
 json = ["dep:serde_json"]
