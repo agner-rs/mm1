@@ -106,8 +106,8 @@ impl RtApi {
         Ok(())
     }
 
-    pub(crate) fn send(&self, priority: bool, inbound: Envelope) -> Result<(), SendErrorKind> {
-        let to = inbound.info().to;
+    pub(crate) fn send(&self, priority: bool, outbound: Envelope) -> Result<(), SendErrorKind> {
+        let to = outbound.info().to;
         let entry = self
             .inner
             .registry
@@ -117,14 +117,14 @@ impl RtApi {
             entry
                 .get()
                 .tx_priority
-                .send(inbound)
+                .send(outbound)
                 .map_err(|_| SendErrorKind::Closed)
                 .map(|_| ())
         } else {
             entry
                 .get()
                 .tx_regular
-                .try_send(inbound)
+                .try_send(outbound)
                 .map_err(|e| {
                     match e {
                         TrySendError::Closed(_) => SendErrorKind::Closed,
