@@ -4,7 +4,7 @@ use std::ops::{Add, Sub};
 
 use mm1_proto::{Message, message};
 
-pub trait Timer: 'static {
+pub trait Timer: Send + 'static {
     type Key: Ord + Clone + Send + Hash;
     type Instant: Copy
         + Send

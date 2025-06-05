@@ -6,6 +6,7 @@ mod with_tokio_time {
     use std::time::Duration;
 
     use mm1_core::context::{Fork, Messaging, Now, Quit};
+    use mm1_timer::api::TimerApi;
 
     async fn main_actor<Ctx>(ctx: &mut Ctx)
     where
