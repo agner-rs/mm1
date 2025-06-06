@@ -41,3 +41,22 @@ where
         }
     }
 }
+
+impl<Ctx, E> ActorExit<Ctx> for Result<Never, E>
+where
+    E: Into<AnyError> + Send + Sync + 'static,
+    Ctx: Quit,
+{
+    fn exit(self, context: &mut Ctx) -> impl Future<Output = Never> + Send + '_ {
+        #[derive(Debug, thiserror::Error)]
+        #[error("wrapped dyn-error: {}", _0)]
+        struct AnyErrorWrapped(AnyError);
+
+        async move {
+            match self.map_err(Into::into).map_err(AnyErrorWrapped) {
+                Ok(never) => match never {},
+                Err(reason) => context.quit_err(reason).await,
+            }
+        }
+    }
+}
