@@ -56,6 +56,12 @@ impl NetMask {
     }
 }
 
+impl From<Address> for NetAddress {
+    fn from(address: Address) -> Self {
+        (address, NetMask::M_64).into()
+    }
+}
+
 impl From<(Address, NetMask)> for NetAddress {
     fn from((address, mask): (Address, NetMask)) -> Self {
         Self { address, mask }
