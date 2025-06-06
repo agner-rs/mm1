@@ -10,7 +10,7 @@ where
     Ctx: Send,
 {
     async fn exit(self, _context: &mut Ctx) -> Never {
-        unreachable!("it's an empty type")
+        match self {}
     }
 }
 
