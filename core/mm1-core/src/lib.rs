@@ -4,6 +4,7 @@
 
 pub use mm1_proto as prim;
 
+pub mod actor_exit;
 pub mod context;
 pub mod envelope;
 pub mod message;

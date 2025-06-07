@@ -36,6 +36,7 @@ mm1-proto-ask = { workspace = true, optional = true }
 mm1-proto-system = { workspace = true }
 mm1-proto-sup = { workspace = true, optional = true }
 mm1-proto-timer = { workspace = true, optional = true }
+mm1-runnable = { workspace = true }
 mm1-sup = { workspace = true, optional = true }
 mm1-test-rt = { workspace = true, optional = true }
 mm1-timer = {workspace = true, optional = true }
@@ -61,6 +62,7 @@ members = [
 [workspace.dependencies]
 mm1-core = {path = "core/mm1-core", version = "=0.6.1" }
 mm1-node = {path = "core/mm1-node", version = "=0.6.1" }
+mm1-runnable = {path = "core/mm1-runnable", version = "=0.6.1" }
 mm1-test-rt = {path = "core/mm1-test-rt", version = "=0.6.1" }
 
 mm1-multinode = {path = "components/mm1-multinode", version = "=0.6.1" }

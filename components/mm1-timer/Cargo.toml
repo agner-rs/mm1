@@ -33,6 +33,8 @@ test-case.workspace = true
 tokio = {workspace = true, features = ["rt", "macros", "time", "test-util"]}
 
 mm1-logger.workspace = true
-mm1-proto-timer = {workspace = true, features = ["serde"] }
-mm1-test-rt.workspace = true
 mm1-node.workspace = true
+mm1-proto-timer = {workspace = true, features = ["serde"] }
+mm1-runnable.workspace = true
+mm1-test-rt.workspace = true
+

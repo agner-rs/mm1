@@ -6,9 +6,7 @@ use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::types::{AnyError, Never, StdError};
 use mm1_core::context::*;
 use mm1_core::envelope::Envelope;
-use mm1_node::runtime::runnable::{
-    ActorRun, {self},
-};
+use mm1_runnable::local::{self, ActorRun};
 use tokio::time;
 
 async fn actor_exits<C: Quit>(context: &mut C) -> Never {
@@ -78,30 +76,30 @@ impl Quit for Context {
 async fn from_fn() {
     let mut context = Context(Address::from_u64(1));
 
-    run_it(&mut context, runnable::from_fn(actor_returns_unit)).await;
-    run_it(&mut context, runnable::from_fn(actor_returns_result)).await;
-    run_it(&mut context, runnable::from_fn(actor_returns_any_error)).await;
-    run_it(&mut context, runnable::from_fn(actor_exits)).await;
+    run_it(&mut context, local::from_fn(actor_returns_unit)).await;
+    run_it(&mut context, local::from_fn(actor_returns_result)).await;
+    run_it(&mut context, local::from_fn(actor_returns_any_error)).await;
+    run_it(&mut context, local::from_fn(actor_exits)).await;
 
     run_it(
         &mut context,
-        runnable::from_fn((actor_accepts_one_arg, ("named actor",))),
+        local::from_fn((actor_accepts_one_arg, ("named actor",))),
     )
     .await;
 
     run_it(
         &mut Context(Address::from_u64(10)),
-        runnable::from_fn((actor_accepts_two_args, ("worker", 0))),
+        local::from_fn((actor_accepts_two_args, ("worker", 0))),
     )
     .await;
     run_it(
         &mut Context(Address::from_u64(11)),
-        runnable::from_fn((actor_accepts_two_args, ("worker", 1))),
+        local::from_fn((actor_accepts_two_args, ("worker", 1))),
     )
     .await;
     run_it(
         &mut Context(Address::from_u64(12)),
-        runnable::from_fn((actor_accepts_two_args, ("worker", 2))),
+        local::from_fn((actor_accepts_two_args, ("worker", 2))),
     )
     .await;
 }
@@ -110,29 +108,29 @@ async fn from_fn() {
 async fn boxed_from_fn() {
     let mut context = Context(Address::from_u64(1));
 
-    run_it(&mut context, runnable::boxed_from_fn(actor_returns_unit)).await;
-    run_it(&mut context, runnable::boxed_from_fn(actor_returns_result)).await;
-    run_it(&mut context, runnable::boxed_from_fn(actor_exits)).await;
+    run_it(&mut context, local::boxed_from_fn(actor_returns_unit)).await;
+    run_it(&mut context, local::boxed_from_fn(actor_returns_result)).await;
+    run_it(&mut context, local::boxed_from_fn(actor_exits)).await;
 
     run_it(
         &mut context,
-        runnable::boxed_from_fn((actor_accepts_one_arg, ("named actor",))),
+        local::boxed_from_fn((actor_accepts_one_arg, ("named actor",))),
     )
     .await;
 
     run_it(
         &mut Context(Address::from_u64(10)),
-        runnable::boxed_from_fn((actor_accepts_two_args, ("worker", 0))),
+        local::boxed_from_fn((actor_accepts_two_args, ("worker", 0))),
     )
     .await;
     run_it(
         &mut Context(Address::from_u64(11)),
-        runnable::boxed_from_fn((actor_accepts_two_args, ("worker", 1))),
+        local::boxed_from_fn((actor_accepts_two_args, ("worker", 1))),
     )
     .await;
     run_it(
         &mut Context(Address::from_u64(12)),
-        runnable::boxed_from_fn((actor_accepts_two_args, ("worker", 2))),
+        local::boxed_from_fn((actor_accepts_two_args, ("worker", 2))),
     )
     .await;
 }

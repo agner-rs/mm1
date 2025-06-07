@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use mm1_runnable::local::BoxedRunnable;
 use tokio::runtime::{Handle, Runtime};
 use tracing::{instrument, warn};
 
@@ -10,7 +11,6 @@ use crate::runtime::config::Mm1Config;
 use crate::runtime::container::{Container, ContainerArgs, ContainerError};
 use crate::runtime::context;
 use crate::runtime::rt_api::{RequestAddressError, RtApi};
-use crate::runtime::runnable::BoxedRunnable;
 
 #[derive(Debug)]
 pub struct Rt {

@@ -5,7 +5,8 @@ use std::time::Duration;
 use mm1_common::log;
 use mm1_core::context::{Fork, Messaging, Now, Quit};
 use mm1_core::envelope::dispatch;
-use mm1_node::runtime::{Local, Rt};
+use mm1_node::runtime::Rt;
+use mm1_runnable::local;
 use mm1_timer::api::TimerApi;
 use tokio::task;
 use tokio::time::Instant;
@@ -18,7 +19,7 @@ fn test() {
     let _ = mm1_logger::init(&logger_config());
     Rt::create(Default::default())
         .unwrap()
-        .run(Local::actor(main))
+        .run(local::boxed_from_fn(main))
         .unwrap();
 }
 

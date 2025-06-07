@@ -12,12 +12,12 @@ use mm1_common::futures::catch_panic::CatchPanicExt;
 use mm1_common::types::AnyError;
 use mm1_core::envelope::{Envelope, EnvelopeHeader};
 use mm1_proto_system::{self as system};
+use mm1_runnable::local::{ActorRun, BoxedRunnable};
 use tracing::{instrument, trace};
 
 use super::config::{EffectiveActorConfig, Mm1Config};
 use crate::runtime::actor_key::ActorKey;
 use crate::runtime::rt_api::{RequestAddressError, RtApi};
-use crate::runtime::runnable::{ActorRun, BoxedRunnable};
 use crate::runtime::sys_call::{self, SysCall};
 use crate::runtime::sys_msg::{ExitReason, SysLink, SysMsg, SysWatch};
 use crate::runtime::{context, mq};

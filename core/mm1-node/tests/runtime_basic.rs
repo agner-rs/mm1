@@ -4,9 +4,10 @@ use mm1_address::address::Address;
 use mm1_common::types::Never;
 use mm1_core::context::{Fork, InitDone, Messaging, Quit, Start, Stop, Tell};
 use mm1_core::envelope::dispatch;
+use mm1_node::runtime::Rt;
 use mm1_node::runtime::config::Mm1Config;
-use mm1_node::runtime::{Local, Rt, runnable};
 use mm1_proto::message;
+use mm1_runnable::local::{self, BoxedRunnable};
 
 #[test]
 fn hello_runtime() {
@@ -20,13 +21,13 @@ fn hello_runtime() {
     .expect("parse-config error");
     eprintln!("config: {:#?}", config);
     let rt = Rt::create(config).unwrap();
-    rt.run(runnable::boxed_from_fn(main))
+    rt.run(local::boxed_from_fn(main))
         .expect("main actor run error");
 }
 
 async fn main<Ctx>(ctx: &mut Ctx)
 where
-    Ctx: Fork + Messaging + Start<Local>,
+    Ctx: Fork + Messaging + Start<BoxedRunnable<Ctx>> + Quit + InitDone + Stop + Sync,
 {
     eprintln!("Hello! I'm the-main! [addr: {}]", ctx.address());
 
@@ -34,7 +35,10 @@ where
     let mut addresses = vec![];
 
     while let Ok(started_address) = ctx
-        .spawn(Local::actor((child, (idxs.next().unwrap(),))), false)
+        .spawn(
+            local::boxed_from_fn((child, (idxs.next().unwrap(),))),
+            false,
+        )
         .await
     {
         eprintln!("- {}", started_address);

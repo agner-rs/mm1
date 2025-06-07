@@ -1,9 +1,12 @@
 use std::future::Future;
 
 use mm1_common::types::{AnyError, Never};
-use mm1_core::context::Quit;
 
-use crate::runtime::runnable::ActorExit;
+use crate::context::Quit;
+
+pub trait ActorExit<Ctx>: 'static {
+    fn exit(self, context: &mut Ctx) -> impl Future<Output = Never> + Send + '_;
+}
 
 impl<Ctx> ActorExit<Ctx> for Never
 where

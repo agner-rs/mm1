@@ -15,11 +15,13 @@ default = ["serde"]
 serde = ["dep:serde", "mm1-address/serde"]
 
 [dependencies]
+mm1-address.workspace = true
 mm1-common = {workspace = true, features = ["futures", "logging"] }
 mm1-core.workspace = true
 mm1-proto.workspace = true
 mm1-proto-system.workspace = true
-mm1-address.workspace = true
+mm1-runnable.workspace = true
+
 
 # mm1-proc-macros.workspace = true
 

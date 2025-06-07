@@ -13,6 +13,7 @@ use mm1_core::envelope::{Envelope, EnvelopeHeader};
 use mm1_node::runtime::{Local, Rt};
 use mm1_proto::message;
 use mm1_proto_sup::uniform;
+use mm1_runnable::local;
 use mm1_sup::common::child_spec::{ChildSpec, ChildType, InitType};
 use mm1_sup::common::factory::{ActorFactory, ActorFactoryMut};
 use mm1_sup::uniform::{UniformSup, uniform_sup};
@@ -75,7 +76,7 @@ fn test_01() {
         Ctx: Fork + Messaging + Start<Local> + Ask,
     {
         let factory = ActorFactoryMut::new(|(reply_to, duration): (Address, Duration)| {
-            Local::actor((worker, (reply_to, duration)))
+            local::boxed_from_fn((worker, (reply_to, duration)))
         });
         let child = ChildSpec {
             launcher:     factory,
@@ -86,7 +87,7 @@ fn test_01() {
             stop_timeout: Duration::from_secs(1),
         };
         let sup = UniformSup::new(child);
-        let sup_runnable = Local::actor((uniform_sup, (sup,)));
+        let sup_runnable = local::boxed_from_fn((uniform_sup, (sup,)));
 
         let sup_addr = ctx
             .start(sup_runnable, true, Duration::from_secs(1))
@@ -152,7 +153,7 @@ fn test_01() {
 
     Rt::create(Default::default())
         .expect("Rt::create")
-        .run(Local::actor(main))
+        .run(local::boxed_from_fn(main))
         .expect("Rt::run");
 }
 

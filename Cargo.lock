@@ -481,6 +481,7 @@ dependencies = [
  "mm1-proto-sup",
  "mm1-proto-system",
  "mm1-proto-timer",
+ "mm1-runnable",
  "mm1-sup",
  "mm1-test-rt",
  "mm1-timer",
@@ -535,6 +536,7 @@ dependencies = [
  "mm1-proto",
  "mm1-proto-ask",
  "mm1-proto-system",
+ "thiserror",
  "tokio",
  "tracing",
 ]
@@ -592,6 +594,7 @@ dependencies = [
  "mm1-logger",
  "mm1-proto",
  "mm1-proto-system",
+ "mm1-runnable",
  "num_cpus",
  "pin-project",
  "scc",
@@ -659,6 +662,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "mm1-runnable"
+version = "0.6.1"
+dependencies = [
+ "eyre",
+ "futures",
+ "mm1-address",
+ "mm1-ask",
+ "mm1-common",
+ "mm1-core",
+ "mm1-proc-macros",
+ "mm1-proto",
+ "mm1-proto-ask",
+ "mm1-proto-system",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "mm1-sup"
 version = "0.6.1"
 dependencies = [
@@ -674,6 +695,7 @@ dependencies = [
  "mm1-proto-ask",
  "mm1-proto-sup",
  "mm1-proto-system",
+ "mm1-runnable",
  "mm1-test-rt",
  "parking_lot",
  "test-case",
@@ -708,6 +730,7 @@ dependencies = [
  "mm1-logger",
  "mm1-node",
  "mm1-proto-timer",
+ "mm1-runnable",
  "mm1-test-rt",
  "serde",
  "serde_json",

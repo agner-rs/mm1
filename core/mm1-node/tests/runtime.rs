@@ -8,6 +8,7 @@ use mm1_core::envelope::dispatch;
 use mm1_node::runtime::{Local, Rt};
 use mm1_proto::message;
 use mm1_proto_system::Exited;
+use mm1_runnable::local;
 use tokio::runtime::Runtime;
 use tokio::sync::{Notify, oneshot};
 
@@ -34,7 +35,7 @@ fn main_actor_is_executed() {
         info!("Bye!");
     }
     let rt = Rt::create(Default::default()).expect("Rt::create");
-    rt.run(Local::actor((main, (tx,)))).expect("rt.run");
+    rt.run(local::boxed_from_fn((main, (tx,)))).expect("rt.run");
     Runtime::new().unwrap().block_on(rx).expect("rx.await");
 }
 
@@ -50,7 +51,7 @@ fn main_actor_forks() {
         info!("I'm main!");
 
         let (tx_next, rx_next) = oneshot::channel();
-        let runnable = Local::actor((child, (tx_next,)));
+        let runnable = local::boxed_from_fn((child, (tx_next,)));
         let _ = ctx.spawn(runnable, false).await;
         rx_next.await.expect("rx_next.expect");
         tx.send(()).expect("tx.send");
@@ -62,7 +63,7 @@ fn main_actor_forks() {
     }
 
     let rt = Rt::create(Default::default()).expect("Rt::create");
-    rt.run(Local::actor((main, (tx,)))).expect("rt.run");
+    rt.run(local::boxed_from_fn((main, (tx,)))).expect("rt.run");
     Runtime::new().unwrap().block_on(rx).expect("rx.await");
 }
 
@@ -76,7 +77,7 @@ fn main_actor_panics() {
         panic!("I have to, really");
     }
     let rt = Rt::create(Default::default()).expect("Rt::create");
-    rt.run(Local::actor(main)).expect("rt.run");
+    rt.run(local::boxed_from_fn(main)).expect("rt.run");
 }
 
 #[test]
@@ -92,7 +93,7 @@ fn child_actor_panics() {
 
         ctx.set_trap_exit(true).await;
         let _ = ctx
-            .spawn(Local::actor(child), true)
+            .spawn(local::boxed_from_fn(child), true)
             .await
             .expect("spawn failed");
 
@@ -107,7 +108,7 @@ fn child_actor_panics() {
     }
 
     let rt = Rt::create(Default::default()).expect("Rt::create");
-    rt.run(Local::actor((main, (tx,)))).expect("rt.run");
+    rt.run(local::boxed_from_fn((main, (tx,)))).expect("rt.run");
     Runtime::new().unwrap().block_on(rx).expect("rx.await");
 }
 
@@ -131,7 +132,7 @@ fn message_is_sent_and_received() {
         info!("I'm main!");
 
         let child_address = ctx
-            .start(Local::actor(child), true, Duration::from_secs(1))
+            .start(local::boxed_from_fn(child), true, Duration::from_secs(1))
             .await
             .expect("start failed");
         let _ = ctx
@@ -164,7 +165,7 @@ fn message_is_sent_and_received() {
 
     let (tx, rx) = oneshot::channel();
     let rt = Rt::create(Default::default()).expect("Rt::create");
-    rt.run(Local::actor((main, (tx,)))).expect("rt.run");
+    rt.run(local::boxed_from_fn((main, (tx,)))).expect("rt.run");
     Runtime::new().unwrap().block_on(rx).expect("rx.await");
 }
 
@@ -181,7 +182,7 @@ fn child_actor_force_exit_with_trapexit() {
 
         ctx.set_trap_exit(true).await;
         let child_addr = ctx
-            .start(Local::actor(child), true, Duration::from_secs(1))
+            .start(local::boxed_from_fn(child), true, Duration::from_secs(1))
             .await
             .expect("start failed");
         ctx.exit(child_addr).await;
@@ -201,7 +202,7 @@ fn child_actor_force_exit_with_trapexit() {
     }
 
     let rt = Rt::create(Default::default()).expect("Rt::create");
-    rt.run(Local::actor((main, (tx,)))).expect("rt.run");
+    rt.run(local::boxed_from_fn((main, (tx,)))).expect("rt.run");
     Runtime::new().unwrap().block_on(rx).expect("rx.await");
 }
 
@@ -245,6 +246,6 @@ fn actor_fork_run() {
 
     Rt::create(Default::default())
         .expect("Rt::create")
-        .run(Local::actor(main))
+        .run(local::boxed_from_fn(main))
         .expect("Rt::run");
 }

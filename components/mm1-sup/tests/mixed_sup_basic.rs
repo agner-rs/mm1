@@ -3,6 +3,7 @@ use std::time::Duration;
 use mm1_common::log;
 use mm1_core::context::{Fork, InitDone, Linking, Messaging, Now, Quit, Start, Stop, Watching};
 use mm1_node::runtime::{Local, Rt};
+use mm1_runnable::local;
 use mm1_sup::common::child_spec::{ChildSpec, ChildType, InitType};
 use mm1_sup::common::factory::ActorFactoryMut;
 use mm1_sup::common::restart_intensity::RestartIntensity;
@@ -29,7 +30,7 @@ fn test_01() {
 
     Rt::create(Default::default())
         .expect("Rt::create")
-        .run(Local::actor(main))
+        .run(local::boxed_from_fn(main))
         .expect("Rt::run");
 }
 
@@ -45,7 +46,7 @@ where
     .with_child(
         "w1".to_string(),
         ChildSpec {
-            launcher:     ActorFactoryMut::new(|()| Local::actor(w1)),
+            launcher:     ActorFactoryMut::new(|()| local::boxed_from_fn(w1)),
             child_type:   ChildType::Permanent,
             init_type:    InitType::NoAck,
             stop_timeout: Duration::from_secs(3),
@@ -54,7 +55,7 @@ where
     .with_child(
         "w2".to_string(),
         ChildSpec {
-            launcher:     ActorFactoryMut::new(|()| Local::actor(w2)),
+            launcher:     ActorFactoryMut::new(|()| local::boxed_from_fn(w2)),
             child_type:   ChildType::Permanent,
             init_type:    InitType::WithAck {
                 start_timeout: Duration::from_secs(1),
@@ -65,7 +66,7 @@ where
     .with_child(
         "w3".to_string(),
         ChildSpec {
-            launcher:     ActorFactoryMut::new(|()| Local::actor(w3)),
+            launcher:     ActorFactoryMut::new(|()| local::boxed_from_fn(w3)),
             child_type:   ChildType::Permanent,
             init_type:    InitType::NoAck,
             stop_timeout: Duration::from_secs(3),

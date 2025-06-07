@@ -1,5 +1,5 @@
 [package]
-name = "mm1-core"
+name = "mm1-runnable"
 version = "0.6.1"
 edition = "2024"
 
@@ -16,6 +16,7 @@ test-util = []
 
 [dependencies]
 mm1-common = {workspace = true, features = ["logging", "futures"] }
+mm1-core.workspace = true
 mm1-address.workspace = true
 mm1-proto.workspace = true
 mm1-proto-system.workspace = true
@@ -23,7 +24,6 @@ mm1-proto-system.workspace = true
 mm1-proc-macros.workspace = true
 
 futures.workspace = true
-thiserror.workspace = true
 tokio = {workspace = true, features = ["time", "macros"]}
 tracing.workspace = true
 

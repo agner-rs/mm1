@@ -19,6 +19,7 @@ mm1-proto.workspace = true
 mm1-proto-ask.workspace = true
 mm1-proto-sup.workspace = true
 mm1-proto-system.workspace = true
+mm1-runnable.workspace = true
 
 either.workspace = true
 parking_lot.workspace = true

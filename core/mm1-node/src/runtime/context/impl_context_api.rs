@@ -13,13 +13,13 @@ use mm1_core::context::{
 };
 use mm1_core::envelope::{Envelope, EnvelopeHeader, dispatch};
 use mm1_proto_system::{InitAck, SpawnErrorKind, StartErrorKind, WatchRef};
+use mm1_runnable::local::BoxedRunnable;
 use tokio::sync::oneshot;
 use tokio::time::Instant;
 use tracing::trace;
 
 use crate::runtime::config::EffectiveActorConfig;
 use crate::runtime::context::ActorContext;
-use crate::runtime::runnable::BoxedRunnable;
 use crate::runtime::sys_call::SysCall;
 use crate::runtime::sys_msg::{ExitReason, SysLink, SysMsg};
 use crate::runtime::{container, mq};

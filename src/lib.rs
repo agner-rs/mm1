@@ -199,6 +199,8 @@ pub mod runtime {
     pub use mm1_node::runtime::{Local, Rt, config};
 }
 
+pub use mm1_runnable as runnable;
+
 #[cfg(feature = "timer")]
 pub mod timer {
     pub use mm1_timer::api::{TimerApi, TimerError};

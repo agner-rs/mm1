@@ -4,6 +4,7 @@ use mm1_common::futures::timeout::FutureTimeoutExt;
 use mm1_core::context::{Fork, InitDone, Linking, Messaging, Start, Stop, Watching};
 use mm1_node::runtime::{Local, Rt};
 use mm1_proto_system::{Down, Exited};
+use mm1_runnable::local;
 
 #[test]
 fn test_linking_with_trap_exit() {
@@ -16,15 +17,23 @@ fn test_linking_with_trap_exit() {
         ctx.set_trap_exit(true).await;
 
         let quick = ctx
-            .start(Local::actor(quick), true, Duration::from_millis(1))
+            .start(local::boxed_from_fn(quick), true, Duration::from_millis(1))
             .await
             .expect("start quick");
         let obedient = ctx
-            .start(Local::actor(obedient), true, Duration::from_millis(1))
+            .start(
+                local::boxed_from_fn(obedient),
+                true,
+                Duration::from_millis(1),
+            )
             .await
             .expect("start obedient");
         let stubborn = ctx
-            .start(Local::actor(stubborn), true, Duration::from_millis(1))
+            .start(
+                local::boxed_from_fn(stubborn),
+                true,
+                Duration::from_millis(1),
+            )
             .await
             .expect("start stubborn");
 
@@ -73,7 +82,7 @@ fn test_linking_with_trap_exit() {
 
     Rt::create(Default::default())
         .expect("Rt::create")
-        .run(Local::actor(main))
+        .run(local::boxed_from_fn(main))
         .expect("Rt::run");
 }
 
@@ -86,15 +95,23 @@ fn test_watching_no_trap_exit() {
         C: Start<Local> + Watching + Stop + Messaging,
     {
         let quick = ctx
-            .start(Local::actor(quick), false, Duration::from_millis(1))
+            .start(local::boxed_from_fn(quick), false, Duration::from_millis(1))
             .await
             .expect("start quick");
         let obedient = ctx
-            .start(Local::actor(obedient), false, Duration::from_millis(1))
+            .start(
+                local::boxed_from_fn(obedient),
+                false,
+                Duration::from_millis(1),
+            )
             .await
             .expect("start obedient");
         let stubborn = ctx
-            .start(Local::actor(stubborn), false, Duration::from_millis(1))
+            .start(
+                local::boxed_from_fn(stubborn),
+                false,
+                Duration::from_millis(1),
+            )
             .await
             .expect("start stubborn");
 
@@ -162,7 +179,7 @@ fn test_watching_no_trap_exit() {
 
     Rt::create(Default::default())
         .expect("Rt::create")
-        .run(Local::actor(main))
+        .run(local::boxed_from_fn(main))
         .expect("Rt::run");
 }
 
@@ -175,15 +192,23 @@ fn test_shutdown() {
         C: Fork + Messaging + Start<Local> + Watching + Stop,
     {
         let quick = ctx
-            .start(Local::actor(quick), false, Duration::from_millis(1))
+            .start(local::boxed_from_fn(quick), false, Duration::from_millis(1))
             .await
             .expect("start quick");
         let obedient = ctx
-            .start(Local::actor(obedient), false, Duration::from_millis(1))
+            .start(
+                local::boxed_from_fn(obedient),
+                false,
+                Duration::from_millis(1),
+            )
             .await
             .expect("start obedient");
         let stubborn = ctx
-            .start(Local::actor(stubborn), false, Duration::from_millis(1))
+            .start(
+                local::boxed_from_fn(stubborn),
+                false,
+                Duration::from_millis(1),
+            )
             .await
             .expect("start stubborn");
 
@@ -200,7 +225,7 @@ fn test_shutdown() {
 
     Rt::create(Default::default())
         .expect("Rt::create")
-        .run(Local::actor(main))
+        .run(local::boxed_from_fn(main))
         .expect("Rt::run");
 }
 
