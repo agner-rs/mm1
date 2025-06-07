@@ -4,10 +4,7 @@ use std::hash::Hash;
 
 use mm1_common::errors::error_kind::HasErrorKind;
 use mm1_common::log;
-use mm1_core::context::{
-    Fork, ForkErrorKind, InitDone, Linking, Messaging, Now, Quit, RecvErrorKind, Start, Stop,
-    Watching,
-};
+use mm1_core::context::{ForkErrorKind, RecvErrorKind};
 use mm1_core::envelope::dispatch;
 use mm1_proto::Message;
 use mm1_proto_system::Exited;
@@ -15,7 +12,7 @@ use mm1_proto_system::Exited;
 use crate::common::child_spec::ChildSpec;
 use crate::mixed::decider::{Action, Decider};
 use crate::mixed::strategy::RestartStrategy;
-use crate::mixed::{ErasedActorFactory, MixedSup, spec_builder, sup_child};
+use crate::mixed::{ErasedActorFactory, MixedSup, MixedSupContext, spec_builder, sup_child};
 
 pub async fn mixed_sup<Runnable, Ctx, RS, CS, K>(
     ctx: &mut Ctx,
@@ -23,8 +20,7 @@ pub async fn mixed_sup<Runnable, Ctx, RS, CS, K>(
 ) -> Result<(), MixedSupError>
 where
     Runnable: Send,
-    Ctx: Now<Instant = tokio::time::Instant>,
-    Ctx: Fork + Messaging + Quit + InitDone + Linking + Watching + Stop + Start<Runnable>,
+    Ctx: MixedSupContext<Runnable>,
     CS: spec_builder::CollectInto<K, Runnable>,
     RS: RestartStrategy<K>,
     K: fmt::Display,

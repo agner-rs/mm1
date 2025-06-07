@@ -21,6 +21,16 @@ use mm1_proto_system::{
 use crate::common::child_spec::{ChildSpec, InitType};
 use crate::common::factory::ActorFactory;
 
+pub trait UniformSupContext<Runnable>:
+    Fork + InitDone + Linking + Messaging + Quit + Reply + Start<Runnable> + Stop + Watching
+{
+}
+
+impl<Ctx, Runnable> UniformSupContext<Runnable> for Ctx where
+    Ctx: Fork + InitDone + Linking + Messaging + Quit + Reply + Start<Runnable> + Stop + Watching
+{
+}
+
 #[derive(Debug, thiserror::Error)]
 #[message]
 pub enum UniformSupFailure {
@@ -47,8 +57,7 @@ pub async fn uniform_sup<R, Ctx, F>(
 ) -> Result<(), UniformSupFailure>
 where
     R: Send + 'static,
-    Ctx:
-        Fork + Messaging + Quit + InitDone + Linking + Watching + Start<F::Runnable> + Stop + Reply,
+    Ctx: UniformSupContext<R>,
     F: ActorFactory<Runnable = R>,
     F::Args: Send,
 {

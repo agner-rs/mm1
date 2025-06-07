@@ -188,9 +188,29 @@ pub mod sup {
 
         /// The recipe for a supervisor.
         pub use mm1_sup::uniform::UniformSup;
+        /// Blanket trait for contexts suitable for running a
+        /// uniform-supervisor.
+        pub use mm1_sup::uniform::UniformSupContext;
+        /// Uniform supervisor's failure type.
         pub use mm1_sup::uniform::UniformSupFailure;
         /// The behaviour function of the uniform supervisor actor.
         pub use mm1_sup::uniform::uniform_sup;
+    }
+
+    pub mod mixed {
+        //! Mixed supervisor — the actor, that supervises the children of
+        //! different types.
+
+        /// The recipe for a supervisor.
+        pub use mm1_sup::mixed::MixedSup;
+        /// Blanket trait for contexts suitable for running a mixed-supervisor.
+        pub use mm1_sup::mixed::MixedSupContext;
+        /// Mixed supervisor's failure type.
+        pub use mm1_sup::mixed::MixedSupError;
+        /// The behaviour function of the mixed supervisor actor.
+        pub use mm1_sup::mixed::mixed_sup;
+        /// module with supervision strategies.
+        pub use mm1_sup::mixed::strategy;
     }
 }
 
