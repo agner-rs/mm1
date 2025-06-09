@@ -1,10 +1,5 @@
-pub mod actor_key;
-pub mod config;
-
 mod container;
 mod context;
-mod mq;
-mod registry;
 mod rt;
 mod rt_api;
 mod sys_call;

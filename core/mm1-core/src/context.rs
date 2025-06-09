@@ -1,3 +1,4 @@
+mod bind;
 mod fork;
 mod linking;
 mod messaging;
@@ -7,6 +8,7 @@ mod start;
 mod stop;
 mod watching;
 
+pub use bind::{Bind, BindArgs, BindErrorKind};
 pub use fork::{Fork, ForkErrorKind};
 pub use linking::Linking;
 pub use messaging::{Messaging, RecvErrorKind, SendErrorKind, Tell};

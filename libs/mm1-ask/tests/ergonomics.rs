@@ -54,7 +54,7 @@ async fn ergonomics() {
         .unwrap();
     assert_eq!(client_tells.task_key.actor, client_address);
     let envelope = client_tells.take_envelope();
-    assert_eq!(envelope.info().to, server_address);
+    assert_eq!(envelope.header().to, server_address);
 
     client_tells.resolve_ok(());
 
@@ -78,7 +78,7 @@ async fn ergonomics() {
         .unwrap();
     assert_eq!(server_tells.task_key.actor, server_address);
     let envelope = server_tells.take_envelope();
-    assert_eq!(envelope.info().to, client_address);
+    assert_eq!(envelope.header().to, client_address);
 
     client_recv.resolve_ok(envelope);
 
@@ -91,7 +91,7 @@ async fn ergonomics() {
         .unwrap();
     assert_eq!(client_tells.task_key.actor, client_address);
     let envelope = client_tells.take_envelope();
-    assert_eq!(envelope.info().to, server_address);
+    assert_eq!(envelope.header().to, server_address);
 
     client_tells.resolve_ok(());
 

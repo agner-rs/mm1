@@ -3,8 +3,6 @@
 #![warn(unreachable_pub)]
 
 pub mod address;
+pub mod address_range;
 pub mod pool;
 pub mod subnet;
-
-// pub use address::Address;
-// pub use subnet::NetMask;

@@ -12,7 +12,7 @@ exclude = ["**/*.snap"]
 
 [features]
 default = []
-serde = ["dep:serde"]
+serde = ["dep:serde", "mm1-address/serde"]
 
 [dependencies]
 mm1-address.workspace = true

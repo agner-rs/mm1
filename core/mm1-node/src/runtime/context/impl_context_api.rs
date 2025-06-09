@@ -1,28 +1,33 @@
 use std::future::Future;
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures::FutureExt;
 use mm1_address::address::Address;
-use mm1_address::subnet::NetMask;
+use mm1_address::address_range::AddressRange;
+use mm1_address::pool::Lease;
+use mm1_address::subnet::NetAddress;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::futures::timeout::FutureTimeoutExt;
+use mm1_common::log;
 use mm1_common::types::Never;
 use mm1_core::context::{
-    Fork, ForkErrorKind, InitDone, Linking, Messaging, Now, Quit, RecvErrorKind, SendErrorKind,
-    Start, Stop, Watching,
+    Bind, BindArgs, BindErrorKind, Fork, ForkErrorKind, InitDone, Linking, Messaging, Now, Quit,
+    RecvErrorKind, SendErrorKind, Start, Stop, Watching,
 };
 use mm1_core::envelope::{Envelope, EnvelopeHeader, dispatch};
 use mm1_proto_system::{InitAck, SpawnErrorKind, StartErrorKind, WatchRef};
 use mm1_runnable::local::BoxedRunnable;
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 use tracing::trace;
 
-use crate::runtime::config::EffectiveActorConfig;
+use crate::config::EffectiveActorConfig;
+use crate::registry::{ForkEntry, NetworkNode};
+use crate::runtime::container;
 use crate::runtime::context::ActorContext;
 use crate::runtime::sys_call::SysCall;
 use crate::runtime::sys_msg::{ExitReason, SysLink, SysMsg};
-use crate::runtime::{container, mq};
 
 impl Quit for ActorContext {
     async fn quit_ok(&mut self) -> Never {
@@ -41,37 +46,33 @@ impl Quit for ActorContext {
 
 impl Fork for ActorContext {
     async fn fork(&mut self) -> Result<Self, ErrorOf<ForkErrorKind>> {
-        let address_lease = self
-            .subnet_pool
-            .lease(NetMask::M_64)
-            .map_err(|lease_error| {
-                ErrorOf::new(ForkErrorKind::ResourceConstraint, lease_error.to_string())
-            })?;
-        let actor_address = address_lease.address;
-
-        let (tx_priority, rx_priority) = mq::unbounded();
-        let (tx_regular, rx_regular) = mq::bounded(
-            self.rt_config
-                .actor_config(&self.actor_key)
-                .fork_inbox_size(),
-        );
-        let tx_system_weak = self.tx_system_weak.clone();
-        let tx_system = tx_system_weak
+        let actor_node = self
+            .actor_node
             .upgrade()
-            .ok_or_else(|| ErrorOf::new(ForkErrorKind::InternalError, "tx_system_weak.upgrade"))?;
+            .ok_or_else(|| ErrorOf::new(ForkErrorKind::InternalError, "actor_node.upgrade"))?;
+        let fork_lease = actor_node.lease_address().map_err(|lease_error| {
+            ErrorOf::new(ForkErrorKind::ResourceConstraint, lease_error.to_string())
+        })?;
+        let fork_address = fork_lease.address;
+
+        let (tx_priority, rx_priority) = mpsc::unbounded_channel();
+        let (tx_regular, rx_regular) = mpsc::unbounded_channel();
+        let tx_system_weak = self.tx_system_weak.clone();
 
         self.call
             .invoke(SysCall::ForkAdded(
-                address_lease.address,
+                fork_lease.address,
                 tx_priority.downgrade(),
             ))
             .await;
 
-        let () = self
-            .rt_api
-            .register(address_lease, tx_system, tx_priority, tx_regular);
+        let tx_priority_weak = tx_priority.downgrade();
+        let tx_regular_weak = tx_regular.downgrade();
+        let fork_entry = ForkEntry::new(fork_lease, tx_priority, tx_regular);
 
-        let subnet_pool = self.subnet_pool.clone();
+        let registered = actor_node.register(fork_address, fork_entry);
+        assert!(registered);
+
         let rt_api = self.rt_api.clone();
         let rt_config = self.rt_config.clone();
 
@@ -80,15 +81,19 @@ impl Fork for ActorContext {
         let context = Self {
             rt_api,
             rt_config,
-            actor_address,
+
+            address: fork_address,
+            actor_key,
+            ack_to: None,
+            actor_node: self.actor_node.clone(),
+            network_nodes: Default::default(),
+
             rx_priority,
             rx_regular,
             tx_system_weak,
+            tx_priority_weak,
+            tx_regular_weak,
             call: self.call.clone(),
-            actor_key,
-            subnet_pool,
-            ack_to: None,
-            unregister_on_drop: true,
         };
 
         Ok(context)
@@ -120,7 +125,7 @@ impl Start<BoxedRunnable<Self>> for ActorContext {
         runnable: BoxedRunnable<Self>,
         link: bool,
     ) -> impl Future<Output = Result<Address, ErrorOf<SpawnErrorKind>>> + Send {
-        do_spawn(self, runnable, None, link.then_some(self.actor_address))
+        do_spawn(self, runnable, None, link.then_some(self.address))
     }
 
     fn start(
@@ -135,7 +140,7 @@ impl Start<BoxedRunnable<Self>> for ActorContext {
 
 impl Stop for ActorContext {
     fn exit(&mut self, peer: Address) -> impl Future<Output = bool> + Send {
-        let this = self.actor_address;
+        let this = self.address;
         let out = do_exit(self, this, peer).is_ok();
         std::future::ready(out)
     }
@@ -148,12 +153,12 @@ impl Stop for ActorContext {
 
 impl Linking for ActorContext {
     fn link(&mut self, peer: Address) -> impl Future<Output = ()> + Send {
-        let this = self.actor_address;
+        let this = self.address;
         do_link(self, this, peer)
     }
 
     fn unlink(&mut self, peer: Address) -> impl Future<Output = ()> + Send {
-        let this = self.actor_address;
+        let this = self.address;
         do_unlink(self, this, peer)
     }
 
@@ -183,7 +188,7 @@ impl InitDone for ActorContext {
 
 impl Messaging for ActorContext {
     fn address(&self) -> Address {
-        self.actor_address
+        self.address
     }
 
     async fn recv(&mut self) -> Result<Envelope, ErrorOf<RecvErrorKind>> {
@@ -191,12 +196,12 @@ impl Messaging for ActorContext {
             biased;
 
             inbound_opt = self.rx_priority.recv() => (true, inbound_opt),
-            inbound_opt = self.rx_regular.recv() => (false, inbound_opt),
+            inbound_opt = self.rx_regular.recv() => (false, inbound_opt.map(|m| m.message)),
         };
 
         trace!(
-            "received [priority: {}; inbound: {:?}]",
-            priority, inbound_opt
+            "received [priority: {}; inbound: {:?}; via {}]",
+            priority, inbound_opt, self.address
         );
 
         inbound_opt.ok_or(ErrorOf::new(RecvErrorKind::Closed, "closed"))
@@ -215,20 +220,86 @@ impl Messaging for ActorContext {
     }
 }
 
+impl Bind<NetAddress> for ActorContext {
+    async fn bind(&mut self, args: BindArgs<NetAddress>) -> Result<(), ErrorOf<BindErrorKind>> {
+        use std::collections::btree_map::Entry::*;
+
+        let BindArgs {
+            bind_to,
+            inbox_size,
+        } = args;
+
+        log::debug!("binding [to: {}; inbox-size: {}]", bind_to, inbox_size);
+
+        let rt_api = self.rt_api.clone();
+        let registry = rt_api.registry();
+
+        let address_range = AddressRange::from(bind_to);
+
+        let network_nodes_entry = match self.network_nodes.entry(address_range) {
+            Occupied(o) => {
+                let previously_bound_to = NetAddress::from(*o.key());
+                return Err(ErrorOf::new(
+                    BindErrorKind::Conflict,
+                    format!(
+                        "conflict [requested: {}; existing: {}]",
+                        bind_to, previously_bound_to
+                    ),
+                ))
+            },
+            Vacant(v) => v,
+        };
+
+        let subnet_lease = Lease::trusted(bind_to);
+
+        let (tx_system, _rx_system) = mpsc::unbounded_channel();
+
+        let tx_priority = self.tx_priority_weak.upgrade().ok_or_else(|| {
+            ErrorOf::new(BindErrorKind::Closed, "tx_priority_weak.upgrade failed")
+        })?;
+        let tx_regular = self.tx_regular_weak.upgrade().ok_or_else(|| {
+            ErrorOf::new(BindErrorKind::Closed, "tx_priority_weak.upgrade failed")
+        })?;
+
+        let network_node = Arc::new(NetworkNode::new(
+            subnet_lease,
+            inbox_size,
+            tx_system,
+            tx_priority,
+            tx_regular,
+        ));
+
+        if !registry.register(bind_to, network_node.clone()) {
+            log::warn!("couldn't bind [to: {}; reason: conflict]", bind_to);
+            return Err(ErrorOf::new(
+                BindErrorKind::Conflict,
+                "probably address in use",
+            ))
+        }
+
+        let network_node = Arc::downgrade(&network_node);
+        network_nodes_entry.insert(network_node);
+
+        log::info!("bound [to: {}; inbox-size: {}]", bind_to, inbox_size);
+
+        Ok(())
+    }
+}
+
 async fn do_start(
     context: &mut ActorContext,
     runnable: BoxedRunnable<ActorContext>,
     link: bool,
     timeout: Duration,
 ) -> Result<Address, ErrorOf<StartErrorKind>> {
-    let this_address = context.actor_address;
+    let this_address = context.address;
 
     let mut fork = context
         .fork()
         .await
         .map_err(|e| ErrorOf::new(StartErrorKind::InternalError, e.to_string()))?;
 
-    let fork_address = fork.actor_address;
+    let fork_address = fork.address;
     let spawned_address = do_spawn(&mut fork, runnable, Some(fork_address), Some(fork_address))
         .await
         .map_err(|e| e.map_kind(StartErrorKind::Spawn))?;
@@ -360,7 +431,7 @@ async fn do_set_trap_exit(context: &mut ActorContext, enable: bool) {
 }
 
 async fn do_watch(context: &mut ActorContext, peer: Address) -> WatchRef {
-    let this = context.actor_address;
+    let this = context.address;
     let (reply_tx, reply_rx) = oneshot::channel();
     context
         .call
@@ -374,7 +445,7 @@ async fn do_watch(context: &mut ActorContext, peer: Address) -> WatchRef {
 }
 
 async fn do_unwatch(context: &mut ActorContext, watch_ref: WatchRef) {
-    let this = context.actor_address;
+    let this = context.address;
     context
         .call
         .invoke(SysCall::Unwatch {

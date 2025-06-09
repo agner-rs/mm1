@@ -11,13 +11,32 @@ description = "M/M/1! Queueing, do you speak it?!"
 exclude = ["**/*.snap"]
 
 [features]
-default = ["serde-json"]
-serde = ["dep:mm1-message-codec-serde", "mm1-address/serde"]
-serde-json = ["serde", "mm1-message-codec-serde/json"]
+default = []
 
 [dependencies]
-mm1-address.workspace = true
+mm1-address = {workspace = true, features = ["serde"]}
+mm1-ask.workspace = true
+mm1-common.workspace = true
 mm1-core.workspace = true
-mm1-message-codec.workspace = true
-mm1-message-codec-serde = {workspace = true, optional = true}
+mm1-runnable.workspace = true
+mm1-sup.workspace = true
+mm1-timer.workspace = true
 
+mm1-proto-ask.workspace = true
+mm1-proto-network-management.workspace = true
+mm1-proto-sup.workspace = true
+
+bytes.workspace = true
+derive_more = {workspace = true, features = ["debug"]}
+futures.workspace = true
+serde = {workspace = true, features = ["derive"]}
+serde_json = {workspace = true}
+tokio = {workspace = true, features = ["io-util", "net"]}
+tokio-util = {workspace = true, features = ["codec"]}
+
+[dev-dependencies]
+mm1-logger.workspace = true
+mm1-test-rt.workspace = true
+
+dotenv = "0.15"
+tokio = {workspace = true, features = ["rt", "macros", "rt-multi-thread"]}

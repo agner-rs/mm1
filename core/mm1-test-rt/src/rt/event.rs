@@ -1,8 +1,10 @@
+use std::fmt;
 use std::ops::Deref;
 
 use mm1_address::address::Address;
+use mm1_address::subnet::NetAddress;
 use mm1_common::errors::error_of::ErrorOf;
-use mm1_core::context::{ForkErrorKind, RecvErrorKind, SendErrorKind};
+use mm1_core::context::{BindErrorKind, ForkErrorKind, RecvErrorKind, SendErrorKind};
 use mm1_core::envelope::{Envelope, EnvelopeHeader};
 use mm1_proto_system::{SpawnErrorKind, StartErrorKind, WatchRef};
 use tokio::sync::oneshot;
@@ -62,6 +64,22 @@ impl<R, K> Event<R, K> {
         Event<R, K1>: TryFrom<Event<R, K>, Error = Self>,
     {
         self.try_into()
+    }
+
+    pub fn expect<K1>(self) -> Event<R, K1>
+    where
+        Event<R, K1>: TryFrom<Event<R, K>, Error = Self>,
+        K: fmt::Debug,
+    {
+        self.convert::<K1>()
+            .map_err(|actual| {
+                format!(
+                    "expected: {}; actual: {:?}",
+                    std::any::type_name::<K1>(),
+                    actual,
+                )
+            })
+            .unwrap()
     }
 }
 
@@ -131,6 +149,18 @@ impl<R> TryFrom<Event<R, EventKind<R>>> for Event<R, query::Start<R>> {
         let Event { runtime, kind } = value;
         match kind {
             EventKind::Query(Query::Start(kind)) => Ok(Event { runtime, kind }),
+            kind => Err(Event { runtime, kind }),
+        }
+    }
+}
+
+impl<R> TryFrom<Event<R, EventKind<R>>> for Event<R, query::Bind<NetAddress>> {
+    type Error = Event<R, EventKind<R>>;
+
+    fn try_from(value: Event<R, EventKind<R>>) -> Result<Self, Self::Error> {
+        let Event { runtime, kind } = value;
+        match kind {
+            EventKind::Query(Query::BindNetAddress(kind)) => Ok(Event { runtime, kind }),
             kind => Err(Event { runtime, kind }),
         }
     }
@@ -326,7 +356,7 @@ impl<R> Event<R, query::Spawn<R>> {
 
 impl<R> Event<R, query::Tell> {
     pub fn take_envelope(&mut self) -> Envelope {
-        let info = EnvelopeHeader::to_address(self.kind.envelope.info().to);
+        let info = EnvelopeHeader::to_address(self.kind.envelope.header().to);
         std::mem::replace(
             &mut self.kind.envelope,
             Envelope::new(info, ()).into_erased(),
@@ -357,7 +387,7 @@ impl<R> Event<R, query::Start<R>> {
 }
 
 impl<R> Event<R, query::ForkRun> {
-    pub async fn resolve(self) -> Event<R, query::PendingTask> {
+    pub fn resolve(self) -> Event<R, query::PendingTask> {
         let Self { runtime, kind } = self;
         let query::ForkRun {
             task_key,
@@ -424,6 +454,12 @@ impl<R> From<query::Spawn<R>> for oneshot::Sender<Result<Address, ErrorOf<SpawnE
 
 impl<R> From<query::Start<R>> for oneshot::Sender<Result<Address, ErrorOf<StartErrorKind>>> {
     fn from(value: query::Start<R>) -> Self {
+        value.outcome_tx
+    }
+}
+
+impl<A> From<query::Bind<A>> for oneshot::Sender<Result<(), ErrorOf<BindErrorKind>>> {
+    fn from(value: query::Bind<A>) -> Self {
         value.outcome_tx
     }
 }

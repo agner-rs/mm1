@@ -59,7 +59,7 @@ impl<M> Envelope<M> {
         Self { header, message }
     }
 
-    pub fn info(&self) -> &EnvelopeHeader {
+    pub fn header(&self) -> &EnvelopeHeader {
         &self.header
     }
 }

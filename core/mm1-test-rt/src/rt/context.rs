@@ -1,9 +1,11 @@
 use futures::FutureExt;
 use mm1_address::address::Address;
+use mm1_address::subnet::NetAddress;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::types::Never;
 use mm1_core::context::{
-    Fork, InitDone, Linking, Messaging, Now, Quit, RecvErrorKind, Start, Stop, Watching,
+    Bind, BindArgs, BindErrorKind, Fork, ForkErrorKind, InitDone, Linking, Messaging, Now, Quit,
+    RecvErrorKind, Start, Stop, Watching,
 };
 use mm1_core::envelope::Envelope;
 use mm1_proto_system::{SpawnErrorKind, StartErrorKind};
@@ -85,11 +87,32 @@ where
     }
 }
 
+impl<R> Bind<NetAddress> for Context<R>
+where
+    R: Send + 'static,
+{
+    async fn bind(&mut self, args: BindArgs<NetAddress>) -> Result<(), ErrorOf<BindErrorKind>> {
+        let task_key = self.task_key;
+        invoke(
+            &self.queries_tx,
+            |outcome_tx| {
+                query::Bind {
+                    task_key,
+                    args,
+                    outcome_tx,
+                }
+            },
+            OnRxFailure::Panic,
+        )
+        .await
+    }
+}
+
 impl<R> Fork for Context<R>
 where
     R: Send + 'static,
 {
-    async fn fork(&mut self) -> Result<Self, ErrorOf<mm1_core::context::ForkErrorKind>> {
+    async fn fork(&mut self) -> Result<Self, ErrorOf<ForkErrorKind>> {
         let task_key = self.task_key;
         invoke(
             &self.queries_tx,

@@ -34,10 +34,8 @@ async fn test() {
     .unwrap();
 
     let recv = dbg!(
-        rt.next_event()
+        rt.expect_next_event()
             .await
-            .unwrap()
-            .unwrap()
             .convert::<query::Recv>()
             .unwrap()
     );
@@ -56,25 +54,21 @@ async fn test() {
     time::sleep(Duration::from_secs(1)).await;
 
     let _recv = dbg!(
-        rt.next_event()
+        rt.expect_next_event()
             .await
-            .unwrap()
-            .unwrap()
             .convert::<query::Recv>()
             .unwrap()
     );
     let mut tell = dbg!(
-        rt.next_event()
+        rt.expect_next_event()
             .await
-            .unwrap()
-            .unwrap()
             .convert::<query::Tell>()
             .unwrap()
     );
 
     let envelope = tell.take_envelope();
     tell.resolve_ok(());
-    assert_eq!(envelope.info().to, main_lease.address);
+    assert_eq!(envelope.header().to, main_lease.address);
     let (msg, _) = envelope.cast::<i32>().unwrap().take();
     assert_eq!(msg, 1);
 }

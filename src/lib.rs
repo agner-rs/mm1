@@ -140,6 +140,14 @@ pub mod core {
         pub use mm1_core::context::Tell;
         /// Watch/unwatch the termination of other actors.
         pub use mm1_core::context::Watching;
+        /// Create another context (probably of a different kind), having
+        /// "bound" to the required address. The exact type of address,
+        /// and the concept of "bind" are (intentionally) defined a bit loosely.
+        /// Examples:
+        /// - `Bind<NetAddress>` — would most likely mean catch all the messages
+        ///   sent to any address within the specified network;
+        /// - `Bind<TypeId>` — handle the requests of certain kind.
+        pub use mm1_core::context::{Bind, BindArgs, BindErrorKind};
         /// Create another context, having an address distinct from the original
         /// context's one.
         pub use mm1_core::context::{Fork, ForkErrorKind};
@@ -216,7 +224,8 @@ pub mod sup {
 
 #[cfg(feature = "runtime")]
 pub mod runtime {
-    pub use mm1_node::runtime::{Local, Rt, config};
+    pub use mm1_node::config;
+    pub use mm1_node::runtime::{Local, Rt};
 }
 
 pub use mm1_runnable as runnable;
@@ -232,19 +241,9 @@ pub mod timer {
     }
 }
 
-#[doc(hidden)]
 #[cfg(feature = "multinode")]
 pub mod message_codec {
-    pub use mm1_message_codec::{codec, compose};
-
-    pub mod codecs {
-        #[cfg(feature = "multinode-serde")]
-        pub mod serde {
-            pub use mm1_message_codec_serde::extractors::StandardExtractor;
-            pub use mm1_message_codec_serde::json;
-            pub use mm1_message_codec_serde::packet::Packet;
-        }
-    }
+    pub use mm1_multinode::codecs::Codec;
 }
 
 #[cfg(feature = "test-util")]

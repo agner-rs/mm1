@@ -1,3 +1,7 @@
+// #![warn(missing_docs)]
+#![warn(rust_2018_idioms)]
+#![warn(unreachable_pub)]
+
 use std::future::Future;
 use std::hash::Hash;
 use std::ops::{Add, Sub};

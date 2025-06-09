@@ -214,10 +214,8 @@ async fn test_02() {
         .unwrap();
 
     let set_trap_exit = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::SetTrapExit>()
         .unwrap();
     assert_eq!(set_trap_exit.task_key.actor, address_sup);
@@ -225,10 +223,8 @@ async fn test_02() {
     set_trap_exit.resolve(());
 
     let init_done = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::InitDone>()
         .unwrap();
     assert_eq!(init_done.task_key.actor, address_sup);
@@ -236,10 +232,8 @@ async fn test_02() {
     init_done.resolve(());
 
     let recv = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Recv>()
         .unwrap();
     assert_eq!(recv.task_key.actor, address_sup);
@@ -259,10 +253,8 @@ async fn test_02() {
     recv.resolve(Ok(envelope));
 
     let fork = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Fork<_>>()
         .unwrap();
     assert_eq!(fork.task_key.actor, address_sup);
@@ -272,21 +264,17 @@ async fn test_02() {
     fork.resolve(Ok(fork_context));
 
     let fork_run = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::ForkRun>()
         .unwrap();
     assert_eq!(fork_run.task_key.actor, address_sup);
     assert_eq!(fork_run.task_key.context, address_fork);
-    let fork_pending = fork_run.resolve().await;
+    let fork_pending = fork_run.resolve();
 
     let recv = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Recv>()
         .unwrap();
     assert_eq!(recv.task_key.actor, address_sup);
@@ -295,10 +283,8 @@ async fn test_02() {
     fork_pending.run().await.unwrap();
 
     let spawn = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Spawn<_>>()
         .unwrap();
     assert_eq!(spawn.task_key.actor, address_sup);
@@ -311,24 +297,20 @@ async fn test_02() {
     spawn.resolve(Ok(address_child));
 
     let mut tell = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Tell>()
         .unwrap();
     assert_eq!(tell.task_key.actor, address_sup);
     assert_eq!(tell.task_key.context, address_fork);
-    assert_eq!(tell.envelope.info().to, address_sup);
+    assert_eq!(tell.envelope.header().to, address_sup);
     let envelope = tell.take_envelope();
 
     recv.resolve(Ok(envelope));
 
     let link = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Link>()
         .unwrap();
     assert_eq!(link.task_key.actor, address_sup);
@@ -337,26 +319,22 @@ async fn test_02() {
     link.resolve(());
 
     let _recv = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Recv>()
         .unwrap();
 
     tell.resolve(Ok(()));
 
     let mut tell = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Tell>()
         .unwrap();
     assert_eq!(tell.task_key.actor, address_sup);
     assert_eq!(tell.task_key.context, address_fork);
     let envelope = tell.take_envelope();
-    assert_eq!(envelope.info().to, address_client);
+    assert_eq!(envelope.header().to, address_client);
     let (response, _envelope) = envelope
         .cast::<mm1_proto_ask::Response<mm1_proto_sup::uniform::StartResponse>>()
         .unwrap()

@@ -10,8 +10,6 @@ use mm1_core::envelope::Envelope;
 use mm1_proto_system::WatchRef;
 use tokio::sync::{mpsc, oneshot};
 
-use crate::runtime::mq;
-
 pub(crate) fn create() -> (Tx, Rx) {
     let (tx, rx) = mpsc::channel(1);
     (Tx(tx), Rx(rx))
@@ -28,7 +26,7 @@ pub(crate) enum SysCall {
         sender:   Address,
         receiver: Address,
     },
-    ForkAdded(Address, mq::UbTxWeak<Envelope>),
+    ForkAdded(Address, mpsc::WeakUnboundedSender<Envelope>),
     Spawn(Pin<Box<dyn Future<Output = ()> + Send + 'static>>),
     Watch {
         sender:   Address,

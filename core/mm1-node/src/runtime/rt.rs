@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use mm1_runnable::local::BoxedRunnable;
+use mm1_runnable::local::{self, BoxedRunnable};
 use tokio::runtime::{Handle, Runtime};
 use tracing::{instrument, warn};
 
-use super::config::EffectiveActorConfig;
-use crate::runtime::actor_key::ActorKey;
-use crate::runtime::config::Mm1Config;
+use crate::actor_key::ActorKey;
+use crate::config::{EffectiveActorConfig, Mm1NodeConfig, Valid};
+use crate::init::InitActorArgs;
 use crate::runtime::container::{Container, ContainerArgs, ContainerError};
 use crate::runtime::context;
 use crate::runtime::rt_api::{RequestAddressError, RtApi};
@@ -15,16 +15,18 @@ use crate::runtime::rt_api::{RequestAddressError, RtApi};
 #[derive(Debug)]
 pub struct Rt {
     #[allow(unused)]
-    config: Mm1Config,
-
+    config:     Valid<Mm1NodeConfig>,
     rt_default: Runtime,
     rt_named:   HashMap<String, Runtime>,
+
+    #[cfg(feature = "multinode")]
+    multinode_codecs: mm1_multinode::codecs::CodecRegistry,
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum RtCreateError {
     #[error("runtime config error: {}", _0)]
-    RuntimeConfigError(String),
+    RuntimeConfigError(crate::config::ValidationError<Mm1NodeConfig>),
     #[error("runtime init error: {}", _0)]
     RuntimeInitError(#[source] std::io::Error),
 }
@@ -43,8 +45,8 @@ pub enum RtRunError {
 }
 
 impl Rt {
-    pub fn create(config: Mm1Config) -> Result<Self, RtCreateError> {
-        config
+    pub fn create(config: Mm1NodeConfig) -> Result<Self, RtCreateError> {
+        let config = config
             .validate()
             .map_err(RtCreateError::RuntimeConfigError)?;
         let (rt_default, rt_named) = config
@@ -55,6 +57,9 @@ impl Rt {
             config,
             rt_default,
             rt_named,
+
+            #[cfg(feature = "multinode")]
+            multinode_codecs: Default::default(),
         })
     }
 
@@ -67,38 +72,51 @@ impl Rt {
             .map(|(k, v)| (k.to_owned(), v.handle().to_owned()))
             .collect::<HashMap<_, _>>();
 
-        let main_actor_key = ActorKey::root().child(main_actor.func_name());
-        let main_actor_config = config.actor_config(&main_actor_key);
-        let rt_handle = if let Some(rt_key) = main_actor_config.runtime_key() {
-            rt_named
-                .get(rt_key)
-                .cloned()
-                .expect("the config's validity should have been checked")
-        } else {
-            rt_default.clone()
+        let rt_handle = rt_default.clone();
+
+        let init_actor_args = InitActorArgs {
+            #[cfg(feature = "multinode")]
+            codec_registry:                               self.multinode_codecs.clone(),
         };
 
         rt_handle.block_on(run_inner(
             config.clone(),
-            main_actor_key,
-            main_actor_config,
+            ActorKey::root(),
+            crate::init::init_actor_config(),
             rt_default,
             rt_named,
-            main_actor,
+            local::boxed_from_fn((crate::init::run, (main_actor, init_actor_args))),
         ))
+    }
+}
+
+#[cfg(feature = "multinode")]
+impl Rt {
+    pub fn add_codec(
+        &mut self,
+        codec_name: &str,
+        codec: mm1_multinode::codecs::Codec,
+    ) -> &mut Self {
+        self.multinode_codecs.add_codec(codec_name, codec);
+        self
+    }
+
+    pub fn with_codec(mut self, codec_name: &str, codec: mm1_multinode::codecs::Codec) -> Self {
+        self.add_codec(codec_name, codec);
+        self
     }
 }
 
 #[instrument(skip_all, fields(func = main_actor.func_name()))]
 async fn run_inner(
-    config: Mm1Config,
+    config: Valid<Mm1NodeConfig>,
     actor_key: ActorKey,
     actor_config: impl EffectiveActorConfig,
     rt_default: Handle,
     rt_named: HashMap<String, Handle>,
     main_actor: BoxedRunnable<context::ActorContext>,
 ) -> Result<(), RtRunError> {
-    let rt_api = RtApi::create(config.subnet, rt_default, rt_named);
+    let rt_api = RtApi::create(config.local_subnet_address(), rt_default, rt_named);
 
     let subnet_lease = rt_api
         .request_address(actor_config.netmask())
@@ -114,7 +132,7 @@ async fn run_inner(
         rt_api: rt_api.clone(),
         rt_config: Arc::new(config),
     };
-    let (_subnet_lease, exit_reason) = Container::create(args, main_actor)
+    let exit_reason = Container::create(args, main_actor)
         .map_err(RtRunError::ContainerError)?
         .run()
         .await

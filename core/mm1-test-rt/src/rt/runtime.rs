@@ -87,6 +87,13 @@ impl<R> Runtime<R> {
             .await
     }
 
+    pub async fn expect_next_event(&self) -> Event<R, EventKind<R>> {
+        self.next_event()
+            .await
+            .expect("error fetching next_event")
+            .expect("no more events")
+    }
+
     pub async fn next_event(&self) -> Result<Option<Event<R, EventKind<R>>>, RuntimeError> {
         let runtime = self.shared.clone();
         let mut shared = self.shared.lock().await;

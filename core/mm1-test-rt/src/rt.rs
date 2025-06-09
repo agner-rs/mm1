@@ -5,6 +5,7 @@ use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
 use mm1_address::address::Address;
 use mm1_address::pool::Lease as AddressLease;
+use mm1_address::subnet::NetAddress;
 use tokio::sync::{Mutex, Notify, mpsc};
 
 mod actor_fn;
@@ -72,6 +73,7 @@ pub enum Query<R> {
     SetTrapExit(query::SetTrapExit),
     Exit(query::Exit),
     Kill(query::Kill),
+    BindNetAddress(query::Bind<NetAddress>),
 }
 
 #[derive(derive_more::Debug)]

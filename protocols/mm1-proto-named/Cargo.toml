@@ -1,0 +1,22 @@
+[package]
+name = "mm1-proto-named"
+version = "0.6.1"
+edition = "2024"
+
+license = "MIT"
+authors = ["That Roma <mm1@thatroma.me>"]
+repository = "https://github.com/agner-rs/mm1"
+description = "M/M/1! Queueing, do you speak it?!"
+
+exclude = ["**/*.snap"]
+
+[features]
+default = []
+serde = ["dep:serde"]
+
+[dependencies]
+mm1-address.workspace = true
+mm1-common.workspace = true
+mm1-proto.workspace = true
+
+serde = {workspace = true, features = ["derive"], optional = true}

@@ -1,0 +1,37 @@
+[package]
+name = "mm1-name-service"
+version = "0.6.1"
+edition = "2024"
+
+license = "MIT"
+authors = ["That Roma <mm1@thatroma.me>"]
+repository = "https://github.com/agner-rs/mm1"
+description = "M/M/1! Queueing, do you speak it?!"
+
+exclude = ["**/*.snap"]
+
+[features]
+default = []
+serde = ["mm1-address/serde", "mm1-proto-named/serde"]
+
+[dependencies]
+mm1-address.workspace = true
+mm1-ask.workspace = true
+mm1-common.workspace = true
+mm1-core.workspace = true
+
+mm1-proto-ask.workspace = true
+mm1-proto-named.workspace = true
+mm1-proto-well-known.workspace = true
+
+either.workspace = true
+slotmap.workspace = true
+tokio = {workspace = true, features = ["time"]}
+
+[dev-dependencies]
+mm1-logger.workspace = true
+
+mm1-node.workspace = true
+mm1-runnable.workspace = true
+mm1-test-rt.workspace = true
+tokio = {workspace = true, features = ["rt", "macros", "test-util"]}

@@ -6,14 +6,10 @@ use mm1_address::pool::{Lease, Pool as SubnetPool};
 use mm1_address::subnet::{NetAddress, NetMask};
 use mm1_core::context::SendErrorKind;
 use mm1_core::envelope::Envelope;
-use mq::TrySendError;
 use tokio::runtime::Handle;
 use tracing::trace;
 
-use crate::runtime::mq;
-use crate::runtime::registry::{
-    Registry, {self},
-};
+use crate::registry::Registry;
 use crate::runtime::sys_msg::SysMsg;
 
 #[derive(Debug, Clone)]
@@ -28,7 +24,7 @@ pub(crate) struct RequestAddressError(#[source] mm1_address::pool::LeaseError);
 #[derive(Debug)]
 struct Inner {
     subnet_pool: SubnetPool,
-    registry:    Registry,
+    registry:    Registry<SysMsg, Envelope>,
     default_rt:  Handle,
     named_rts:   HashMap<String, Handle>,
 }
@@ -50,89 +46,30 @@ impl RtApi {
         Self { inner }
     }
 
-    pub(crate) fn register(
-        &self,
-        address_lease: Lease,
-        tx_system: mq::UbTx<SysMsg>,
-        tx_priority: mq::UbTx<Envelope>,
-        tx_regular: mq::Tx<Envelope>,
-    ) {
-        trace!("register [address: {}]", address_lease.address);
-
-        use registry::*;
-        self.inner
-            .registry
-            .insert(
-                address_lease.address,
-                Entry {
-                    address_lease,
-                    // state: State::Running(Running),
-                    tx_system,
-                    tx_priority,
-                    tx_regular,
-                },
-            )
-            .expect(/* FIXME */ "address reused");
-    }
-
-    pub(crate) fn unregister(&self, address: Address) -> Option<(Lease, mq::UbTx<SysMsg>)> {
-        trace!("unregister [addr: {}]", address);
-
-        use registry::*;
-        self.inner.registry.remove(&address).map(
-            |(
-                _,
-                Entry {
-                    address_lease,
-                    tx_system,
-                    ..
-                },
-            )| (address_lease, tx_system),
-        )
+    pub(crate) fn registry(&self) -> &Registry<SysMsg, Envelope> {
+        &self.inner.registry
     }
 
     pub(crate) fn sys_send(&self, to: Address, sys_msg: SysMsg) -> Result<(), SendErrorKind> {
         trace!("sys_send [to: {}; sys_msg: {:?}]", to, sys_msg);
 
-        let entry = self
-            .inner
+        self.inner
             .registry
-            .get(&to)
-            .ok_or(SendErrorKind::NotFound)?;
-        let tx_system = &entry.get().tx_system;
-        let () = tx_system
-            .send(sys_msg)
-            .map_err(|_e| SendErrorKind::Closed)?;
-        Ok(())
+            .lookup(to)
+            .ok_or(SendErrorKind::NotFound)?
+            .sys_send(sys_msg)
+            .map_err(|_| SendErrorKind::Closed)
     }
 
     pub(crate) fn send(&self, priority: bool, outbound: Envelope) -> Result<(), SendErrorKind> {
-        let to = outbound.info().to;
-        let entry = self
-            .inner
+        let to = outbound.header().to;
+
+        self.inner
             .registry
-            .get(&to)
-            .ok_or(SendErrorKind::NotFound)?;
-        if priority {
-            entry
-                .get()
-                .tx_priority
-                .send(outbound)
-                .map_err(|_| SendErrorKind::Closed)
-                .map(|_| ())
-        } else {
-            entry
-                .get()
-                .tx_regular
-                .try_send(outbound)
-                .map_err(|e| {
-                    match e {
-                        TrySendError::Closed(_) => SendErrorKind::Closed,
-                        TrySendError::Full(_) => SendErrorKind::Full,
-                    }
-                })
-                .map(|_| ())
-        }
+            .lookup(to)
+            .ok_or(SendErrorKind::NotFound)?
+            .send(to, priority, outbound)
+            .map_err(|_| SendErrorKind::Closed)
     }
 
     pub(crate) async fn request_address(

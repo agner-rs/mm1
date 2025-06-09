@@ -82,10 +82,7 @@ jobs:
 
       - name: "Check: feature=multinode"
         run: cargo check  --workspace --all-targets --no-default-features -p mm1 --features multinode
-
-      - name: "Check: feature=multinode-serde"
-        run: cargo check --workspace --all-targets --no-default-features -p mm1 --features multinode-serde
-
+        
       - name: Run Clippy
         run: cargo clippy --workspace --all-features --all-targets -- -D warnings
     

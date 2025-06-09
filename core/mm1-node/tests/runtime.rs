@@ -2,8 +2,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use mm1_address::address::Address;
-use mm1_common::log::info;
-use mm1_core::context::{Fork, InitDone, Linking, Messaging, Quit, Start, Stop, Tell};
+use mm1_address::pool::Pool;
+use mm1_address::subnet::{NetAddress, NetMask};
+use mm1_common::log::{self, info};
+use mm1_core::context::{
+    Bind, BindArgs, Fork, InitDone, Linking, Messaging, Quit, Start, Stop, Tell,
+};
 use mm1_core::envelope::dispatch;
 use mm1_node::runtime::{Local, Rt};
 use mm1_proto::message;
@@ -248,4 +252,55 @@ fn actor_fork_run() {
         .expect("Rt::create")
         .run(local::boxed_from_fn(main))
         .expect("Rt::run");
+}
+
+#[test]
+fn actor_bind_and_recv() {
+    let _ = mm1_logger::init(&logger_config());
+
+    async fn main<C>(ctx: &mut C)
+    where
+        C: Messaging + Fork + Bind<NetAddress>,
+    {
+        #[derive(Debug)]
+        #[message]
+        struct Hello;
+
+        log::info!("hello!");
+
+        let bind_to = "<beaf:>/16".parse().unwrap();
+        let pool = Pool::new(bind_to);
+        let () = ctx
+            .bind(BindArgs {
+                bind_to,
+                inbox_size: 1024,
+            })
+            .await
+            .expect("bind");
+
+        const COUNT: usize = 100;
+
+        for _ in 0..COUNT {
+            let to = pool.lease(NetMask::M_64).expect("pool.lease");
+            ctx.tell(to.address, Hello).await.expect("ctx.tell");
+        }
+
+        for _ in 0..COUNT {
+            let envelope = ctx.recv().await.expect("bound.recv");
+            log::info!("received [dest: {}]", envelope.header().to);
+        }
+    }
+
+    Rt::create(
+        serde_yaml::from_str(
+            r#"
+                subnet: <cafe:>/16
+
+            "#,
+        )
+        .expect("Mm1Config from yaml"),
+    )
+    .expect("Rt::create")
+    .run(local::boxed_from_fn(main))
+    .expect("Rt::run");
 }

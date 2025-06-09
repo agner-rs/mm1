@@ -4,18 +4,18 @@ use mm1_address::address::Address;
 use mm1_common::types::Never;
 use mm1_core::context::{Fork, InitDone, Messaging, Quit, Start, Stop, Tell};
 use mm1_core::envelope::dispatch;
+use mm1_node::config::Mm1NodeConfig;
 use mm1_node::runtime::Rt;
-use mm1_node::runtime::config::Mm1Config;
 use mm1_proto::message;
 use mm1_runnable::local::{self, BoxedRunnable};
 
 #[test]
 fn hello_runtime() {
-    let config: Mm1Config = serde_yaml::from_str(
+    let config: Mm1NodeConfig = serde_yaml::from_str(
         r#"
-            subnet: <aaaabbbbcccc:>/48
-            actor_netmask: 56
-            actor_inbox_size: 1024
+            subnets:
+                - net_address: <aaaabbbbcccc:>/48
+                  type: local
         "#,
     )
     .expect("parse-config error");

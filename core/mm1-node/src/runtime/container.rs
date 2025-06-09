@@ -6,21 +6,23 @@ use either::Either;
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
 use mm1_address::address::Address;
-use mm1_address::pool::{Lease as AddressLease, LeaseError, Pool as SubnetPool};
-use mm1_address::subnet::NetMask;
+use mm1_address::pool::{Lease as AddressLease, LeaseError};
+use mm1_address::subnet::NetAddress;
 use mm1_common::futures::catch_panic::CatchPanicExt;
 use mm1_common::types::AnyError;
 use mm1_core::envelope::{Envelope, EnvelopeHeader};
 use mm1_proto_system::{self as system};
 use mm1_runnable::local::{ActorRun, BoxedRunnable};
+use tokio::sync::mpsc;
 use tracing::{instrument, trace};
 
-use super::config::{EffectiveActorConfig, Mm1Config};
-use crate::runtime::actor_key::ActorKey;
+use crate::actor_key::ActorKey;
+use crate::config::{EffectiveActorConfig, Mm1NodeConfig, Valid};
+use crate::registry::{ActorNode, ForkEntry, MessageWithPermit};
+use crate::runtime::context;
 use crate::runtime::rt_api::{RequestAddressError, RtApi};
 use crate::runtime::sys_call::{self, SysCall};
 use crate::runtime::sys_msg::{ExitReason, SysLink, SysMsg, SysWatch};
-use crate::runtime::{context, mq};
 
 pub(crate) struct ContainerArgs {
     pub(crate) ack_to:    Option<Address>,
@@ -29,7 +31,7 @@ pub(crate) struct ContainerArgs {
 
     pub(crate) subnet_lease: AddressLease,
     pub(crate) rt_api:       RtApi,
-    pub(crate) rt_config:    Arc<Mm1Config>,
+    pub(crate) rt_config:    Arc<Valid<Mm1NodeConfig>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -45,13 +47,16 @@ pub(crate) enum ContainerError {
 
     #[error("lease error")]
     LeaseError(#[source] LeaseError),
+
+    #[error("registration error")]
+    RegistrationError,
 }
 
 struct JobEntry {
-    linked_to:   HashSet<Address>,
-    watches:     BTreeSet<(Address, system::WatchRef)>,
-    watched_by:  BTreeSet<(Address, system::WatchRef)>,
-    tx_priority: mq::UbTxWeak<Envelope>,
+    linked_to:        HashSet<Address>,
+    watches:          BTreeSet<(Address, system::WatchRef)>,
+    watched_by:       BTreeSet<(Address, system::WatchRef)>,
+    tx_priority_weak: mpsc::WeakUnboundedSender<Envelope>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -71,17 +76,24 @@ struct Terminated(Address);
 struct Panic(Box<str>);
 
 pub(crate) struct Container {
-    ack_to:     Option<Address>,
-    link_to:    Vec<Address>,
-    actor_key:  ActorKey,
-    inbox_size: usize,
+    ack_to:    Option<Address>,
+    link_to:   Vec<Address>,
+    actor_key: ActorKey,
 
-    actor_subnet_lease:  AddressLease,
-    actor_subnet:        SubnetPool,
-    actor_address_lease: AddressLease,
+    actor_node:    Arc<ActorNode<SysMsg, Envelope>>,
+    actor_address: Address,
+    actor_subnet:  NetAddress,
+
+    rx_system:   mpsc::UnboundedReceiver<SysMsg>,
+    rx_priority: mpsc::UnboundedReceiver<Envelope>,
+    rx_regular:  mpsc::UnboundedReceiver<MessageWithPermit<Envelope>>,
+
+    tx_system_weak:   mpsc::WeakUnboundedSender<SysMsg>,
+    tx_priority_weak: mpsc::WeakUnboundedSender<Envelope>,
+    tx_regular_weak:  mpsc::WeakUnboundedSender<MessageWithPermit<Envelope>>,
 
     rt_api:    RtApi,
-    rt_config: Arc<Mm1Config>,
+    rt_config: Arc<Valid<Mm1NodeConfig>>,
 
     runnable: BoxedRunnable<context::ActorContext>,
 }
@@ -101,63 +113,81 @@ impl Container {
             rt_config,
         } = args;
         let inbox_size = rt_config.actor_config(&actor_key).inbox_size();
-        let actor_subnet = SubnetPool::new(subnet_lease.net_address());
-        let actor_address = actor_subnet
-            .lease(NetMask::M_64)
-            .map_err(ContainerError::LeaseError)?;
+
+        let (tx_system, rx_system) = mpsc::unbounded_channel();
+        let (tx_priority, rx_priority) = mpsc::unbounded_channel();
+        let (tx_regular, rx_regular) = mpsc::unbounded_channel();
+
+        let tx_system_weak = tx_system.downgrade();
+        let tx_priority_weak = tx_priority.downgrade();
+        let tx_regular_weak = tx_regular.downgrade();
+
+        let actor_subnet = subnet_lease.net_address();
+        let actor_node = Arc::new(ActorNode::new(subnet_lease, inbox_size, tx_system));
+        if !rt_api.registry().register(actor_subnet, actor_node.clone()) {
+            return Err(ContainerError::RegistrationError)
+        }
+        let actor_address_lease = actor_node.lease_address()?;
+        let actor_address = actor_address_lease.address;
+        let fork_entry = ForkEntry::new(actor_address_lease, tx_priority, tx_regular);
+        let registered = actor_node.register(actor_address, fork_entry);
+        assert!(registered);
+
         let container = Self {
             ack_to,
             link_to,
             actor_key,
-            inbox_size,
-            actor_subnet_lease: subnet_lease,
-            actor_address_lease: actor_address,
+            actor_node,
+            actor_address,
             actor_subnet,
             rt_api,
             rt_config,
             runnable,
+            rx_system,
+            rx_priority,
+            rx_regular,
+            tx_system_weak,
+            tx_priority_weak,
+            tx_regular_weak,
         };
         Ok(container)
     }
 
     pub(crate) fn actor_address(&self) -> Address {
-        debug_assert_eq!(self.actor_address_lease.mask, NetMask::M_64);
-        self.actor_address_lease.address
+        self.actor_address
     }
 
     #[instrument(skip_all, fields(
-        addr = display(&self.actor_address_lease.address),
-        subn = display(&*self.actor_subnet_lease),
+        addr = display(&self.actor_address),
+        subn = display(&self.actor_subnet),
         func = self.runnable.func_name(),
         akey = display(&self.actor_key),
     ))]
-    pub(crate) async fn run(self) -> Result<(AddressLease, Result<(), AnyError>), ContainerError> {
+    pub(crate) async fn run(self) -> Result<Result<(), AnyError>, ContainerError> {
         // TODO: produce a future, that is instrumented
         let Self {
             ack_to,
             link_to,
             actor_key,
-            inbox_size,
-            actor_subnet_lease,
             actor_subnet,
-            actor_address_lease,
+            actor_address,
+            actor_node,
             rt_api,
             rt_config,
             runnable,
+
+            mut rx_system,
+            rx_priority,
+            rx_regular,
+
+            tx_priority_weak,
+            tx_regular_weak,
+            tx_system_weak,
         } = self;
 
         trace!("starting up");
 
-        let (tx_system, mut rx_system) = mq::unbounded();
-        let (tx_priority, rx_priority) = mq::unbounded();
-        let (tx_regular, rx_regular) = mq::bounded(inbox_size);
         let (call_tx, call_rx) = sys_call::create();
-        // let tx_regular_weak = tx_regular.downgrade();
-        let tx_priority_weak = tx_priority.downgrade();
-        let tx_system_weak = tx_system.downgrade();
-
-        let actor_address = actor_address_lease.address;
-        let () = rt_api.register(actor_address_lease, tx_system, tx_priority, tx_regular);
 
         let mut next_watch_ref: u64 = 0;
         let mut taken_watch_refs: HashMap<system::WatchRef, Address> = Default::default();
@@ -188,7 +218,7 @@ impl Container {
         let mut job_entries: HashMap<Address, JobEntry> = [(
             actor_address,
             JobEntry {
-                tx_priority: tx_priority_weak,
+                tx_priority_weak: tx_priority_weak.clone(),
                 watches: Default::default(),
                 watched_by: Default::default(),
                 linked_to,
@@ -201,15 +231,19 @@ impl Container {
         let mut context = context::ActorContext {
             rt_api: rt_api.clone(),
             rt_config,
-            actor_address,
-            call: call_tx,
+
+            actor_key,
+            address: actor_address,
+            ack_to,
+            actor_node: Arc::downgrade(&actor_node),
+            network_nodes: Default::default(),
+
             rx_priority,
             rx_regular,
             tx_system_weak: tx_system_weak.clone(),
-            subnet_pool: actor_subnet,
-            actor_key,
-            ack_to,
-            unregister_on_drop: false,
+            tx_priority_weak,
+            tx_regular_weak,
+            call: call_tx,
         };
 
         let exit_reason = {
@@ -269,7 +303,7 @@ impl Container {
                         spawned_jobs.push(job);
                     },
 
-                    (_, Either::Right(SysCall::ForkAdded(fork_address, tx_priority))) => {
+                    (_, Either::Right(SysCall::ForkAdded(fork_address, tx_priority_weak))) => {
                         assert!(
                             job_entries
                                 .insert(
@@ -278,7 +312,7 @@ impl Container {
                                         linked_to: Default::default(),
                                         watched_by: Default::default(),
                                         watches: Default::default(),
-                                        tx_priority,
+                                        tx_priority_weak,
                                     }
                                 )
                                 .is_none()
@@ -414,7 +448,7 @@ impl Container {
                             };
 
                             if should_handle {
-                                if let Some(tx_priority) = job_entry.tx_priority.upgrade() {
+                                if let Some(tx_priority) = job_entry.tx_priority_weak.upgrade() {
                                     let message = system::Exited {
                                         peer:        sender,
                                         normal_exit: matches!(reason, ExitReason::Normal),
@@ -558,7 +592,7 @@ impl Container {
                                 let (peer, watch_ref) = to_report;
                                 taken_watch_refs.remove(&watch_ref);
 
-                                if let Some(tx_priority) = job_entry.tx_priority.upgrade() {
+                                if let Some(tx_priority) = job_entry.tx_priority_weak.upgrade() {
                                     let message = system::Down {
                                         peer,
                                         watch_ref,
@@ -580,7 +614,8 @@ impl Container {
 
         trace!("exitting [reason: {:?}]", exit_reason);
 
-        let _ = rt_api.unregister(actor_address);
+        let unregistered = rt_api.registry().unregister(actor_subnet);
+        assert!(unregistered);
 
         trace!("processing the remaining sys-msgs");
 
@@ -662,7 +697,7 @@ impl Container {
 
         trace!("done");
 
-        Ok((actor_subnet_lease, exit_reason))
+        Ok(exit_reason)
     }
 }
 

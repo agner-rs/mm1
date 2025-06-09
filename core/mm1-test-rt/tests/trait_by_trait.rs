@@ -4,9 +4,13 @@ use std::time::Duration;
 use futures::FutureExt;
 use mm1_address::address::Address;
 use mm1_address::pool::Pool as SubnetPool;
-use mm1_address::subnet::NetMask;
+use mm1_address::subnet::{NetAddress, NetMask};
+use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::log;
-use mm1_core::context::{Fork, InitDone, Linking, Messaging, Quit, Start, Stop, Tell, Watching};
+use mm1_core::context::{
+    Bind, BindArgs, Fork, InitDone, Linking, Messaging, Quit, RecvErrorKind, Start, Stop, Tell,
+    Watching,
+};
 use mm1_core::envelope::{Envelope, EnvelopeHeader};
 use mm1_core::prim::message;
 use mm1_proto_system::WatchRef;
@@ -32,10 +36,8 @@ async fn t_simplest() {
         .unwrap();
 
     let main_actor_done = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<MainActorOutcome>()
         .unwrap();
     main_actor_done.remove_actor_entry().await.unwrap();
@@ -63,10 +65,8 @@ async fn t_spawn() {
         .unwrap();
 
     let query = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Spawn<_>>()
         .unwrap();
     assert_eq!(query.task_key.actor, address_a);
@@ -77,10 +77,8 @@ async fn t_spawn() {
     query_spawn.resolve_ok(lease_b.address);
 
     let main_actor_done = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<MainActorOutcome>()
         .unwrap();
     assert_eq!(main_actor_done.kind.address, address_a);
@@ -115,10 +113,8 @@ async fn t_start() {
         .unwrap();
 
     let query = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Start<_>>()
         .unwrap();
     assert_eq!(query.task_key.actor, address_a);
@@ -129,10 +125,8 @@ async fn t_start() {
     query_start.resolve_ok(lease_b.address);
 
     let main_actor_done = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<MainActorOutcome>()
         .unwrap();
     assert_eq!(main_actor_done.kind.address, address_a);
@@ -174,10 +168,8 @@ async fn t_recv() {
     rt.add_actor(address_a, Some(lease_a), a).await.unwrap();
 
     let query = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Recv>()
         .unwrap();
     assert_eq!(query.task_key.actor, address_a);
@@ -187,10 +179,8 @@ async fn t_recv() {
     query.resolve_ok(envelope);
 
     let main_actor_done = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<MainActorOutcome>()
         .unwrap();
     assert_eq!(main_actor_done.kind.address, address_a);
@@ -222,10 +212,8 @@ async fn t_init_done() {
     rt.add_actor(address_a, Some(lease_a), a).await.unwrap();
 
     let query = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::InitDone>()
         .unwrap();
     assert_eq!(query.task_key.actor, address_a);
@@ -234,10 +222,8 @@ async fn t_init_done() {
     query.resolve(());
 
     let main_actor_done = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<MainActorOutcome>()
         .unwrap();
     assert_eq!(main_actor_done.kind.address, address_a);
@@ -268,10 +254,8 @@ async fn t_recv_close() {
     rt.add_actor(address_a, Some(lease_a), a).await.unwrap();
 
     let query = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::RecvClose>()
         .unwrap();
     assert_eq!(query.task_key.actor, address_a);
@@ -280,10 +264,8 @@ async fn t_recv_close() {
     query.resolve(());
 
     let main_actor_done = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<MainActorOutcome>()
         .unwrap();
     assert_eq!(main_actor_done.kind.address, address_a);
@@ -320,10 +302,8 @@ async fn t_fork_and_run() {
     rt.add_actor(address_a, Some(lease_a), a).await.unwrap();
 
     let query = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Fork<_>>()
         .unwrap();
     assert_eq!(query.task_key.actor, address_a);
@@ -333,30 +313,24 @@ async fn t_fork_and_run() {
     query.resolve_ok(fork_context);
 
     let query_fork_run = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::ForkRun>()
         .unwrap();
 
-    let pending_task = query_fork_run.resolve().await;
+    let pending_task = query_fork_run.resolve();
 
     let query_main_recv = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Recv>()
         .unwrap();
 
     pending_task.run().await.unwrap();
 
     let query_fork_recv = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Recv>()
         .unwrap();
 
@@ -365,10 +339,8 @@ async fn t_fork_and_run() {
         .resolve_ok(Envelope::new(EnvelopeHeader::to_address(reply_to), Hello).into_erased());
 
     let task_done = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<ForkTaskOutcome>()
         .unwrap();
     assert_eq!(task_done.task_key, TaskKey::fork(address_a, address_b));
@@ -378,10 +350,8 @@ async fn t_fork_and_run() {
         .resolve_ok(Envelope::new(EnvelopeHeader::to_address(reply_to), Hello).into_erased());
 
     let main_actor_done = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<MainActorOutcome>()
         .unwrap();
     assert_eq!(main_actor_done.kind.address, address_a);
@@ -413,6 +383,41 @@ async fn t_fork_and_run() {
 }
 
 #[tokio::test]
+async fn t_bind_net_address() {
+    let _ = mm1_logger::init(&logger_config());
+    time::pause();
+
+    let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
+    let lease_a = node_net.lease(NetMask::M_48).unwrap();
+    let address_a = lease_a.address;
+    let rt = Runtime::<Runnable>::new();
+
+    rt.add_actor(address_a, Some(lease_a), a).await.unwrap();
+
+    let bind = dbg!(rt.expect_next_event().await.expect::<query::Bind<_>>());
+    bind.resolve_ok(());
+
+    let recv = dbg!(rt.expect_next_event().await.expect::<query::Recv>());
+    recv.resolve_err(ErrorOf::new(RecvErrorKind::Closed, "closed"));
+
+    let _done = dbg!(rt.expect_next_event().await.expect::<MainActorOutcome>());
+
+    async fn a<C>(ctx: &mut C)
+    where
+        C: Bind<NetAddress> + Messaging,
+    {
+        ctx.bind(BindArgs {
+            bind_to:    "<aa:>/32".parse().unwrap(),
+            inbox_size: 1024,
+        })
+        .await
+        .expect("bind failure");
+
+        let _ = ctx.recv().await.expect_err("should have been closed");
+    }
+}
+
+#[tokio::test]
 async fn t_tell() {
     #[message]
     struct Hello;
@@ -431,24 +436,20 @@ async fn t_tell() {
         .unwrap();
 
     let query = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Tell>()
         .unwrap();
     assert_eq!(query.task_key.actor, address_a);
     assert_eq!(query.task_key.context, address_a);
-    assert_eq!(query.envelope.info().to, address_b);
+    assert_eq!(query.envelope.header().to, address_b);
     assert!(query.envelope.is::<Hello>());
 
     query.resolve_ok(());
 
     let main_actor_done = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<MainActorOutcome>()
         .unwrap();
     assert_eq!(main_actor_done.kind.address, address_a);
@@ -480,10 +481,8 @@ async fn t_quit() {
     rt.add_actor(address_a, Some(lease_a), a).await.unwrap();
 
     let query = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Quit>()
         .unwrap();
     assert_eq!(query.task_key.actor, address_a);
@@ -492,10 +491,8 @@ async fn t_quit() {
     query.stop_tasks().await.unwrap();
 
     let main_actor_done = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<MainActorOutcome>()
         .unwrap();
     assert_eq!(main_actor_done.kind.address, address_a);
@@ -530,10 +527,8 @@ async fn t_watching() {
         .unwrap();
 
     let query = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Watch>()
         .unwrap();
     assert_eq!(query.task_key.actor, address_a);
@@ -544,10 +539,8 @@ async fn t_watching() {
     query.resolve(w);
 
     let query = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Unwatch>()
         .unwrap();
     assert_eq!(query.task_key.actor, address_a);
@@ -557,10 +550,8 @@ async fn t_watching() {
     query.resolve(());
 
     let main_actor_done = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<MainActorOutcome>()
         .unwrap();
 
@@ -598,10 +589,8 @@ async fn t_linking() {
         .unwrap();
 
     let query = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::SetTrapExit>()
         .unwrap();
     assert_eq!(query.task_key.actor, address_a);
@@ -610,10 +599,8 @@ async fn t_linking() {
     query.resolve(());
 
     let query = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Link>()
         .unwrap();
     assert_eq!(query.task_key.actor, address_a);
@@ -622,10 +609,8 @@ async fn t_linking() {
     query.resolve(());
 
     let query = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Unlink>()
         .unwrap();
     assert_eq!(query.task_key.actor, address_a);
@@ -634,10 +619,8 @@ async fn t_linking() {
     query.resolve(());
 
     let query = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::SetTrapExit>()
         .unwrap();
     assert_eq!(query.task_key.actor, address_a);
@@ -672,10 +655,8 @@ async fn t_stop() {
         .unwrap();
 
     let query = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Exit>()
         .unwrap();
     assert_eq!(query.task_key.actor, address_a);
@@ -684,10 +665,8 @@ async fn t_stop() {
     query.resolve(true);
 
     let query = rt
-        .next_event()
+        .expect_next_event()
         .await
-        .unwrap()
-        .unwrap()
         .convert::<query::Kill>()
         .unwrap();
     assert_eq!(query.task_key.actor, address_a);

@@ -53,7 +53,6 @@ where
         >,
     K: Hash + Ord + Clone + Send + Sync + 'static,
     M: Message,
-    Ctx::Instant: Send,
 {
     TimerApiImpl::<K, M, Ctx, crate::tokio_time::TokioTimer<K, M>>::new(ctx).await
 }

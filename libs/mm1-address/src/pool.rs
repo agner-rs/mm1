@@ -66,6 +66,13 @@ impl Pool {
 }
 
 impl Lease {
+    pub fn trusted(net_address: NetAddress) -> Self {
+        Self {
+            net_address,
+            shared: Weak::new(),
+        }
+    }
+
     pub fn net_address(&self) -> NetAddress {
         self.net_address
     }

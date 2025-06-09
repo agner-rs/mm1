@@ -3,9 +3,10 @@ use std::time::Duration;
 use futures::future::BoxFuture;
 use mm1_address::address::Address;
 use mm1_address::pool::Lease as AddressLease;
+use mm1_address::subnet::NetAddress;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::types::Never;
-use mm1_core::context::{ForkErrorKind, RecvErrorKind, SendErrorKind};
+use mm1_core::context::{BindArgs, BindErrorKind, ForkErrorKind, RecvErrorKind, SendErrorKind};
 use mm1_core::envelope::Envelope;
 use mm1_proto_system::{SpawnErrorKind, StartErrorKind, WatchRef};
 use tokio::sync::oneshot;
@@ -34,6 +35,15 @@ pub struct Start<R> {
 
     #[debug(skip)]
     pub(crate) outcome_tx: oneshot::Sender<Result<Address, ErrorOf<StartErrorKind>>>,
+}
+
+#[derive(derive_more::Debug)]
+pub struct Bind<A = NetAddress> {
+    pub task_key: TaskKey,
+    pub args:     BindArgs<A>,
+
+    #[debug(skip)]
+    pub(crate) outcome_tx: oneshot::Sender<Result<(), ErrorOf<BindErrorKind>>>,
 }
 
 #[derive(derive_more::Debug)]
