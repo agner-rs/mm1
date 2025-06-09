@@ -1,6 +1,6 @@
 [package]
 name = "mm1-name-service"
-version = "0.6.1"
+version = "0.6.2"
 edition = "2024"
 
 license = "MIT"
@@ -25,7 +25,6 @@ mm1-proto-named.workspace = true
 mm1-proto-well-known.workspace = true
 
 either.workspace = true
-slotmap.workspace = true
 tokio = {workspace = true, features = ["time"]}
 
 [dev-dependencies]

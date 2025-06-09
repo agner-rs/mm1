@@ -429,7 +429,7 @@ dependencies = [
 
 [[package]]
 name = "mm1"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "mm1-address",
  "mm1-ask",
@@ -453,7 +453,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-address"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "insta",
  "parking_lot",
@@ -463,7 +463,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-ask"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "derive_more",
  "mm1-address",
@@ -476,7 +476,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-common"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "mm1-proc-macros",
  "pin-project",
@@ -487,7 +487,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-core"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "eyre",
  "futures",
@@ -505,7 +505,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-logger"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "serde",
  "structopt",
@@ -515,7 +515,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-multinode"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "bytes",
  "derive_more",
@@ -541,7 +541,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-name-service"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "either",
  "mm1-address",
@@ -555,13 +555,12 @@ dependencies = [
  "mm1-proto-well-known",
  "mm1-runnable",
  "mm1-test-rt",
- "slotmap",
  "tokio",
 ]
 
 [[package]]
 name = "mm1-node"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "derive_more",
  "either",
@@ -593,7 +592,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proc-macros"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "either",
  "proc-macro2",
@@ -603,7 +602,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "mm1-proc-macros",
  "parking_lot",
@@ -611,7 +610,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-ask"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "mm1-address",
  "mm1-proto",
@@ -620,7 +619,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-named"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -630,7 +629,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-network-management"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -641,7 +640,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-sup"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -652,7 +651,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-system"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -661,7 +660,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-timer"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "derive_more",
  "mm1-proto",
@@ -670,32 +669,25 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-well-known"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "mm1-address",
 ]
 
 [[package]]
 name = "mm1-runnable"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "eyre",
- "futures",
- "mm1-address",
  "mm1-ask",
  "mm1-common",
  "mm1-core",
- "mm1-proc-macros",
- "mm1-proto",
  "mm1-proto-ask",
- "mm1-proto-system",
- "tokio",
- "tracing",
 ]
 
 [[package]]
 name = "mm1-sup"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "either",
  "insta",
@@ -719,7 +711,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-test-rt"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "derive_more",
  "futures",
@@ -734,7 +726,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-timer"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "futures",
  "insta",
@@ -1056,15 +1048,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f92a496fb766b417c996b9c5e57daf2f7ad3b0bebe1ccfca4856390e3d3bb67"
 dependencies = [
  "autocfg",
-]
-
-[[package]]
-name = "slotmap"
-version = "1.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbff4acf519f630b3a3ddcfaea6c06b42174d9a44bc70c620e9ed1649d58b82a"
-dependencies = [
- "version_check",
 ]
 
 [[package]]
