@@ -9,11 +9,11 @@ use tokio::sync::{Mutex, mpsc};
 use super::MainActorOutcome;
 use crate::rt::actor_fn::ActorFn;
 use crate::rt::{
-    ActorEntry, ActorTaskOutcome, AddressLease, Event, EventKind, ForkTaskOutcome, RuntimeError,
-    RuntimeShared, TaskKey, TestContext, TestRuntime,
+    ActorEntry, ActorTaskOutcome, AddressLease, Context, Event, EventKind, ForkTaskOutcome,
+    Runtime, RuntimeError, RuntimeShared, TaskKey,
 };
 
-impl<R> TestRuntime<R> {
+impl<R> Runtime<R> {
     pub fn new() -> Self {
         let (queries_tx, queries_rx) = mpsc::unbounded_channel();
         let shared = Arc::new(Mutex::new(RuntimeShared {
@@ -28,9 +28,9 @@ impl<R> TestRuntime<R> {
         &self,
         task_key: TaskKey,
         address_lease: Option<AddressLease>,
-    ) -> TestContext<R> {
+    ) -> Context<R> {
         let queries_tx = self.queries_tx.clone();
-        TestContext {
+        Context {
             task_key,
             address_lease,
             queries_tx,
@@ -125,7 +125,7 @@ impl<R> TestRuntime<R> {
     }
 }
 
-impl<R> Default for TestRuntime<R> {
+impl<R> Default for Runtime<R> {
     fn default() -> Self {
         Self::new()
     }

@@ -38,7 +38,7 @@ where
         AllForOneDecider {
             restart_intensity,
             restart_stats,
-            status: SupStatus::Starting,
+            status: SupStatus::Running,
             states: Default::default(),
             orphans: Default::default(),
         }
@@ -55,7 +55,6 @@ impl<K> Clone for AllForOne<K> {
 }
 
 enum SupStatus {
-    Starting,
     Running,
     Restarting,
     Stopping { normal_exit: bool },
@@ -204,9 +203,7 @@ where
                     normal_exit: normal_exit && existing_normal_exit,
                 }
             },
-            SupStatus::Starting | SupStatus::Restarting | SupStatus::Running => {
-                SupStatus::Stopping { normal_exit }
-            },
+            _ => SupStatus::Stopping { normal_exit },
         };
     }
 
@@ -223,9 +220,7 @@ where
         }
 
         let states_iter_mut = match self.status {
-            SupStatus::Starting | SupStatus::Running => {
-                Either::Left(Either::Left(self.states.iter_mut()))
-            },
+            SupStatus::Running => Either::Left(Either::Left(self.states.iter_mut())),
             SupStatus::Stopping { .. } | SupStatus::Restarting => {
                 Either::Left(Either::Right(self.states.iter_mut().rev()))
             },
@@ -233,17 +228,15 @@ where
         };
 
         let mut all_children_stopped = true;
-        let mut all_children_started = true;
         for (key, state) in states_iter_mut {
             let status = state.status;
             let target = match self.status {
-                SupStatus::Starting | SupStatus::Running => state.target,
+                SupStatus::Running => state.target,
                 SupStatus::Stopping { .. } | SupStatus::Restarting => Target::Stopped,
                 SupStatus::Stopped => unreachable!("wouldn't iterate over children"),
             };
 
             all_children_stopped = all_children_stopped && matches!(status, Status::Stopped);
-            all_children_started = all_children_started && matches!(status, Status::Running { .. });
 
             log::debug!(
                 "considering {}; status: {:?}, target: {:?}",
@@ -278,17 +271,6 @@ where
 
         match self.status {
             SupStatus::Running | SupStatus::Stopped => Ok(None),
-
-            SupStatus::Starting => {
-                log::info!("starting [all-children-started: {}]", all_children_started);
-                if all_children_started {
-                    self.status = SupStatus::Running;
-                    Ok(Some(Action::InitDone))
-                } else {
-                    Ok(None)
-                }
-            },
-
             SupStatus::Restarting => {
                 log::info!(
                     "restarting [all-children-stopped: {}]",

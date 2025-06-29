@@ -3,7 +3,8 @@ use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::impl_error_kind;
 use mm1_proto::message;
 
-#[message(base_path = ::mm1_proto)]
+#[message]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RegisterSubnetRequest {
     pub net_address: NetAddress,
     pub config:      serde_json::Value,
@@ -11,8 +12,9 @@ pub struct RegisterSubnetRequest {
 
 pub type RegisterSubnetResponse = Result<(), ErrorOf<RegisterSubnetErrorKind>>;
 
-#[message(base_path = ::mm1_proto)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[message]
+#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RegisterSubnetErrorKind {
     Internal,
     BadRequest,

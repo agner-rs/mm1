@@ -5,9 +5,15 @@
 pub mod proto {
     //! Protocols. Actors interact by communication.
 
+    /// A Message-wrapper over a non-Message type, showing that that piece of
+    /// data is not supposed to cross the node boundary.
+    pub use mm1_proto::Local;
     /// A trait showing that the type implementing it can be sent between the
     /// actors.
     pub use mm1_proto::Message;
+    /// A cloneable Message-wrapper over a non-clonable (and thus non-Message)
+    /// type.
+    pub use mm1_proto::Unique;
     /// A proc-macro attribute to make a message out of a type.
     ///
     /// Example:
@@ -157,8 +163,10 @@ pub mod ask {
     pub use mm1_ask::{Ask, Reply};
 
     pub mod proto {
-        pub type RequestHeader = mm1_proto_ask::RequestHeader;
-        pub type Request<Rq> = mm1_proto_ask::Request<Rq>;
+        pub mod simple {
+            pub type RequestHeader = mm1_proto_ask::RequestHeader<()>;
+            pub type Request<Rq> = mm1_proto_ask::Request<Rq, ()>;
+        }
     }
 }
 

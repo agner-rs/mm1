@@ -79,8 +79,8 @@ fn validate_subnets<'a>(
             },
             (Some(existing), SubnetKind::Local) => {
                 errors.push(format!(
-                    "a subnet of type 'local' defined more than once: at least {existing} and \
-                     {net_address}"
+                    "a subnet of type 'local' defined more than once: at least {} and {}",
+                    existing, net_address
                 ));
             },
             #[cfg(feature = "multinode")]

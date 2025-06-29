@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::pin::pin;
 use std::time::Duration;
 
@@ -13,8 +14,8 @@ use tracing::warn;
 use super::{ForkErrorKind, Messaging, RecvErrorKind};
 use crate::context::{Fork, Watching};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[message(base_path = ::mm1_proto)]
+#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[message]
 pub enum ShutdownErrorKind {
     InternalError,
     Fork(ForkErrorKind),

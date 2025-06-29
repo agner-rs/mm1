@@ -1,3 +1,5 @@
+use std::future::Future;
+
 use mm1_address::address::Address;
 
 pub trait Linking {

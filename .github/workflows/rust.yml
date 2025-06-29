@@ -68,25 +68,23 @@ jobs:
       #       cargo install cargo-nextest --locked
       #     fi
     
-      - name: Run Clippy
-        run: cargo clippy --workspace --all-features --all-targets -- -D warnings
       - name: "Check: no default features"
-        run: cargo check --no-default-features -p mm1
+        run: cargo check --workspace --all-targets --no-default-features -p mm1
       
       - name: "Check: feature=runtime"
-        run: cargo check --no-default-features -p mm1 --features runtime
+        run: cargo check --workspace --all-targets --no-default-features -p mm1 --features runtime
       
       - name: "Check: feature=sup"
-        run: cargo check --no-default-features -p mm1 --features sup
+        run: cargo check --workspace --all-targets --no-default-features -p mm1 --features sup
       
       - name: "Check: feature=timer"
-        run: cargo check --no-default-features -p mm1 --features timer
+        run: cargo check --workspace --all-targets --no-default-features -p mm1 --features timer
 
       - name: "Check: feature=multinode"
-        run: cargo check --no-default-features -p mm1 --features multinode
-
-      - name: "Check: feature=*"
-        run: cargo check --all-features -p mm1 
+        run: cargo check  --workspace --all-targets --no-default-features -p mm1 --features multinode
+        
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-features --all-targets -- -D warnings
     
       - name: Run tests
         run: cargo test --workspace --all-targets --all-features

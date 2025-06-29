@@ -2,13 +2,14 @@
 #![warn(rust_2018_idioms)]
 #![warn(unreachable_pub)]
 
+use std::future::Future;
 use std::hash::Hash;
 use std::ops::{Add, Sub};
 
 use mm1_proto::{Message, message};
 
 pub trait Timer: Send + 'static {
-    type Key: Message + Ord + Clone + Send + Hash;
+    type Key: Ord + Clone + Send + Hash;
     type Instant: Copy
         + Send
         + Ord
@@ -25,15 +26,22 @@ pub trait Timer: Send + 'static {
     }
 }
 
-#[message(base_path = ::mm1_proto)]
+#[cfg_attr(
+    feature = "serde",
+    derive(derive_more::Debug, serde::Serialize, serde::Deserialize)
+)]
+#[message]
 pub struct ScheduleOnce<T: Timer> {
     pub key: T::Key,
-    #[serde(skip)]
     pub at:  T::Instant,
     pub msg: T::Message,
 }
 
-#[message(base_path = ::mm1_proto)]
+#[cfg_attr(
+    feature = "serde",
+    derive(derive_more::Debug, serde::Serialize, serde::Deserialize)
+)]
+#[message]
 pub struct SchedulePeriodic<T: Timer>
 where
     T::Message: Clone,
@@ -44,7 +52,11 @@ where
     pub msg:    T::Message,
 }
 
-#[message(base_path = ::mm1_proto)]
+#[cfg_attr(
+    feature = "serde",
+    derive(derive_more::Debug, serde::Serialize, serde::Deserialize)
+)]
+#[message]
 pub struct Cancel<T: Timer> {
     pub key: T::Key,
 }

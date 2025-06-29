@@ -32,7 +32,7 @@ impl<Ctx, Runnable> UniformSupContext<Runnable> for Ctx where
 }
 
 #[derive(Debug, thiserror::Error)]
-#[message(base_path = ::mm1_proto)]
+#[message]
 pub enum UniformSupFailure {
     #[error("recv error: {}", _0)]
     Recv(RecvErrorKind),
@@ -80,7 +80,7 @@ where
 
     loop {
         dispatch!(match ctx.recv().await.map_err(UniformSupFailure::recv)? {
-            Request::<_> {
+            Request::<_, ()> {
                 header: reply_to,
                 payload: unisup::StartRequest::<F::Args> { args },
             } => {
@@ -104,7 +104,7 @@ where
                 assert!(started_children.insert(child));
             },
 
-            Request::<_> {
+            Request::<_, ()> {
                 header: reply_to,
                 payload: unisup::StopRequest { child },
             } => {
@@ -222,7 +222,7 @@ where
 }
 
 #[derive(Debug)]
-#[message(base_path = ::mm1_proto)]
+#[message]
 struct ChildStarted(Address);
 
 #[derive(Debug, thiserror::Error)]

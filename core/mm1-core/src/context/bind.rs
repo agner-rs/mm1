@@ -2,8 +2,8 @@ use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::impl_error_kind;
 use mm1_proto::message;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[message(base_path = ::mm1_proto)]
+#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[message]
 pub enum BindErrorKind {
     Closed,
     Conflict,

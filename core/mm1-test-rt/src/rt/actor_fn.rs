@@ -1,26 +1,26 @@
 use mm1_core::actor_exit::ActorExit;
 
-use crate::rt::TestContext;
+use crate::rt::Context;
 
 pub trait ActorFn<'a, R>: Send + 'a {
     type Fut: Future + Send + 'a;
     type Out;
 
-    fn run(self, context: &'a mut TestContext<R>) -> Self::Fut;
+    fn run(self, context: &'a mut Context<R>) -> Self::Fut;
 }
 
 impl<'a, R, Fun, Fut> ActorFn<'a, R> for Fun
 where
     R: 'a,
     Self: Send + 'a,
-    Fun: FnOnce(&'a mut TestContext<R>) -> Fut,
+    Fun: FnOnce(&'a mut Context<R>) -> Fut,
     Fut: Future + Send + 'a,
-    Fut::Output: ActorExit<TestContext<R>>,
+    Fut::Output: ActorExit<Context<R>>,
 {
     type Fut = Fut;
     type Out = Fut::Output;
 
-    fn run(self, context: &'a mut TestContext<R>) -> Self::Fut {
+    fn run(self, context: &'a mut Context<R>) -> Self::Fut {
         (self)(context)
     }
 }
@@ -36,16 +36,16 @@ macro_rules! impl_actor_func_with_args {
             R: Send + 'a,
             Self: Send + 'a,
             Fun: FnOnce(
-                    &'a mut TestContext<R>,
+                    &'a mut Context<R>,
                     $( $t , )*
                 ) -> Fut,
             Fut: Future + Send + 'a,
-            Fut::Output: ActorExit<TestContext<R>>,
+            Fut::Output: ActorExit<Context<R>>,
         {
             type Fut = Fut;
             type Out = Fut::Output;
 
-            fn run(self, context: &'a mut TestContext<R>) -> Self::Fut {
+            fn run(self, context: &'a mut Context<R>) -> Self::Fut {
                 #[allow(non_snake_case)]
                 let (f, (
                         $( $t , )*

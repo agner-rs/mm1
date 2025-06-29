@@ -1,4 +1,3 @@
-use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
 use std::time::Duration;
 
 use mm1_address::address::Address;
@@ -8,10 +7,8 @@ use mm1_common::futures::timeout::FutureTimeoutExt;
 use mm1_common::impl_error_kind;
 use mm1_core::context::{Fork, ForkErrorKind, Messaging, RecvErrorKind, SendErrorKind};
 use mm1_core::envelope::{Envelope, EnvelopeHeader};
-use mm1_proto::Message;
+use mm1_core::prim::Message;
 use mm1_proto_ask::{Request, RequestHeader, Response, ResponseHeader};
-
-static REQUEST_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, derive_more::From)]
 pub enum AskErrorKind {
@@ -48,14 +45,15 @@ pub trait Ask: Messaging + Sized {
 }
 
 pub trait Reply: Messaging + Send {
-    fn reply<Rs>(
+    fn reply<Id, Rs>(
         &mut self,
-        to: RequestHeader,
+        to: RequestHeader<Id>,
         response: Rs,
     ) -> impl Future<Output = Result<(), ErrorOf<SendErrorKind>>> + Send
     where
+        Id: Send,
         Rs: Send,
-        Response<Rs>: Message;
+        Response<Rs, Id>: Message;
 }
 
 impl<Ctx> Ask for Ctx
@@ -70,13 +68,10 @@ where
     ) -> Result<Rs, ErrorOf<AskErrorKind>>
     where
         Request<Rq>: Message,
-        Response<Rs>: Message,
+        Rs: Message,
     {
         let reply_to = self.address();
-        let request_header = RequestHeader {
-            id: REQUEST_ID.fetch_add(1, AtomicOrdering::Relaxed),
-            reply_to,
-        };
+        let request_header = RequestHeader { id: (), reply_to };
         let request_message = Request {
             header:  request_header,
             payload: request,
@@ -87,7 +82,7 @@ where
             .send(request_envelope.into_erased())
             .await
             .map_err(into_ask_error)?;
-        let response_envelope: Envelope<Response<Rs>> = self
+        let response_envelope = self
             .recv()
             .timeout(timeout)
             .await
@@ -95,7 +90,7 @@ where
                 ErrorOf::new(AskErrorKind::Timeout, "timed out waiting for response")
             })?
             .map_err(into_ask_error)?
-            .cast()
+            .cast::<Response<Rs>>()
             .map_err(|_| ErrorOf::new(AskErrorKind::Cast, "unexpected response type"))?;
         let (response_message, _empty_envelope) = response_envelope.take();
         let Response {
@@ -130,13 +125,13 @@ impl<Ctx> Reply for Ctx
 where
     Ctx: Messaging + Send,
 {
-    async fn reply<Rs>(
+    async fn reply<Id, Rs>(
         &mut self,
-        to: RequestHeader,
+        to: RequestHeader<Id>,
         response: Rs,
     ) -> Result<(), ErrorOf<SendErrorKind>>
     where
-        Response<Rs>: Message,
+        Response<Rs, Id>: Message,
     {
         let RequestHeader { id, reply_to } = to;
         let response_header = ResponseHeader { id };

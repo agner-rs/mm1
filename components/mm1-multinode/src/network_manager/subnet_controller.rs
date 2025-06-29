@@ -7,7 +7,7 @@ use mm1_ask::Ask;
 use mm1_common::log;
 use mm1_common::types::AnyError;
 use mm1_core::context::{Fork, Tell};
-use mm1_proto::Message;
+use mm1_core::prim::Message;
 use mm1_proto_sup::uniform::{StartRequest, StartResponse};
 use tokio::time::Instant;
 
@@ -110,11 +110,13 @@ pub(super) async fn started<C>(
     let subnet_state = state
         .subnets
         .get_mut(&net_address.into())
-        .ok_or_else(|| format!("no subnet_state for {net_address}"))?;
+        .ok_or_else(|| format!("no subnet_state for {}", net_address))?;
     let SubnetState::Remote(subnet_state) = subnet_state else {
-        return Err(
-            format!("received a 'subnet-started' report for the local subnet {net_address}").into(),
+        return Err(format!(
+            "received a 'subnet-started' report for the local subnet {}",
+            net_address
         )
+        .into())
     };
 
     subnet_state.status = SubnetStatus::Up(handled_by);
@@ -130,11 +132,13 @@ pub(super) async fn start_failed<C>(
     let subnet_state = state
         .subnets
         .get_mut(&net_address.into())
-        .ok_or_else(|| format!("no subnet_state for {net_address}"))?;
+        .ok_or_else(|| format!("no subnet_state for {}", net_address))?;
     let SubnetState::Remote(subnet_state) = subnet_state else {
-        return Err(
-            format!("received a 'subnet-started' report for the local subnet {net_address}").into(),
+        return Err(format!(
+            "received a 'subnet-started' report for the local subnet {}",
+            net_address
         )
+        .into())
     };
 
     subnet_state.status = SubnetStatus::Failed(Instant::now());

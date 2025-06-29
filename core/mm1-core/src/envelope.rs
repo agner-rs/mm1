@@ -10,13 +10,9 @@ use crate::message::AnyMessage;
 
 static ENVELOPE_SEQ_NO: AtomicU64 = AtomicU64::new(0);
 
-const DEFAULT_TTL: usize = 3;
-
 #[derive(Debug)]
 pub struct EnvelopeHeader {
-    pub to:  Address,
-    pub ttl: usize,
-
+    pub to:         Address,
     #[allow(dead_code)]
     no:             u64,
     #[allow(dead_code)]
@@ -35,14 +31,9 @@ impl EnvelopeHeader {
         Self {
             to,
             no: ENVELOPE_SEQ_NO.fetch_add(1, Ordering::Relaxed),
-            ttl: DEFAULT_TTL,
             trace_id: None,
             correlation_id: None,
         }
-    }
-
-    pub fn with_ttl(self, ttl: usize) -> Self {
-        Self { ttl, ..self }
     }
 }
 

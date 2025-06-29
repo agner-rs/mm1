@@ -59,10 +59,10 @@ impl fmt::Display for SysLink {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Connect { sender, receiver } => {
-                write!(f, "connect [sender: {sender}; receiver: {receiver}]")
+                write!(f, "connect [sender: {}; receiver: {}]", sender, receiver)
             },
             Self::Disconnect { sender, receiver } => {
-                write!(f, "disconnect [sender: {sender}; receiver: {receiver}]")
+                write!(f, "disconnect [sender: {}; receiver: {}]", sender, receiver)
             },
             Self::Exit {
                 sender,
@@ -71,7 +71,8 @@ impl fmt::Display for SysLink {
             } => {
                 write!(
                     f,
-                    "exit [sender: {sender}; receiver: {receiver}; reason: {reason:?}]",
+                    "exit [sender: {}; receiver: {}; reason: {:?}]",
+                    sender, receiver, reason,
                 )
             },
         }
@@ -88,7 +89,8 @@ impl fmt::Display for SysWatch {
             } => {
                 write!(
                     f,
-                    "watch[sender: {sender}; receiver: {receiver}; ref: {watch_ref}]"
+                    "watch[sender: {}; receiver: {}; ref: {}]",
+                    sender, receiver, watch_ref
                 )
             },
             Self::Unwatch {
@@ -98,7 +100,8 @@ impl fmt::Display for SysWatch {
             } => {
                 write!(
                     f,
-                    "unwatch[sender: {sender}; receiver: {receiver}; ref: {watch_ref}]"
+                    "unwatch[sender: {}; receiver: {}; ref: {}]",
+                    sender, receiver, watch_ref
                 )
             },
             Self::Down {
@@ -108,7 +111,8 @@ impl fmt::Display for SysWatch {
             } => {
                 write!(
                     f,
-                    "down[sender: {sender}; receiver: {receiver}; reason: {reason:?}]"
+                    "down[sender: {}; receiver: {}; reason: {:?}]",
+                    sender, receiver, reason
                 )
             },
         }
@@ -122,8 +126,8 @@ impl fmt::Display for SysMsg {
                 write!(f, "fork-done[address: {}]", address_lease.net_address())
             },
             Self::Kill => write!(f, "kill"),
-            Self::Link(l) => write!(f, "link/{l}"),
-            Self::Watch(w) => write!(f, "watch/{w}"),
+            Self::Link(l) => write!(f, "link/{}", l),
+            Self::Watch(w) => write!(f, "watch/{}", w),
         }
     }
 }

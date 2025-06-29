@@ -16,10 +16,9 @@ futures = ["tokio/time"]
 logging = ["tracing"]
 
 [dependencies]
-mm1-proto.workspace = true
+mm1-proc-macros.workspace = true
 
 pin-project.workspace = true
-serde = {workspace = true, features = ["derive", "rc"]}
 thiserror.workspace = true
 tokio = {workspace = true, optional = true}
 tracing = {workspace = true, optional = true}

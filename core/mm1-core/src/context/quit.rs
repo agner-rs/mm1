@@ -1,3 +1,5 @@
+use std::future::Future;
+
 use mm1_common::types::{Never, StdError};
 
 pub trait Quit: Send {

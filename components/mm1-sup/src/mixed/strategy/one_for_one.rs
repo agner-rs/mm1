@@ -39,7 +39,6 @@ enum Target {
 }
 
 enum SupStatus {
-    Starting,
     Running,
     Stopping { normal_exit: bool },
     Stopped,
@@ -69,7 +68,7 @@ where
             restart_stats,
             states: Default::default(),
             orphans: Default::default(),
-            status: SupStatus::Starting,
+            status: SupStatus::Running,
         }
     }
 }
@@ -201,7 +200,7 @@ where
                     normal_exit: normal_exit && existing_normal_exit,
                 }
             },
-            SupStatus::Starting | SupStatus::Running => SupStatus::Stopping { normal_exit },
+            SupStatus::Running => SupStatus::Stopping { normal_exit },
         };
     }
 
@@ -225,24 +224,20 @@ where
         }
 
         let states_iter_mut = match self.status {
-            SupStatus::Starting | SupStatus::Running => {
-                Either::Left(Either::Left(self.states.iter_mut()))
-            },
+            SupStatus::Running => Either::Left(Either::Left(self.states.iter_mut())),
             SupStatus::Stopping { .. } => Either::Left(Either::Right(self.states.iter_mut().rev())),
             SupStatus::Stopped => Either::Right(std::iter::empty()),
         };
-        let mut all_children_started = true;
         let mut all_children_stopped = true;
         for &mut (ref key, ref mut state) in states_iter_mut {
             let status = state.status;
             let target = match self.status {
-                SupStatus::Starting | SupStatus::Running => state.target,
+                SupStatus::Running => state.target,
                 SupStatus::Stopping { .. } => Target::Stopped,
                 SupStatus::Stopped => unreachable!("wouldn't iterate over children"),
             };
 
             all_children_stopped = all_children_stopped && matches!(status, Status::Stopped);
-            all_children_started = all_children_started && matches!(status, Status::Running { .. });
 
             log::debug!(
                 "considering {}; status: {:?}, target: {:?}",
@@ -283,17 +278,6 @@ where
 
         match self.status {
             SupStatus::Running | SupStatus::Stopped => Ok(None),
-
-            SupStatus::Starting => {
-                log::info!("starting [all-children-started: {}]", all_children_started);
-                if all_children_started {
-                    self.status = SupStatus::Running;
-                    Ok(Some(Action::InitDone))
-                } else {
-                    Ok(None)
-                }
-            },
-
             SupStatus::Stopping { normal_exit } => {
                 log::info!(
                     "stopping [normal: {}; all-children-stopped: {}]",

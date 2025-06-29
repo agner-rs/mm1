@@ -1,10 +1,11 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
+use mm1_proto::Message;
 use parking_lot::Mutex;
 
 pub trait ActorFactory: Send + Sync + 'static {
-    type Args: Send + 'static;
+    type Args: Message;
     type Runnable;
     fn produce(&self, args: Self::Args) -> Self::Runnable;
 }
@@ -56,7 +57,7 @@ where
     Self: Sync + Send + 'static,
     F: FnMut(A) -> R,
     F: Send + 'static,
-    A: Send + 'static,
+    A: Message,
     R: Send + 'static,
 {
     type Args = A;
@@ -72,8 +73,7 @@ where
     Self: Sync + Send + 'static,
     F: FnOnce(A) -> R,
     F: Send + 'static,
-    // A: Message,
-    A: Send + 'static,
+    A: Message,
     R: Send + 'static,
 {
     type Args = A;

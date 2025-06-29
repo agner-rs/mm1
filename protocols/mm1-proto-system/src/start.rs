@@ -2,8 +2,8 @@ use mm1_address::address::Address;
 use mm1_common::impl_error_kind;
 use mm1_proto::message;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[message(base_path = ::mm1_proto)]
+#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[message]
 pub enum SpawnErrorKind {
     InternalError,
     ResourceConstraint,
@@ -12,13 +12,13 @@ pub enum SpawnErrorKind {
 impl_error_kind!(SpawnErrorKind);
 
 #[derive(Debug)]
-#[message(base_path = ::mm1_proto)]
+#[message]
 pub struct InitAck {
     pub address: Address,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[message(base_path = ::mm1_proto)]
+#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[message]
 pub enum StartErrorKind {
     Spawn(SpawnErrorKind),
     Exited,

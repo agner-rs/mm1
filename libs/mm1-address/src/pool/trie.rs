@@ -156,7 +156,8 @@ mod util {
         debug_assert_eq!(
             mask.leading_ones() + mask.trailing_zeros(),
             u64::BITS,
-            "not a mask: {mask:064b}",
+            "not a mask: {:064b}",
+            mask
         );
     }
 
@@ -418,7 +419,7 @@ mod tests {
         let mut pool = Pool::new(0xFFFF_FFFF_FFFF_FFF0, 0xFFFF_FFFF_FFFF_FFF0);
         let mut addresses = vec![];
         while let Some(a) = pool.acquire(0xFFFF_FFFF_FFFF_FFFF) {
-            eprintln!("- {a:016x}");
+            eprintln!("- {:016x}", a);
             // eprintln!("   {:#?}", pool);
             addresses.push(a);
         }
@@ -435,12 +436,12 @@ mod tests {
         let mut pool = Pool::new(0xFFFF_FFFF_FFFF_FFF0, 0xFFFF_FFFF_FFFF_FFF0);
         let mut addresses = vec![];
         while let Some(a) = pool.acquire(0xFFFF_FFFF_FFFF_FFFF) {
-            eprintln!("- {a:016x}");
+            eprintln!("- {:016x}", a);
             // eprintln!("   {:#?}", pool);
             addresses.push(a);
         }
         addresses.sort_by_key(|a| a.reverse_bits());
-        eprintln!("{addresses:#?}");
+        eprintln!("{:#?}", addresses);
         assert_eq!(addresses.len(), 16);
         for a in addresses {
             assert!(pool.release(a, 0xFFFF_FFFF_FFFF_FFFF));
@@ -456,7 +457,7 @@ mod tests {
 
         let mut acquired = vec![];
         while let Some(a) = pool_a.acquire(0xFFFF_FFFF_FFFF_FFFF) {
-            eprintln!("- {a:016x}");
+            eprintln!("- {:016x}", a);
             acquired.push(a);
         }
 
@@ -472,7 +473,7 @@ mod tests {
 
         let mut acquired = vec![];
         while let Some(a) = pool_a.acquire(0xFFFF_FFFF_FFFF_FFFF) {
-            eprintln!("- {a:016x}");
+            eprintln!("- {:016x}", a);
             acquired.push(a);
         }
 

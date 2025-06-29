@@ -5,8 +5,9 @@ use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::impl_error_kind;
 use mm1_proto::message;
 
-#[message(base_path = ::mm1_proto)]
+#[message]
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RegisterRequest<K> {
     pub key:       K,
     pub addr:      Address,
@@ -16,8 +17,9 @@ pub struct RegisterRequest<K> {
 
 pub type RegisterResponse = Result<(), ErrorOf<RegisterErrorKind>>;
 
-#[message(base_path = ::mm1_proto)]
+#[message]
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UnregisterRequest<K> {
     pub key:  K,
     pub addr: Address,
@@ -25,42 +27,48 @@ pub struct UnregisterRequest<K> {
 
 pub type UnregisterResponse = Result<(), ErrorOf<UnregisterErrorKind>>;
 
-#[message(base_path = ::mm1_proto)]
+#[message]
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ResolveRequest<K> {
     pub key: K,
 }
 
 pub type ResolveResponse = Result<Vec<(Address, Duration)>, ErrorOf<ResolveErrorKind>>;
 
-#[message(base_path = ::mm1_proto)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[message]
+#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RegisterErrorKind {
     Conflict,
     Internal,
 }
 
-#[message(base_path = ::mm1_proto)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[message]
+#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum UnregisterErrorKind {
     NotFound,
     Internal,
 }
 
-#[message(base_path = ::mm1_proto)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[message]
+#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ResolveErrorKind {
     Internal,
 }
 
-#[message(base_path = ::mm1_proto)]
+#[message]
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeyProps {
     pub exclusive: bool,
 }
 
-#[message(base_path = ::mm1_proto)]
+#[message]
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RegProps {
     pub ttl: Duration,
 }

@@ -12,11 +12,11 @@ exclude = ["**/*.snap"]
 
 [features]
 default = []
+serde = ["dep:serde"]
 
 [dependencies]
-mm1-proto.workspace = true
 parking_lot.workspace = true
-serde = {workspace = true, features = ["derive"]}
+serde = {workspace = true, optional = true, features = ["derive"]}
 thiserror.workspace = true
 
 [dev-dependencies]

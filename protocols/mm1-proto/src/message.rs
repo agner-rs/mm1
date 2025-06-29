@@ -1,6 +1,5 @@
 pub use mm1_proc_macros::message;
-use serde::Serialize;
 
-mod primitives;
+pub trait Message: Send + 'static {}
 
-pub trait Message: Serialize + Send + 'static {}
+impl<M> Message for M where M: Send + 'static {}

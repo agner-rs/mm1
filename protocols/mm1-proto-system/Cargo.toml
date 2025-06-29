@@ -14,5 +14,3 @@ exclude = ["**/*.snap"]
 mm1-address.workspace = true
 mm1-common.workspace = true
 mm1-proto.workspace = true
-
-serde = {workspace = true, features = ["derive"]}
