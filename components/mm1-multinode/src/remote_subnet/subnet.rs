@@ -133,9 +133,13 @@ where
     let mut framed_write = FramedWrite::new(output, frame_codec());
     loop {
         let envelope = ctx.recv().await?;
-        let to = envelope.header().to;
         let tid = envelope.tid();
         let type_name = envelope.message_name();
+        let to = envelope.header().to;
+        let Some(ttl) = envelope.header().ttl.checked_sub(1) else {
+            log::warn!("out of ttl [to: {}; message: {}]", to, type_name);
+            continue
+        };
 
         let Some((type_idx, enc)) = encoders.get(&tid) else {
             log::warn!(
@@ -158,8 +162,9 @@ where
             continue
         };
 
+        let header = Header { to, ttl };
         let packet = Packet::Envelope {
-            to,
+            h: header,
             t: *type_idx,
             m: encoded_message,
         };
@@ -202,7 +207,7 @@ where
             .inspect_err(|e| log::error!("could not parse packet: {}", e))?;
         match packet {
             Packet::Envelope {
-                to,
+                h: header,
                 t: type_idx,
                 m: encoded_message,
             } => {
@@ -225,7 +230,8 @@ where
                     continue
                 };
 
-                let header = EnvelopeHeader::to_address(to);
+                let Header { to, ttl } = header;
+                let header = EnvelopeHeader::to_address(to).with_ttl(ttl);
                 let envelope = Envelope::new(header, any_message);
 
                 let _ = ctx.send(envelope).await.inspect_err(|reason| {
@@ -249,10 +255,17 @@ fn frame_codec()
 #[serde(rename_all = "snake_case")]
 enum Packet {
     Envelope {
-        to: Address,
-        t:  usize,
-        m:  serde_json::Value,
+        h: Header,
+        t: usize,
+        m: serde_json::Value,
     },
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+struct Header {
+    to:  Address,
+    ttl: usize,
 }
 
 impl Packet {
