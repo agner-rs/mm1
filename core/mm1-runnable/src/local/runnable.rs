@@ -1,5 +1,3 @@
-use std::future::Future;
-
 use fnonce_actor::{ActorRunBoxed, ActorRunFnOnce};
 use mm1_common::types::Never;
 

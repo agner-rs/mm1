@@ -1,5 +1,3 @@
-use std::future::Future;
-
 use mm1_address::address::Address;
 use mm1_proto_system as system;
 

@@ -1,4 +1,3 @@
-use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -103,7 +102,7 @@ impl Fork for ActorContext {
     where
         F: FnOnce(Self) -> Fut,
         F: Send + 'static,
-        Fut: std::future::Future + Send + 'static,
+        Fut: Future + Send + 'static,
     {
         let call = self.call.clone();
         let fut = fun(self).map(|_| ()).boxed();

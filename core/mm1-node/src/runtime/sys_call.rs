@@ -1,5 +1,4 @@
 use core::fmt;
-use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll, ready};
 

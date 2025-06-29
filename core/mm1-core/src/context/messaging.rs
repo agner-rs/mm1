@@ -1,5 +1,3 @@
-use std::future::Future;
-
 use mm1_address::address::Address;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::impl_error_kind;
