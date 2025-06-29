@@ -9,7 +9,7 @@ use mm1_core::envelope::{Envelope, EnvelopeHeader};
 use mm1_proto_system::{SpawnErrorKind, StartErrorKind, WatchRef};
 use tokio::sync::oneshot;
 
-use super::{Context, RuntimeError};
+use super::{RuntimeError, TestContext};
 use crate::rt::{
     ActorTaskOutcome, Event, EventKind, ForkTaskOutcome, MainActorOutcome, Query, query,
 };
@@ -475,7 +475,7 @@ impl From<query::RecvClose> for oneshot::Sender<()> {
     }
 }
 
-impl<R> From<query::Fork<R>> for oneshot::Sender<Result<Context<R>, ErrorOf<ForkErrorKind>>> {
+impl<R> From<query::Fork<R>> for oneshot::Sender<Result<TestContext<R>, ErrorOf<ForkErrorKind>>> {
     fn from(value: query::Fork<R>) -> Self {
         value.outcome_tx
     }

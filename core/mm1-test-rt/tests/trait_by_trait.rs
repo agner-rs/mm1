@@ -15,7 +15,7 @@ use mm1_core::envelope::{Envelope, EnvelopeHeader};
 use mm1_core::prim::message;
 use mm1_proto_system::WatchRef;
 use mm1_test_rt::rt::event::{EventResolve, EventResolveResult};
-use mm1_test_rt::rt::{ForkTaskOutcome, MainActorOutcome, Runtime, TaskKey, query};
+use mm1_test_rt::rt::{ForkTaskOutcome, MainActorOutcome, TaskKey, TestRuntime, query};
 use tokio::time;
 
 #[derive(Debug)]
@@ -30,7 +30,7 @@ async fn t_simplest() {
 
     let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
-    let rt = Runtime::<Runnable>::new();
+    let rt = TestRuntime::<Runnable>::new();
     rt.add_actor(lease_a.address, Some(lease_a), a)
         .await
         .unwrap();
@@ -58,7 +58,7 @@ async fn t_spawn() {
     let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let lease_b = node_net.lease(NetMask::M_64).unwrap();
-    let rt = Runtime::<Runnable>::new();
+    let rt = TestRuntime::<Runnable>::new();
     let address_a = lease_a.address;
     rt.add_actor(address_a, Some(lease_a), (a, ("hello-spawn",)))
         .await
@@ -106,7 +106,7 @@ async fn t_start() {
     let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let lease_b = node_net.lease(NetMask::M_64).unwrap();
-    let rt = Runtime::<Runnable>::new();
+    let rt = TestRuntime::<Runnable>::new();
     let address_a = lease_a.address;
     rt.add_actor(address_a, Some(lease_a), (a, ("hello-start",)))
         .await
@@ -163,7 +163,7 @@ async fn t_recv() {
 
     let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
-    let rt = Runtime::<Runnable>::new();
+    let rt = TestRuntime::<Runnable>::new();
     let address_a = lease_a.address;
     rt.add_actor(address_a, Some(lease_a), a).await.unwrap();
 
@@ -207,7 +207,7 @@ async fn t_init_done() {
 
     let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
-    let rt = Runtime::<Runnable>::new();
+    let rt = TestRuntime::<Runnable>::new();
     let address_a = lease_a.address;
     rt.add_actor(address_a, Some(lease_a), a).await.unwrap();
 
@@ -249,7 +249,7 @@ async fn t_recv_close() {
 
     let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
-    let rt = Runtime::<Runnable>::new();
+    let rt = TestRuntime::<Runnable>::new();
     let address_a = lease_a.address;
     rt.add_actor(address_a, Some(lease_a), a).await.unwrap();
 
@@ -296,7 +296,7 @@ async fn t_fork_and_run() {
     let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let lease_b = node_net.lease(NetMask::M_60).unwrap();
-    let rt = Runtime::<Runnable>::new();
+    let rt = TestRuntime::<Runnable>::new();
     let address_a = lease_a.address;
     let address_b = lease_b.address;
     rt.add_actor(address_a, Some(lease_a), a).await.unwrap();
@@ -390,7 +390,7 @@ async fn t_bind_net_address() {
     let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let address_a = lease_a.address;
-    let rt = Runtime::<Runnable>::new();
+    let rt = TestRuntime::<Runnable>::new();
 
     rt.add_actor(address_a, Some(lease_a), a).await.unwrap();
 
@@ -428,7 +428,7 @@ async fn t_tell() {
     let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let lease_b = node_net.lease(NetMask::M_48).unwrap();
-    let rt = Runtime::<Runnable>::new();
+    let rt = TestRuntime::<Runnable>::new();
     let address_a = lease_a.address;
     let address_b = lease_b.address;
     rt.add_actor(address_a, Some(lease_a), (a, (address_b,)))
@@ -476,7 +476,7 @@ async fn t_quit() {
 
     let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
-    let rt = Runtime::<Runnable>::new();
+    let rt = TestRuntime::<Runnable>::new();
     let address_a = lease_a.address;
     rt.add_actor(address_a, Some(lease_a), a).await.unwrap();
 
@@ -519,7 +519,7 @@ async fn t_watching() {
     let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let lease_b = node_net.lease(NetMask::M_64).unwrap();
-    let rt = Runtime::<Runnable>::new();
+    let rt = TestRuntime::<Runnable>::new();
     let address_a = lease_a.address;
     let address_b = lease_b.address;
     rt.add_actor(address_a, Some(lease_a), (a, (address_b,)))
@@ -581,7 +581,7 @@ async fn t_linking() {
     let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let lease_b = node_net.lease(NetMask::M_64).unwrap();
-    let rt = Runtime::<Runnable>::new();
+    let rt = TestRuntime::<Runnable>::new();
     let address_a = lease_a.address;
     let address_b = lease_b.address;
     rt.add_actor(address_a, Some(lease_a), (a, (address_b,)))
@@ -647,7 +647,7 @@ async fn t_stop() {
     let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let lease_b = node_net.lease(NetMask::M_64).unwrap();
-    let rt = Runtime::<Runnable>::new();
+    let rt = TestRuntime::<Runnable>::new();
     let address_a = lease_a.address;
     let address_b = lease_b.address;
     rt.add_actor(address_a, Some(lease_a), (a, (address_b,)))

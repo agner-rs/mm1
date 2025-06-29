@@ -8,7 +8,7 @@ use mm1_address::subnet::NetMask;
 use mm1_core::envelope::{Envelope, EnvelopeHeader};
 use mm1_proto_timer as t;
 use mm1_test_rt::rt::event::EventResolveResult;
-use mm1_test_rt::rt::{Runtime, query};
+use mm1_test_rt::rt::{TestRuntime, query};
 use mm1_timer::tokio_time::TokioTimer;
 use tokio::time;
 use tokio::time::Instant;
@@ -21,7 +21,7 @@ async fn test() {
 
     type T = TokioTimer<&'static str, i32>;
 
-    let rt = Runtime::<&'static str>::new();
+    let rt = TestRuntime::<&'static str>::new();
     let address_pool = Pool::new("<ff:>/32".parse().unwrap());
     let main_lease = address_pool.lease(NetMask::M_64).unwrap();
     let timer_lease = address_pool.lease(NetMask::M_64).unwrap();

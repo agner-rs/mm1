@@ -12,7 +12,7 @@ use mm1_proto_system::{SpawnErrorKind, StartErrorKind};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 
-use crate::rt::{Context, Query, TaskKey, query};
+use crate::rt::{Query, TaskKey, TestContext, query};
 
 impl TaskKey {
     pub fn actor(address: Address) -> Self {
@@ -31,7 +31,7 @@ impl TaskKey {
     }
 }
 
-impl<R> Now for Context<R>
+impl<R> Now for TestContext<R>
 where
     R: Send,
 {
@@ -42,7 +42,7 @@ where
     }
 }
 
-impl<R> Start<R> for Context<R>
+impl<R> Start<R> for TestContext<R>
 where
     R: Send,
 {
@@ -87,7 +87,7 @@ where
     }
 }
 
-impl<R> Bind<NetAddress> for Context<R>
+impl<R> Bind<NetAddress> for TestContext<R>
 where
     R: Send + 'static,
 {
@@ -108,7 +108,7 @@ where
     }
 }
 
-impl<R> Fork for Context<R>
+impl<R> Fork for TestContext<R>
 where
     R: Send + 'static,
 {
@@ -156,7 +156,7 @@ where
     }
 }
 
-impl<R> Quit for Context<R>
+impl<R> Quit for TestContext<R>
 where
     R: Send,
 {
@@ -196,7 +196,7 @@ where
     }
 }
 
-impl<R> Messaging for Context<R>
+impl<R> Messaging for TestContext<R>
 where
     R: Send,
 {
@@ -255,7 +255,7 @@ where
     }
 }
 
-impl<R> Watching for Context<R>
+impl<R> Watching for TestContext<R>
 where
     R: Send,
 {
@@ -292,7 +292,7 @@ where
     }
 }
 
-impl<R> Linking for Context<R>
+impl<R> Linking for TestContext<R>
 where
     R: Send,
 {
@@ -345,7 +345,7 @@ where
     }
 }
 
-impl<R> InitDone for Context<R>
+impl<R> InitDone for TestContext<R>
 where
     R: Send,
 {
@@ -366,7 +366,7 @@ where
     }
 }
 
-impl<R> Stop for Context<R>
+impl<R> Stop for TestContext<R>
 where
     R: Send,
 {

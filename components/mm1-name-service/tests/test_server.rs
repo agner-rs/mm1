@@ -11,14 +11,14 @@ use mm1_proto_named::{
 };
 use mm1_proto_well_known::NAME_SERVICE;
 use mm1_test_rt::rt::event::{EventResolve, EventResolveResult};
-use mm1_test_rt::rt::{Runtime, query};
+use mm1_test_rt::rt::{TestRuntime, query};
 use tokio::time::{self, Instant};
 
 #[tokio::test]
 async fn test_simple_actor() {
     time::pause();
 
-    let rt = Runtime::<()>::new();
+    let rt = TestRuntime::<()>::new();
 
     let address_pool = Pool::new("<cafe:>/16".parse().unwrap());
     let server_lease = address_pool.lease(NetMask::M_64).unwrap();

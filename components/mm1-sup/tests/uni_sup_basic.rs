@@ -204,7 +204,7 @@ async fn test_02() {
         stop_timeout: Duration::from_secs(1),
     };
     let uniform_sup = UniformSup::new(child_spec);
-    let rt = mm1_test_rt::rt::Runtime::<Runnable<&'static str>>::new()
+    let rt = mm1_test_rt::rt::TestRuntime::<Runnable<&'static str>>::new()
         .with_actor(
             address_sup,
             Some(lease_a),

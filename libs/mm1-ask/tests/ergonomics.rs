@@ -10,14 +10,14 @@ use mm1_core::envelope::dispatch;
 use mm1_core::prim::message;
 use mm1_proto_ask::Request;
 use mm1_test_rt::rt::event::EventResolveResult;
-use mm1_test_rt::rt::{MainActorOutcome, Runtime, query};
+use mm1_test_rt::rt::{MainActorOutcome, TestRuntime, query};
 use tokio::time;
 
 #[tokio::test]
 async fn ergonomics() {
     time::pause();
 
-    let rt = Runtime::<()>::new();
+    let rt = TestRuntime::<()>::new();
     let subnet = Pool::new("<ff:>/16".parse().unwrap());
     let server_lease = subnet.lease(NetMask::M_32).unwrap();
     let client_lease = subnet.lease(NetMask::M_32).unwrap();
