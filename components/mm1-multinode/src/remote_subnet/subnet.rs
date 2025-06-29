@@ -17,7 +17,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_util::codec::{Decoder, Encoder, FramedRead, FramedWrite, LengthDelimitedCodec};
 
 use crate::codecs::{self, CodecRegistry};
-use crate::remote_subnet::config::RemoteSubnetConfig;
+use crate::remote_subnet::config::{RemoteSubnetConfig, SerdeFormat};
 use crate::remote_subnet::handshake;
 use crate::remote_subnet::tcp_rendez_vous::RendezVous;
 
@@ -88,29 +88,44 @@ where
     log::debug!("stream open: {:?}", stream);
 
     let (requested_caps, advertised_caps) =
-        handshake::do_handshake(&mut stream, net_address, codec).await?;
+        handshake::do_handshake(&mut stream, net_address, codec, config.serde).await?;
     log::debug!("handshake done");
+
+    if requested_caps
+        .requested_format
+        .ok_or("peer has not requested serde-format")?
+        != config.serde
+    {
+        log::error!(
+            "could not agree on serde-format [this: {:?}; peer: {:?}]",
+            config.serde,
+            requested_caps.requested_format
+        );
+        return Err("serde-format mismatch".into())
+    }
 
     let mut encoders = HashMap::new();
     for (type_idx, (tid, name)) in advertised_caps.advertised_types.into_iter().enumerate() {
-        let encoder = codec
-            .json(&name)
+        let supported_type = codec
+            .select_type(&name)
             .expect("we ourselves advertised it in the handshake, haven't we?");
+        let encoder = supported_type.select_format(config.serde);
         encoders.insert(tid, (type_idx, encoder));
     }
 
     let mut decoders = vec![];
     for name in requested_caps.requested_types {
-        let decoder = codec
-            .json(&name)
+        let supported_type = codec
+            .select_type(&name)
             .expect("we checked every required type in the handshake");
+        let decoder = supported_type.select_format(config.serde);
         decoders.push(decoder);
     }
 
     let (input, output) = tokio::io::split(&mut stream);
 
-    let outbound_running = handle_outbound(subnet_ctx, output, net_address, encoders);
-    let inbound_running = handle_inbound(ctx, input, &decoders);
+    let outbound_running = handle_outbound(subnet_ctx, output, net_address, config.serde, encoders);
+    let inbound_running = handle_inbound(ctx, input, config.serde, &decoders);
 
     let (outbound_done, inbound_done) =
         futures::future::try_join(outbound_running, inbound_running).await?;
@@ -118,15 +133,15 @@ where
     match (outbound_done, inbound_done) {}
 }
 
-async fn handle_outbound<Ctx, IO, Enc>(
+async fn handle_outbound<Ctx, IO>(
     mut ctx: Ctx,
     output: IO,
     net_address: NetAddress,
-    encoders: HashMap<TypeId, (usize, Enc)>,
+    header_format: SerdeFormat,
+    encoders: HashMap<TypeId, (usize, &dyn codecs::FormatSpecific)>,
 ) -> Result<Never, AnyError>
 where
     Ctx: Messaging,
-    Enc: codecs::Encode<serde_json::Value>,
     IO: AsyncWrite,
 {
     let output = pin!(output);
@@ -162,14 +177,16 @@ where
             continue
         };
 
-        let header = Header { to, ttl };
-        let packet = Packet::Envelope {
-            h: header,
-            t: *type_idx,
-            m: encoded_message,
+        let header = Header {
+            to,
+            ttl,
+            type_idx: *type_idx,
         };
-        let packet_bytes = packet.to_bytes();
-        if packet_bytes.len() > MAX_FRAME_LEN {
+        let packet = Packet::Envelope(header);
+        let packet_bytes = packet.to_bytes(header_format)?;
+
+        assert!(packet_bytes.len() <= MAX_FRAME_LEN);
+        if encoded_message.len() > MAX_FRAME_LEN {
             log::warn!(
                 "attempt to send a message larger than {} [to: {}; message: {}; len: {}]",
                 MAX_FRAME_LEN,
@@ -181,13 +198,15 @@ where
         }
 
         framed_write.send(packet_bytes).await?;
+        framed_write.send(encoded_message).await?;
     }
 }
 
 async fn handle_inbound<Ctx, IO>(
     ctx: &mut Ctx,
     input: IO,
-    decoders: &[impl codecs::Decode<serde_json::Value>],
+    header_format: SerdeFormat,
+    decoders: &[&dyn codecs::FormatSpecific],
 ) -> Result<Never, AnyError>
 where
     Ctx: Messaging,
@@ -203,14 +222,11 @@ where
             .transpose()?
             .ok_or("peer gone")?
             .freeze();
-        let packet = Packet::from_bytes(packet_bytes)
+        let packet = Packet::from_bytes(header_format, packet_bytes)
             .inspect_err(|e| log::error!("could not parse packet: {}", e))?;
         match packet {
-            Packet::Envelope {
-                h: header,
-                t: type_idx,
-                m: encoded_message,
-            } => {
+            Packet::Envelope(header) => {
+                let Header { to, ttl, type_idx } = header;
                 let Some(dec) = decoders.get(type_idx) else {
                     log::warn!(
                         "received envelope has bad type_idx [type_idx: {}; max: {}]",
@@ -220,6 +236,12 @@ where
                     continue
                 };
 
+                let encoded_message = framed_read
+                    .next()
+                    .await
+                    .transpose()?
+                    .ok_or("peer gone")?
+                    .freeze();
                 let Ok(any_message) = dec.decode(encoded_message).inspect_err(|reason| {
                     log::warn!(
                         "could not decode the received message [type_idx: {}; reason: {}]",
@@ -230,7 +252,6 @@ where
                     continue
                 };
 
-                let Header { to, ttl } = header;
                 let header = EnvelopeHeader::to_address(to).with_ttl(ttl);
                 let envelope = Envelope::new(header, any_message);
 
@@ -254,28 +275,49 @@ fn frame_codec()
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum Packet {
-    Envelope {
-        h: Header,
-        t: usize,
-        m: serde_json::Value,
-    },
+    Envelope(Header),
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 struct Header {
-    to:  Address,
-    ttl: usize,
+    to:       Address,
+    ttl:      usize,
+    type_idx: usize,
 }
 
 impl Packet {
-    fn to_bytes(&self) -> Bytes {
-        let vec = serde_json::to_vec(self).expect("serde encode failed");
-        Bytes::from_owner(vec)
+    fn from_bytes(serde_format: SerdeFormat, bytes: Bytes) -> Result<Self, AnyError> {
+        match (serde_format, bytes) {
+            #[cfg(feature = "format-json")]
+            (SerdeFormat::Json, bytes) => serde_json::from_slice(&bytes).map_err(Into::into),
+            #[cfg(feature = "format-bincode")]
+            (SerdeFormat::Bincode, bytes) => {
+                bincode::serde::decode_from_slice(&bytes, bincode::config::standard())
+                    .map(|(packet, _)| packet)
+                    .map_err(Into::into)
+            },
+            #[cfg(feature = "format-rmp")]
+            (SerdeFormat::Rmp, bytes) => rmp_serde::decode::from_slice(&bytes).map_err(Into::into),
+        }
     }
 
-    fn from_bytes(bytes: Bytes) -> Result<Self, AnyError> {
-        let packet = serde_json::from_slice(bytes.as_ref())?;
-        Ok(packet)
+    fn to_bytes(&self, serde_format: SerdeFormat) -> Result<Bytes, AnyError> {
+        match serde_format {
+            #[cfg(feature = "format-json")]
+            SerdeFormat::Json => serde_json::to_vec(self).map(Into::into).map_err(Into::into),
+            #[cfg(feature = "format-bincode")]
+            SerdeFormat::Bincode => {
+                bincode::serde::encode_to_vec(self, bincode::config::standard())
+                    .map(Into::into)
+                    .map_err(Into::into)
+            },
+            #[cfg(feature = "format-rmp")]
+            SerdeFormat::Rmp => {
+                rmp_serde::encode::to_vec(self)
+                    .map(Into::into)
+                    .map_err(Into::into)
+            },
+        }
     }
 }

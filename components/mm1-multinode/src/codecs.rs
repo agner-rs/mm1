@@ -1,11 +1,13 @@
 use std::any::TypeId;
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::sync::Arc;
 
+use bytes::Bytes;
 use mm1_common::types::AnyError;
 use mm1_core::message::AnyMessage;
 use mm1_core::prim::Message;
+
+use crate::remote_subnet::config::SerdeFormat;
 
 #[derive(Debug, Default, Clone)]
 pub struct CodecRegistry {
@@ -21,8 +23,17 @@ pub struct Codec {
 pub struct SupportedType {
     supported_type_id: TypeId,
 
+    #[cfg(feature = "format-json")]
     #[debug(skip)]
-    json_codec: Box<dyn FormatSpecific<serde_json::Value> + Send + Sync + 'static>,
+    format_json: Box<dyn FormatSpecific + Send + Sync + 'static>,
+
+    #[cfg(feature = "format-bincode")]
+    #[debug(skip)]
+    format_bincode: Box<dyn FormatSpecific + Send + Sync + 'static>,
+
+    #[cfg(feature = "format-rmp")]
+    #[debug(skip)]
+    format_rmp: Box<dyn FormatSpecific + Send + Sync + 'static>,
 }
 
 impl CodecRegistry {
@@ -53,36 +64,26 @@ impl Codec {
             .map(|(name, st)| (st.supported_type_id(), name.as_str()))
     }
 
-    pub fn json(
-        &self,
-        type_name: &str,
-    ) -> Option<impl FormatSpecific<serde_json::Value> + use<'_>> {
+    pub(crate) fn select_type(&self, type_name: &str) -> Option<&SupportedType> {
         self.types.get(type_name)
     }
 
     pub fn add_type<T>(&mut self) -> &mut Self
     where
         T: Message + serde::Serialize + serde::de::DeserializeOwned + 'static,
-        SerdeJsonCodec<T>: Send + Sync + 'static,
+        T: Send + Sync + 'static,
     {
-        let type_id = TypeId::of::<T>();
         let type_name = std::any::type_name::<T>();
-        let json_codec = Box::new(SerdeJsonCodec::<T>(Default::default()));
 
-        self.types.insert(
-            type_name.into(),
-            SupportedType {
-                supported_type_id: type_id,
-                json_codec,
-            },
-        );
+        self.types
+            .insert(type_name.into(), SupportedType::for_type::<T>());
         self
     }
 
     pub fn with_type<T>(mut self) -> Self
     where
         T: Message + serde::Serialize + serde::de::DeserializeOwned + 'static,
-        SerdeJsonCodec<T>: Send + Sync + 'static,
+        T: Send + Sync + 'static,
     {
         self.add_type::<T>();
         self
@@ -95,65 +96,132 @@ impl SupportedType {
     }
 }
 
-pub trait FormatSpecific<V>: Encode<V> + Decode<V> {}
-impl<V, T> FormatSpecific<V> for T where T: Encode<V> + Decode<V> {}
-
-pub trait Encode<V> {
-    fn encode(&self, any_message: AnyMessage) -> Result<V, AnyError>;
-}
-pub trait Decode<V> {
-    fn decode(&self, value: V) -> Result<AnyMessage, AnyError>;
-}
-
-impl<T, V> Encode<V> for &'_ T
-where
-    T: Encode<V>,
+pub trait FormatSpecific:
+    FormatSpecificEncode + FormatSpecificDecode + Send + Sync + 'static
 {
-    fn encode(&self, any_message: AnyMessage) -> Result<V, AnyError> {
-        Encode::encode(*self, any_message)
+}
+impl<T> FormatSpecific for T where
+    T: FormatSpecificEncode + FormatSpecificDecode + Send + Sync + 'static
+{
+}
+
+pub trait FormatSpecificEncode {
+    fn encode(&self, any_message: AnyMessage) -> Result<Bytes, AnyError>;
+}
+pub trait FormatSpecificDecode {
+    fn decode(&self, bytes: Bytes) -> Result<AnyMessage, AnyError>;
+}
+
+#[cfg(feature = "format-json")]
+pub struct SerdeJsonCodec<T>(std::marker::PhantomData<T>);
+
+#[cfg(feature = "format-bincode")]
+pub struct SerdeBincodeCodec<T>(std::marker::PhantomData<T>);
+
+#[cfg(feature = "format-bincode")]
+pub struct SerdeRmpCodec<T>(std::marker::PhantomData<T>);
+
+impl SupportedType {
+    pub(crate) fn for_type<T>() -> Self
+    where
+        T: Message + serde::Serialize + serde::de::DeserializeOwned + 'static,
+        T: Send + Sync + 'static,
+    {
+        let supported_type_id = TypeId::of::<T>();
+
+        Self {
+            supported_type_id,
+            #[cfg(feature = "format-json")]
+            format_json: Box::new(SerdeJsonCodec::<T>(Default::default())),
+            #[cfg(feature = "format-bincode")]
+            format_bincode: Box::new(SerdeBincodeCodec::<T>(Default::default())),
+            #[cfg(feature = "format-rmp")]
+            format_rmp: Box::new(SerdeRmpCodec::<T>(Default::default())),
+        }
+    }
+
+    pub(crate) fn select_format(&self, serde_format: SerdeFormat) -> &dyn FormatSpecific {
+        match serde_format {
+            #[cfg(feature = "format-json")]
+            SerdeFormat::Json => self.format_json.as_ref(),
+
+            #[cfg(feature = "format-bincode")]
+            SerdeFormat::Bincode => self.format_bincode.as_ref(),
+
+            #[cfg(feature = "format-rmp")]
+            SerdeFormat::Rmp => self.format_rmp.as_ref(),
+        }
     }
 }
-impl<T, V> Decode<V> for &'_ T
-where
-    T: Decode<V>,
-{
-    fn decode(&self, value: V) -> Result<AnyMessage, AnyError> {
-        Decode::decode(*self, value)
-    }
-}
 
-pub struct SerdeJsonCodec<T>(PhantomData<T>);
-
-impl<T> Encode<serde_json::Value> for SerdeJsonCodec<T>
+#[cfg(feature = "format-json")]
+impl<T> FormatSpecificEncode for SerdeJsonCodec<T>
 where
     T: Message + serde::Serialize + 'static,
 {
-    fn encode(&self, any_message: AnyMessage) -> Result<serde_json::Value, AnyError> {
+    fn encode(&self, any_message: AnyMessage) -> Result<Bytes, AnyError> {
         let message: T = any_message.cast().map_err(|_| "unexpected message type")?;
-        let encoded = serde_json::to_value(message)?;
-        Ok(encoded)
+        let encoded = serde_json::to_vec(&message)?;
+        Ok(encoded.into())
     }
 }
 
-impl<T> Decode<serde_json::Value> for SerdeJsonCodec<T>
+#[cfg(feature = "format-json")]
+impl<T> FormatSpecificDecode for SerdeJsonCodec<T>
 where
     T: Message + serde::de::DeserializeOwned + 'static,
 {
-    fn decode(&self, value: serde_json::Value) -> Result<AnyMessage, AnyError> {
-        let message: T = serde_json::from_value(value)?;
+    fn decode(&self, bytes: Bytes) -> Result<AnyMessage, AnyError> {
+        let message: T = serde_json::from_slice(&bytes)?;
         let any_message = AnyMessage::new(message);
         Ok(any_message)
     }
 }
 
-impl Decode<serde_json::Value> for SupportedType {
-    fn decode(&self, value: serde_json::Value) -> Result<AnyMessage, AnyError> {
-        self.json_codec.decode(value)
+#[cfg(feature = "format-bincode")]
+impl<T> FormatSpecificEncode for SerdeBincodeCodec<T>
+where
+    T: Message + serde::Serialize + 'static,
+{
+    fn encode(&self, any_message: AnyMessage) -> Result<Bytes, AnyError> {
+        let message: T = any_message.cast().map_err(|_| "unexpected message type")?;
+        let encoded = serde_json::to_vec(&message)?;
+        Ok(encoded.into())
     }
 }
 
-impl Encode<serde_json::Value> for SupportedType {
-    fn encode(&self, any_message: AnyMessage) -> Result<serde_json::Value, AnyError> {
-        self.json_codec.encode(any_message)
+#[cfg(feature = "format-bincode")]
+impl<T> FormatSpecificDecode for SerdeBincodeCodec<T>
+where
+    T: Message + serde::de::DeserializeOwned + 'static,
+{
+    fn decode(&self, bytes: Bytes) -> Result<AnyMessage, AnyError> {
+        let message: T = serde_json::from_slice(&bytes)?;
+        let any_message = AnyMessage::new(message);
+        Ok(any_message)
+    }
+}
+
+#[cfg(feature = "format-rmp")]
+impl<T> FormatSpecificEncode for SerdeRmpCodec<T>
+where
+    T: Message + serde::Serialize + 'static,
+{
+    fn encode(&self, any_message: AnyMessage) -> Result<Bytes, AnyError> {
+        let message: T = any_message.cast().map_err(|_| "unexpected message type")?;
+        let encoded = rmp_serde::encode::to_vec(&message)?;
+        Ok(encoded.into())
+    }
+}
+
+#[cfg(feature = "format-rmp")]
+impl<T> FormatSpecificDecode for SerdeRmpCodec<T>
+where
+    T: Message + serde::de::DeserializeOwned + 'static,
+{
+    fn decode(&self, bytes: Bytes) -> Result<AnyMessage, AnyError> {
+        let message: T = rmp_serde::from_slice(&bytes)?;
+        let any_message = AnyMessage::new(message);
+        Ok(any_message)
     }
 }
