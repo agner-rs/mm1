@@ -1,0 +1,14 @@
+[package]
+name = "mm1-core-tests"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+[dev-dependencies]
+mm1-address.workspace = true
+mm1-ask.workspace = true
+mm1-core.workspace = true
+mm1-proto.workspace = true
+mm1-proto-ask.workspace = true
+eyre.workspace = true
+serde = {workspace = true, features = ["derive"]}

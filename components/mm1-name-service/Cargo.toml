@@ -25,11 +25,3 @@ mm1-proto-well-known.workspace = true
 
 either.workspace = true
 tokio = {workspace = true, features = ["time"]}
-
-[dev-dependencies]
-mm1-logger.workspace = true
-
-mm1-node.workspace = true
-mm1-runnable.workspace = true
-mm1-test-rt.workspace = true
-tokio = {workspace = true, features = ["rt", "macros", "test-util"]}

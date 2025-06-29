@@ -43,9 +43,6 @@ tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "macros
 tracing.workspace = true
 
 [dev-dependencies]
-mm1-logger.workspace = true
-
-insta = {workspace = true, features = ["yaml"]}
-tokio = {workspace = true, features = ["rt", "rt-multi-thread", "macros"]}
-serde_yaml = "^0.9"
+insta.workspace = true
 test-case.workspace = true
+serde_yaml.workspace = true

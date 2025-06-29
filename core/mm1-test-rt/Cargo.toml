@@ -23,7 +23,3 @@ futures.workspace = true
 thiserror.workspace = true
 tokio = {workspace = true, features = ["sync", "time"]}
 
-[dev-dependencies]
-serde = {workspace = true, features = ["derive"]}
-tokio = {workspace = true, features = ["test-util"]}
-mm1-logger.workspace = true

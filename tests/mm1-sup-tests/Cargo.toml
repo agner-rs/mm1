@@ -1,0 +1,24 @@
+[package]
+name = "mm1-sup-tests"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+[dev-dependencies]
+mm1-ask.workspace = true
+mm1-address.workspace = true
+mm1-common.workspace = true
+mm1-core.workspace = true
+mm1-node.workspace = true
+mm1-logger.workspace = true
+mm1-runnable.workspace = true
+mm1-proto-ask.workspace = true
+mm1-proto.workspace = true
+mm1-proto-sup.workspace = true
+mm1-sup.workspace = true
+mm1-test-rt.workspace = true
+
+insta.workspace = true
+serde = {workspace = true, features = ["derive"]}
+test-case.workspace = true
+tokio = {workspace = true, features = ["time", "rt", "macros", "test-util"]}

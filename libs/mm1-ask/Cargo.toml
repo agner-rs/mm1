@@ -19,9 +19,3 @@ mm1-common = { workspace = true, features = ["futures"] }
 mm1-core.workspace = true
 
 derive_more = {workspace = true, features = ["from"] }
-
-[dev-dependencies]
-mm1-test-rt.workspace = true
-
-serde = {workspace = true, features = ["derive"]}
-tokio = {workspace = true, features = ["rt", "macros", "test-util"]}

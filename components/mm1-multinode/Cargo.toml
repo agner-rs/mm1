@@ -42,9 +42,4 @@ sha3 = {workspace = true}
 tokio = {workspace = true, features = ["io-util", "net"]}
 tokio-util = {workspace = true, features = ["codec"]}
 
-[dev-dependencies]
-mm1-logger.workspace = true
-mm1-test-rt.workspace = true
 
-dotenv = "0.15"
-tokio = {workspace = true, features = ["rt", "macros", "rt-multi-thread"]}
