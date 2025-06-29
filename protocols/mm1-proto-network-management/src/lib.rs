@@ -13,7 +13,7 @@ pub struct RegisterSubnetRequest {
 pub type RegisterSubnetResponse = Result<(), ErrorOf<RegisterSubnetErrorKind>>;
 
 #[message]
-#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RegisterSubnetErrorKind {
     Internal,

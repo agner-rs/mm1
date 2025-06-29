@@ -2,7 +2,7 @@ use mm1_address::address::Address;
 use mm1_common::impl_error_kind;
 use mm1_proto::message;
 
-#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[message]
 pub enum SpawnErrorKind {
     InternalError,
@@ -17,7 +17,7 @@ pub struct InitAck {
     pub address: Address,
 }
 
-#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[message]
 pub enum StartErrorKind {
     Spawn(SpawnErrorKind),

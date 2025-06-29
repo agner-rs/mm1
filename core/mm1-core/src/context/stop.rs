@@ -14,7 +14,7 @@ use tracing::warn;
 use super::{ForkErrorKind, Messaging, RecvErrorKind};
 use crate::context::{Fork, Watching};
 
-#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[message]
 pub enum ShutdownErrorKind {
     InternalError,

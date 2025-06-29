@@ -3,7 +3,7 @@ use std::fmt;
 use mm1_address::address::Address;
 use mm1_proto::message;
 
-#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[message]
 pub enum DeciderErrorKind {}
 

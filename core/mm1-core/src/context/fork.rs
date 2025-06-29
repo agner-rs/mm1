@@ -4,7 +4,7 @@ use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::impl_error_kind;
 use mm1_proto::message;
 
-#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[message]
 pub enum ForkErrorKind {
     InternalError,

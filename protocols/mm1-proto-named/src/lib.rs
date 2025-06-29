@@ -37,7 +37,7 @@ pub struct ResolveRequest<K> {
 pub type ResolveResponse = Result<Vec<(Address, Duration)>, ErrorOf<ResolveErrorKind>>;
 
 #[message]
-#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RegisterErrorKind {
     Conflict,
@@ -45,7 +45,7 @@ pub enum RegisterErrorKind {
 }
 
 #[message]
-#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum UnregisterErrorKind {
     NotFound,
@@ -53,7 +53,7 @@ pub enum UnregisterErrorKind {
 }
 
 #[message]
-#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ResolveErrorKind {
     Internal,
