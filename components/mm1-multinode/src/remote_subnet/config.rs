@@ -11,6 +11,7 @@ pub struct ProtocolWip {
     pub(crate) codec: String,
     pub(crate) link:  Link,
     pub(crate) serde: SerdeFormat,
+    pub(crate) authc: Authc,
 }
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
@@ -18,6 +19,13 @@ pub struct ProtocolWip {
 pub(crate) struct Link {
     pub(crate) bind: SocketAddr,
     pub(crate) peer: SocketAddr,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum Authc {
+    None,
+    SharedSecret(String),
 }
 
 #[derive(

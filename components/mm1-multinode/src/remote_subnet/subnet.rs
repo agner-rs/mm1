@@ -88,7 +88,8 @@ where
     log::debug!("stream open: {:?}", stream);
 
     let (requested_caps, advertised_caps) =
-        handshake::do_handshake(&mut stream, net_address, codec, config.serde).await?;
+        handshake::do_handshake(&mut stream, net_address, &config.authc, codec, config.serde)
+            .await?;
     log::debug!("handshake done");
 
     if requested_caps

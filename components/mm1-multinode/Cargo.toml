@@ -33,9 +33,11 @@ bincode = {workspace = true, optional = true, features = ["serde"]}
 bytes = {workspace = true, features = ["serde"]}
 derive_more = {workspace = true, features = ["debug"]}
 futures.workspace = true
+rand.workspace = true
 rmp-serde = {workspace = true, optional = true}
 serde = {workspace = true, features = ["derive"]}
 serde_json = {workspace = true}
+sha3 = {workspace = true}
 tokio = {workspace = true, features = ["io-util", "net"]}
 tokio-util = {workspace = true, features = ["codec"]}
 
