@@ -36,6 +36,7 @@ use Action::*;
         Add("one"),
         Decide,
         Started("one", Address::from_u64(1)),
+        Decide,
         Rm("one"),
         Decide,
         Exited(Address::from_u64(1), false),

@@ -1,5 +1,5 @@
 ---
-source: crates/mm1-sup/src/mixed/strategy/all_for_one/tests.rs
+source: components/mm1-sup/src/mixed/strategy/all_for_one/tests.rs
 expression: report
 ---
 - "RestartIntensity { max_restarts: 1, within: 30s }"
@@ -8,6 +8,7 @@ expression: report
 - ">>> Start(one)"
 - "STARTED [one] / <:1>"
 - DECIDE
+- ">>> InitDone"
 - "STARTED [one] / <:2>"
 - DECIDE
 - ">>> Stop(<:2>, None)"
