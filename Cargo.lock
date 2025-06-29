@@ -801,11 +801,8 @@ dependencies = [
 name = "mm1-runnable"
 version = "0.6.3"
 dependencies = [
- "eyre",
- "mm1-ask",
  "mm1-common",
  "mm1-core",
- "mm1-proto-ask",
 ]
 
 [[package]]

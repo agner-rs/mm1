@@ -17,9 +17,3 @@ test-util = []
 [dependencies]
 mm1-common = {workspace = true, features = ["logging", "futures"] }
 mm1-core.workspace = true
-
-[dev-dependencies]
-mm1-ask.workspace = true
-mm1-proto-ask.workspace = true
-eyre.workspace = true
-
