@@ -12,17 +12,17 @@ use mm1_proto_system::StartErrorKind;
 
 use crate::common::child_spec::{ChildSpec, InitType};
 
-#[message]
+#[message(base_path = ::mm1_proto)]
 pub(crate) struct Started<K> {
     pub child_id: K,
     pub address:  Address,
 }
 
-#[message]
+#[message(base_path = ::mm1_proto)]
 pub(crate) struct StartFailed<K> {
     pub child_id: K,
 }
-#[message]
+#[message(base_path = ::mm1_proto)]
 pub(crate) struct StopFailed {
     pub address: Address,
     pub reason:  ErrorOf<ShutdownErrorKind>,

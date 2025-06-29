@@ -1,0 +1,14 @@
+[package]
+name = "mm1-multinode-tests"
+version = "0.6.3"
+edition = "2024"
+
+[dependencies]
+[dev-dependencies]
+mm1-common.workspace = true
+mm1-logger.workspace = true
+mm1-multinode.workspace = true
+mm1-test-rt.workspace = true
+
+dotenv = "0.15"
+tokio = {workspace = true, features = ["rt", "macros", "rt-multi-thread"]}

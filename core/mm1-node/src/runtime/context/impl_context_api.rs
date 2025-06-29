@@ -1,4 +1,3 @@
-use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -103,7 +102,7 @@ impl Fork for ActorContext {
     where
         F: FnOnce(Self) -> Fut,
         F: Send + 'static,
-        Fut: std::future::Future + Send + 'static,
+        Fut: Future + Send + 'static,
     {
         let call = self.call.clone();
         let fut = fun(self).map(|_| ()).boxed();
@@ -241,10 +240,7 @@ impl Bind<NetAddress> for ActorContext {
                 let previously_bound_to = NetAddress::from(*o.key());
                 return Err(ErrorOf::new(
                     BindErrorKind::Conflict,
-                    format!(
-                        "conflict [requested: {}; existing: {}]",
-                        bind_to, previously_bound_to
-                    ),
+                    format!("conflict [requested: {bind_to}; existing: {previously_bound_to}]"),
                 ))
             },
             Vacant(v) => v,
@@ -339,7 +335,7 @@ async fn do_start(
         unexpected @ _ => {
             Err(ErrorOf::new(
                 StartErrorKind::InternalError,
-                format!("unexpected message: {:?}", unexpected),
+                format!("unexpected message: {unexpected:?}"),
             ))
         },
     })

@@ -1,6 +1,6 @@
 [package]
 name = "mm1-proto-system"
-version = "0.6.2"
+version = "0.6.3"
 edition = "2024"
 
 license = "MIT"
@@ -14,3 +14,5 @@ exclude = ["**/*.snap"]
 mm1-address.workspace = true
 mm1-common.workspace = true
 mm1-proto.workspace = true
+
+serde = {workspace = true, features = ["derive"]}

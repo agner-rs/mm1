@@ -66,7 +66,7 @@ impl ActorConfigNode {
         if invalid_keys.is_empty() {
             Ok(())
         } else {
-            Err(format!("invalid rt-keys: {:?}", invalid_keys))
+            Err(format!("invalid rt-keys: {invalid_keys:?}"))
         }
     }
 }

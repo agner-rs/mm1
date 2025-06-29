@@ -2,11 +2,15 @@ use std::convert::Infallible;
 use std::fmt::{self, Write};
 use std::str::FromStr;
 
+use mm1_proto::message;
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[message(base_path = ::mm1_proto, derive_serialize = false, derive_deserialize = false)]
 pub struct Address(u64);
 
 #[derive(Debug, thiserror::Error)]
 #[error("couldn't parse address")]
+#[message(base_path = ::mm1_proto)]
 pub struct AddressParseError;
 
 impl Address {
@@ -50,7 +54,6 @@ impl fmt::Debug for Address {
     }
 }
 
-#[cfg(feature = "serde")]
 impl serde::Serialize for Address {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -60,7 +63,6 @@ impl serde::Serialize for Address {
     }
 }
 
-#[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for Address {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

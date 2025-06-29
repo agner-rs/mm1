@@ -1,6 +1,6 @@
 [package]
 name = "mm1"
-version = "0.6.2"
+version = "0.6.3"
 edition = "2024"
 
 license = "MIT"
@@ -20,10 +20,14 @@ sup = ["dep:mm1-sup", "dep:mm1-proto-sup"]
 test-util = ["dep:mm1-test-rt"]
 timer = ["dep:mm1-timer", "dep:mm1-proto-timer"]
 
+message-format-json = ["multinode", "mm1-multinode/format-json"]
+message-format-bincode = ["multinode", "mm1-multinode/format-bincode"]
+message-format-rmp = ["multinode", "mm1-multinode/format-rmp"]
+
 [dependencies]
-mm1-address = { workspace = true }
+mm1-address = { workspace = true}
 mm1-ask = { workspace = true, optional = true }
-mm1-common = {workspace = true, features = ["futures"] }
+mm1-common = {workspace = true, features = ["futures"]}
 mm1-core = { workspace = true }
 mm1-multinode = { workspace = true, optional = true }
 mm1-node = { workspace = true, optional = true }
@@ -53,34 +57,36 @@ members = [
     "core/*",
     "libs/*",
     "protocols/*",
+    "tests/*",
 ]
 
 [workspace.dependencies]
-mm1-core = {path = "core/mm1-core", version = "=0.6.2" }
-mm1-node = {path = "core/mm1-node", version = "=0.6.2" }
-mm1-runnable = {path = "core/mm1-runnable", version = "=0.6.2" }
-mm1-test-rt = {path = "core/mm1-test-rt", version = "=0.6.2" }
+mm1-core = {path = "core/mm1-core", version = "=0.6.3" }
+mm1-node = {path = "core/mm1-node", version = "=0.6.3" }
+mm1-runnable = {path = "core/mm1-runnable", version = "=0.6.3" }
+mm1-test-rt = {path = "core/mm1-test-rt", version = "=0.6.3" }
 
-mm1-multinode = {path = "components/mm1-multinode", version = "=0.6.2" }
-mm1-name-service = {path = "components/mm1-name-service", version = "=0.6.2" }
-mm1-sup = {path = "components/mm1-sup", version = "=0.6.2" }
-mm1-timer = {path = "components/mm1-timer", version = "=0.6.2" }
+mm1-multinode = {path = "components/mm1-multinode", version = "=0.6.3", features = [] }
+mm1-name-service = {path = "components/mm1-name-service", version = "=0.6.3" }
+mm1-sup = {path = "components/mm1-sup", version = "=0.6.3" }
+mm1-timer = {path = "components/mm1-timer", version = "=0.6.3" }
 
-mm1-address = {path = "libs/mm1-address", version = "=0.6.2" }
-mm1-ask = {path = "libs/mm1-ask", version = "=0.6.2" }
-mm1-common = {path = "libs/mm1-common", version = "=0.6.2" }
-mm1-logger = {path = "libs/mm1-logger", version = "=0.6.2" }
-mm1-proc-macros = {path = "libs/mm1-proc-macros", version = "=0.6.2" }
+mm1-address = {path = "libs/mm1-address", version = "=0.6.3" }
+mm1-ask = {path = "libs/mm1-ask", version = "=0.6.3" }
+mm1-common = {path = "libs/mm1-common", version = "=0.6.3" }
+mm1-logger = {path = "libs/mm1-logger", version = "=0.6.3" }
+mm1-proc-macros = {path = "libs/mm1-proc-macros", version = "=0.6.3" }
 
-mm1-proto = {path = "protocols/mm1-proto", version = "=0.6.2" }
-mm1-proto-ask = {path = "protocols/mm1-proto-ask", version = "=0.6.2" }
-mm1-proto-named = {path = "protocols/mm1-proto-named", version = "=0.6.2"}
-mm1-proto-network-management = {path = "protocols/mm1-proto-network-management", version = "=0.6.2" }
-mm1-proto-sup = {path = "protocols/mm1-proto-sup", version = "=0.6.2" }
-mm1-proto-system = {path = "protocols/mm1-proto-system", version = "=0.6.2" }
-mm1-proto-timer = {path = "protocols/mm1-proto-timer", version = "=0.6.2" }
-mm1-proto-well-known = {path = "protocols/mm1-proto-well-known", version = "=0.6.2" }
+mm1-proto = {path = "protocols/mm1-proto", version = "=0.6.3" }
+mm1-proto-ask = {path = "protocols/mm1-proto-ask", version = "=0.6.3" }
+mm1-proto-named = {path = "protocols/mm1-proto-named", version = "=0.6.3"}
+mm1-proto-network-management = {path = "protocols/mm1-proto-network-management", version = "=0.6.3" }
+mm1-proto-sup = {path = "protocols/mm1-proto-sup", version = "=0.6.3" }
+mm1-proto-system = {path = "protocols/mm1-proto-system", version = "=0.6.3" }
+mm1-proto-timer = {path = "protocols/mm1-proto-timer", version = "=0.6.3" }
+mm1-proto-well-known = {path = "protocols/mm1-proto-well-known", version = "=0.6.3" }
 
+bincode = "^2"
 bytes = "^1.2"
 derive_more = "^2.0"
 either = "^1.15.0"
@@ -90,8 +96,12 @@ insta = {version = "^1.43", features = ["yaml"]}
 parking_lot = "^0.12"
 pin-project = "^1.1.10"
 pretty_env_logger = "^0.5"
+rand = "^0.9"
+rmp-serde = "^1.3"
 serde = "^1.0"
 serde_json = "^1.0"
+serde_yaml = "^0.9"
+sha3 = "^0.10"
 slotmap = "^1.0"
 smallvec = "^1.15"
 static_assertions = "^1.1.0"

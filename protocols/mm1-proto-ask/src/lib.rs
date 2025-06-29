@@ -7,38 +7,31 @@ use std::fmt;
 use mm1_address::address::Address;
 use mm1_proto::message;
 
-#[message]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct RequestHeader<Id> {
-    pub id:       Id,
+#[message(base_path = ::mm1_proto)]
+pub struct RequestHeader {
+    pub id:       u64,
     pub reply_to: Address,
 }
 
-#[message]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ResponseHeader<Id> {
-    pub id: Id,
+#[message(base_path = ::mm1_proto)]
+pub struct ResponseHeader {
+    pub id: u64,
 }
 
-#[message]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Request<Rq, Id = ()> {
-    pub header:  RequestHeader<Id>,
+#[message(base_path = ::mm1_proto)]
+pub struct Request<Rq> {
+    pub header:  RequestHeader,
     pub payload: Rq,
 }
 
-#[message]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Response<Rs, Id = ()> {
-    pub header:  ResponseHeader<Id>,
+#[message(base_path = ::mm1_proto)]
+pub struct Response<Rs> {
+    pub header:  ResponseHeader,
     pub payload: Rs,
 }
 
-impl<Id> fmt::Display for RequestHeader<Id>
-where
-    Id: fmt::Debug,
-{
+impl fmt::Display for RequestHeader {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "REQUEST({}!{:?})", self.reply_to, self.id)
+        write!(f, "REQUEST({}!{})", self.reply_to, self.id)
     }
 }

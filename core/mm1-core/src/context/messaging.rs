@@ -1,5 +1,3 @@
-use std::future::Future;
-
 use mm1_address::address::Address;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::impl_error_kind;
@@ -7,16 +5,16 @@ use mm1_proto::{Message, message};
 
 use crate::envelope::{Envelope, EnvelopeHeader};
 
-#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[message]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[message(base_path = ::mm1_proto)]
 pub enum RecvErrorKind {
     Closed,
 }
 
 impl_error_kind!(RecvErrorKind);
 
-#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[message]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[message(base_path = ::mm1_proto)]
 pub enum SendErrorKind {
     InternalError,
     NotFound,

@@ -1,6 +1,6 @@
 [package]
 name = "mm1-common"
-version = "0.6.2"
+version = "0.6.3"
 edition = "2024"
 
 license = "MIT"
@@ -16,9 +16,10 @@ futures = ["tokio/time"]
 logging = ["tracing"]
 
 [dependencies]
-mm1-proc-macros.workspace = true
+mm1-proto.workspace = true
 
 pin-project.workspace = true
+serde = {workspace = true, features = ["derive", "rc"]}
 thiserror.workspace = true
 tokio = {workspace = true, optional = true}
 tracing = {workspace = true, optional = true}

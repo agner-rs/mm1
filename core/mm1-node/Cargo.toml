@@ -1,6 +1,6 @@
 [package]
 name = "mm1-node"
-version = "0.6.2"
+version = "0.6.3"
 edition = "2024"
 
 license = "MIT"
@@ -12,22 +12,21 @@ exclude = ["**/*.snap"]
 
 [features]
 default = []
-serde = []
 name-service = ["dep:mm1-proto-well-known", "dep:mm1-name-service"]
 multinode = ["name-service", "dep:mm1-proto-well-known", "dep:mm1-multinode", "dep:serde_json"]
 
 [dependencies]
-mm1-address = { workspace = true, features = ["serde"] }
+mm1-address = { workspace = true}
 mm1-ask.workspace = true
-mm1-common = {workspace = true, features = ["futures", "logging"] }
+mm1-common = {workspace = true, features = ["futures", "logging"]}
 mm1-core.workspace = true
 mm1-proto.workspace = true
 mm1-proto-network-management.workspace = true
 mm1-proto-system.workspace = true
 mm1-runnable.workspace = true
-mm1-proto-well-known = {workspace = true, optional = true}
-mm1-multinode = {workspace = true, features = [], optional = true}
-mm1-name-service = {workspace = true, features = [], optional = true}
+mm1-proto-well-known = {workspace = true, optional = true }
+mm1-multinode = {workspace = true, features = [], optional = true }
+mm1-name-service = {workspace = true, features = [], optional = true }
 
 # mm1-proc-macros.workspace = true
 
@@ -44,9 +43,6 @@ tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "macros
 tracing.workspace = true
 
 [dev-dependencies]
-mm1-logger.workspace = true
-
-insta = {workspace = true, features = ["yaml"]}
-tokio = {workspace = true, features = ["rt", "rt-multi-thread", "macros"]}
-serde_yaml = "^0.9"
+insta.workspace = true
 test-case.workspace = true
+serde_yaml.workspace = true

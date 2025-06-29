@@ -1,6 +1,6 @@
 [package]
 name = "mm1-address"
-version = "0.6.2"
+version = "0.6.3"
 edition = "2024"
 
 license = "MIT"
@@ -12,11 +12,11 @@ exclude = ["**/*.snap"]
 
 [features]
 default = []
-serde = ["dep:serde"]
 
 [dependencies]
+mm1-proto.workspace = true
 parking_lot.workspace = true
-serde = {workspace = true, optional = true, features = ["derive"]}
+serde = {workspace = true, features = ["derive"]}
 thiserror.workspace = true
 
 [dev-dependencies]

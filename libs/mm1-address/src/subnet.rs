@@ -1,6 +1,8 @@
 use std::fmt;
 use std::str::FromStr;
 
+use mm1_proto::message;
+
 use crate::address::{Address, AddressParseError};
 
 mod net_mask;
@@ -8,10 +10,11 @@ mod net_mask;
 const ADDRESS_BITS: u8 = u64::BITS as u8;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[message(base_path = ::mm1_proto)]
 pub struct NetMask(u8);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[message(base_path = ::mm1_proto, derive_serialize = false, derive_deserialize = false)]
 pub struct NetAddress {
     pub address: Address,
     pub mask:    NetMask,
@@ -27,6 +30,7 @@ pub enum MaskParseError {
 
 #[derive(Debug, thiserror::Error)]
 #[error("invalid mask: {}", _0)]
+#[message(base_path = ::mm1_proto)]
 pub struct InvalidMask(u8);
 
 #[derive(Debug, thiserror::Error)]
@@ -120,7 +124,6 @@ impl fmt::Display for NetAddress {
     }
 }
 
-#[cfg(feature = "serde")]
 impl serde::Serialize for NetAddress {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -130,7 +133,6 @@ impl serde::Serialize for NetAddress {
     }
 }
 
-#[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for NetAddress {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -186,7 +188,7 @@ mod tests {
             (4, 0xF000_0000_0000_0000),
             (0, 0x0000_0000_0000_0000),
         ] {
-            assert_eq!(NetMask(input).into_u64(), expected, "/{}", input);
+            assert_eq!(NetMask(input).into_u64(), expected, "/{input}");
         }
     }
 }

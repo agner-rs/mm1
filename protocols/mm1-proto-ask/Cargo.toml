@@ -1,6 +1,6 @@
 [package]
 name = "mm1-proto-ask"
-version = "0.6.2"
+version = "0.6.3"
 edition = "2024"
 
 license = "MIT"
@@ -12,10 +12,9 @@ exclude = ["**/*.snap"]
 
 [features]
 default = []
-serde = ["dep:serde", "mm1-address/serde"]
 
 [dependencies]
 mm1-address.workspace = true
 mm1-proto.workspace = true
 
-serde = {workspace = true, features = ["derive"], optional = true}
+serde = {workspace = true, features = ["derive"]}

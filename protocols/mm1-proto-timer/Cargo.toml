@@ -1,6 +1,6 @@
 [package]
 name = "mm1-proto-timer"
-version = "0.6.2"
+version = "0.6.3"
 edition = "2024"
 
 license = "MIT"
@@ -12,11 +12,10 @@ exclude = ["**/*.snap"]
 
 [features]
 default = []
-serde = ["dep:serde"]
 
 [dependencies]
 mm1-proto.workspace = true
 
-serde = {workspace = true, features = ["derive"], optional = true}
+serde = {workspace = true, features = ["derive"]}
 
 derive_more = {workspace = true, features = ["debug"]}

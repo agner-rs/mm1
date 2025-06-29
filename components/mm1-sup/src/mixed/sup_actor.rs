@@ -46,6 +46,9 @@ where
             log::debug!("processing decider action: {}", action);
             match action {
                 Action::Noop => (),
+                Action::InitDone => {
+                    ctx.init_done(ctx.address()).await;
+                },
                 Action::Quit { normal_exit } => {
                     if normal_exit {
                         ctx.quit_ok().await;
