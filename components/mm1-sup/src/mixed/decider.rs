@@ -3,8 +3,8 @@ use std::fmt;
 use mm1_address::address::Address;
 use mm1_proto::message;
 
-#[derive(Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[message]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[message(base_path = ::mm1_proto)]
 pub enum DeciderErrorKind {}
 
 pub trait Decider {
@@ -28,6 +28,7 @@ pub trait Decider {
 #[derive(Debug)]
 pub enum Action<'a, ID> {
     Noop,
+    InitDone,
     Start {
         child_id: &'a ID,
     },
@@ -47,7 +48,8 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Noop => write!(f, "Noop"),
-            Self::Start { child_id } => write!(f, "Start({})", child_id),
+            Self::InitDone => write!(f, "InitDone"),
+            Self::Start { child_id } => write!(f, "Start({child_id})"),
             Self::Stop { address, child_id } => {
                 write!(
                     f,
@@ -56,7 +58,7 @@ where
                     child_id.map(|s| s.to_string())
                 )
             },
-            Self::Quit { normal_exit } => write!(f, "Quit(normal={})", normal_exit),
+            Self::Quit { normal_exit } => write!(f, "Quit(normal={normal_exit})"),
         }
     }
 }

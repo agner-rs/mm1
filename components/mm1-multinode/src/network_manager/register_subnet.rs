@@ -21,7 +21,7 @@ where
         Err(reason) => {
             return Ok(Err(ErrorOf::new(
                 RegisterSubnetErrorKind::BadRequest,
-                format!("parse error: {}", reason),
+                format!("parse error: {reason}"),
             )))
         },
     };

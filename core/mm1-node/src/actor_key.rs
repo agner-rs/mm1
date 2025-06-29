@@ -56,7 +56,7 @@ impl fmt::Display for Node {
             Self::Child { parent, func } => {
                 fmt::Display::fmt(parent.as_ref(), f)?;
                 write!(f, "/")?;
-                write!(f, "{}", func)?;
+                write!(f, "{func}")?;
 
                 Ok(())
             },

@@ -15,6 +15,7 @@ mm1-address.workspace = true
 mm1-common.workspace = true
 mm1-core.workspace = true
 
+mm1-proto.workspace = true
 mm1-proto-system.workspace = true
 
 derive_more = { workspace = true, features = ["debug", "from", "try_into"] }
@@ -22,6 +23,3 @@ futures.workspace = true
 thiserror.workspace = true
 tokio = {workspace = true, features = ["sync", "time"]}
 
-[dev-dependencies]
-tokio = {workspace = true, features = ["test-util"]}
-mm1-logger.workspace = true

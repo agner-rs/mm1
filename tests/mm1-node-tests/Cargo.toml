@@ -1,0 +1,20 @@
+[package]
+name = "mm1-node-tests"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+[dev-dependencies]
+
+mm1-address.workspace = true
+mm1-common.workspace = true
+mm1-core.workspace = true
+mm1-node.workspace = true
+mm1-proto.workspace = true
+mm1-proto-system.workspace = true
+mm1-runnable.workspace = true
+mm1-logger.workspace = true
+
+tokio = {workspace = true, features = ["rt", "rt-multi-thread", "macros"]}
+serde = {workspace = true, features = ["derive"]}
+serde_yaml = "^0.9"

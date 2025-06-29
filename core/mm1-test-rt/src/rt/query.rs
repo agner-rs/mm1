@@ -11,7 +11,7 @@ use mm1_core::envelope::Envelope;
 use mm1_proto_system::{SpawnErrorKind, StartErrorKind, WatchRef};
 use tokio::sync::oneshot;
 
-use super::Context;
+use super::TestContext;
 use crate::rt::TaskKey;
 
 #[derive(derive_more::Debug)]
@@ -76,7 +76,7 @@ pub struct Fork<R> {
     pub task_key: TaskKey,
 
     #[debug(skip)]
-    pub(crate) outcome_tx: oneshot::Sender<Result<Context<R>, ErrorOf<ForkErrorKind>>>,
+    pub(crate) outcome_tx: oneshot::Sender<Result<TestContext<R>, ErrorOf<ForkErrorKind>>>,
 }
 
 #[derive(derive_more::Debug)]

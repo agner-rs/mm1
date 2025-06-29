@@ -23,7 +23,7 @@ pub enum RuntimeError {
 }
 
 #[derive(Debug, Clone)]
-pub struct Runtime<R> {
+pub struct TestRuntime<R> {
     queries_tx: mpsc::UnboundedSender<Query<R>>,
     shared:     Arc<Mutex<RuntimeShared<R>>>,
 }
@@ -43,7 +43,7 @@ pub enum EventKind<R> {
 }
 
 #[derive(derive_more::Debug)]
-pub struct Context<R> {
+pub struct TestContext<R> {
     task_key:      TaskKey,
     queries_tx:    mpsc::UnboundedSender<Query<R>>,
     address_lease: Option<AddressLease>,

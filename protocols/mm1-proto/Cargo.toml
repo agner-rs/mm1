@@ -18,6 +18,7 @@ test-util = []
 mm1-proc-macros.workspace = true
 
 parking_lot.workspace = true
+serde.workspace = true
 
 [dev-dependencies]
 # eyre.workspace = true

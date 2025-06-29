@@ -1,5 +1,4 @@
 use core::fmt;
-use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll, ready};
 
@@ -75,19 +74,19 @@ impl fmt::Display for SysCall {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SysCall::Exit(Ok(())) => write!(f, "exit::ok"),
-            SysCall::Exit(Err(reason)) => write!(f, "exit::err [reason: {}]", reason),
-            SysCall::Link { sender, receiver } => write!(f, "link [{} -> {}]", sender, receiver),
+            SysCall::Exit(Err(reason)) => write!(f, "exit::err [reason: {reason}]"),
+            SysCall::Link { sender, receiver } => write!(f, "link [{sender} -> {receiver}]"),
             SysCall::Unlink { sender, receiver } => {
-                write!(f, "unlink [{} -> {}]", sender, receiver)
+                write!(f, "unlink [{sender} -> {receiver}]")
             },
-            SysCall::TrapExit(set_into) => write!(f, "trap_exit [set-into: {}]", set_into),
-            SysCall::ForkAdded(address, _) => write!(f, "fork_addded [addr: {}]", address),
+            SysCall::TrapExit(set_into) => write!(f, "trap_exit [set-into: {set_into}]"),
+            SysCall::ForkAdded(address, _) => write!(f, "fork_addded [addr: {address}]"),
             SysCall::Spawn(_) => write!(f, "spawn"),
             SysCall::Watch {
                 sender, receiver, ..
-            } => write!(f, "watch [sender: {}, receiver: {}]", sender, receiver),
+            } => write!(f, "watch [sender: {sender}, receiver: {receiver}]"),
             SysCall::Unwatch { sender, watch_ref } => {
-                write!(f, "unwatch [sender: {}, ref: {}]", sender, watch_ref)
+                write!(f, "unwatch [sender: {sender}, ref: {watch_ref}]")
             },
         }
     }
