@@ -12,7 +12,7 @@ use mm1_core::context::{
     Watching,
 };
 use mm1_core::envelope::{Envelope, EnvelopeHeader};
-use mm1_core::prim::message;
+use mm1_proto::message;
 use mm1_proto_system::WatchRef;
 use mm1_test_rt::rt::event::{EventResolve, EventResolveResult};
 use mm1_test_rt::rt::{ForkTaskOutcome, MainActorOutcome, TaskKey, TestRuntime, query};
@@ -155,7 +155,7 @@ async fn t_start() {
 
 #[tokio::test]
 async fn t_recv() {
-    #[message]
+    #[message(base_path = ::mm1_proto)]
     struct Hello;
 
     let _ = mm1_logger::init(&logger_config());
@@ -287,7 +287,7 @@ async fn t_recv_close() {
 
 #[tokio::test]
 async fn t_fork_and_run() {
-    #[message]
+    #[message(base_path = ::mm1_proto)]
     struct Hello;
 
     let _ = mm1_logger::init(&logger_config());
@@ -419,7 +419,7 @@ async fn t_bind_net_address() {
 
 #[tokio::test]
 async fn t_tell() {
-    #[message]
+    #[message(base_path = ::mm1_proto)]
     struct Hello;
 
     let _ = mm1_logger::init(&logger_config());

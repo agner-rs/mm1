@@ -14,7 +14,7 @@ use super::{ForkErrorKind, Messaging, RecvErrorKind};
 use crate::context::{Fork, Watching};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[message]
+#[message(base_path = ::mm1_proto)]
 pub enum ShutdownErrorKind {
     InternalError,
     Fork(ForkErrorKind),

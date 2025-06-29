@@ -8,36 +8,36 @@ pub mod messages {
     use crate::Address;
 
     #[derive(Debug)]
-    #[message]
+    #[message(base_path = ::mm1_proto)]
     pub struct AUnit;
 
     #[derive(Debug)]
-    #[message]
+    #[message(base_path = ::mm1_proto)]
     pub struct ATuple(pub String, pub String);
 
     #[derive(Debug)]
-    #[message]
+    #[message(base_path = ::mm1_proto)]
     pub struct AStruct {
         pub s: String,
         pub i: i64,
     }
 
     #[derive(Debug)]
-    #[message]
+    #[message(base_path = ::mm1_proto)]
     pub struct Ping {
         pub reply_to: Address,
         pub seq_num:  u64,
     }
 
     #[derive(Debug)]
-    #[message]
+    #[message(base_path = ::mm1_proto)]
     pub struct Forward<Message> {
         pub forward_to: Address,
         pub message:    Message,
     }
 
     #[derive(Debug)]
-    #[message]
+    #[message(base_path = ::mm1_proto)]
     pub struct Pong {
         pub seq_num: u64,
     }
@@ -246,15 +246,15 @@ fn test_06() {
 fn dispatch(inbound: Envelope) -> usize {
     dispatch!(match inbound {
         ping @ Ping { seq_num, .. } if *seq_num < 10 => {
-            eprintln!("{:?}", ping);
+            eprintln!("{ping:?}");
             1
         },
         ping @ Ping { seq_num, .. } if *seq_num > 10 => {
-            eprintln!("{:?}", ping);
+            eprintln!("{ping:?}");
             2
         },
         ping @ Ping { .. } => {
-            eprintln!("{:?}", ping);
+            eprintln!("{ping:?}");
             3
         },
 

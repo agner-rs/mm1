@@ -51,7 +51,7 @@ async fn test_simple_actor() {
 
     recv.resolve_ok({
         let header = RequestHeader {
-            id:       (),
+            id:       Default::default(),
             reply_to: client_address,
         };
         let payload = ResolveRequest {
@@ -78,7 +78,7 @@ async fn test_simple_actor() {
     let recv = rt.expect_next_event().await.expect::<query::Recv>();
     recv.resolve_ok({
         let header = RequestHeader {
-            id:       (),
+            id:       Default::default(),
             reply_to: client_address,
         };
         let payload = RegisterRequest {
@@ -110,7 +110,7 @@ async fn test_simple_actor() {
 
     recv.resolve_ok({
         let header = RequestHeader {
-            id:       (),
+            id:       Default::default(),
             reply_to: client_address,
         };
         let payload = ResolveRequest {
@@ -141,7 +141,7 @@ async fn test_simple_actor() {
 
     recv.resolve_ok({
         let header = RequestHeader {
-            id:       (),
+            id:       Default::default(),
             reply_to: client_address,
         };
         let payload = ResolveRequest {

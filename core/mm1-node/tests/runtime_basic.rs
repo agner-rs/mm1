@@ -19,7 +19,7 @@ fn hello_runtime() {
         "#,
     )
     .expect("parse-config error");
-    eprintln!("config: {:#?}", config);
+    eprintln!("config: {config:#?}");
     let rt = Rt::create(config).unwrap();
     rt.run(local::boxed_from_fn(main))
         .expect("main actor run error");
@@ -41,7 +41,7 @@ where
         )
         .await
     {
-        eprintln!("- {}", started_address);
+        eprintln!("- {started_address}");
         addresses.push(started_address);
         tokio::task::yield_now().await
     }
@@ -53,7 +53,7 @@ where
                 address,
                 Request {
                     reply_to: rq_ctx.address(),
-                    message:  format!("Hello you {}", address),
+                    message:  format!("Hello you {address}"),
                 },
             )
             .await;
@@ -74,10 +74,7 @@ where
     ctx.init_done(ctx.address()).await;
     dispatch!(match ctx.recv().await.expect("no message") {
         Request { reply_to, message } => {
-            eprintln!(
-                "  [{:>3}] received: {:?} [from: {}]",
-                idx, message, reply_to
-            );
+            eprintln!("  [{idx:>3}] received: {message:?} [from: {reply_to}]");
             let _ = ctx.tell(reply_to, Response).await;
         },
     });
@@ -85,25 +82,25 @@ where
     let main_address = dispatch!(match ctx.recv().await.expect("no message") {
         ImMain { address } => address,
     });
-    eprintln!("Sending StopRequest to {}", main_address);
+    eprintln!("Sending StopRequest to {main_address}");
     let _ = ctx.kill(main_address).await;
 
     ctx.quit_ok().await
 }
 
 #[derive(Debug)]
-#[message]
+#[message(base_path = ::mm1_proto)]
 struct Request {
     reply_to: Address,
     message:  String,
 }
 
 #[derive(Debug)]
-#[message]
+#[message(base_path = ::mm1_proto)]
 struct Response;
 
 #[derive(Debug)]
-#[message]
+#[message(base_path = ::mm1_proto)]
 struct ImMain {
     address: Address,
 }

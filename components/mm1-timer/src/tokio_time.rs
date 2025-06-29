@@ -5,7 +5,7 @@ use std::time::Duration;
 use futures::FutureExt;
 use mm1_address::address::Address;
 use mm1_core::context::{Fork, Messaging, Now, Quit, Tell};
-use mm1_core::prim::Message;
+use mm1_proto::Message;
 use mm1_proto_timer as t;
 use mm1_proto_timer::Timer;
 
@@ -18,7 +18,7 @@ pub struct TokioTimer<K, M> {
 
 impl<K, M> Timer for TokioTimer<K, M>
 where
-    K: Hash + Ord + Clone + Send + 'static,
+    K: Message + Hash + Ord + Clone + Send + 'static,
     M: Message,
 {
     type Duration = Duration;
@@ -51,7 +51,7 @@ where
             Key = K,
             Message = M,
         >,
-    K: Hash + Ord + Clone + Send + Sync + 'static,
+    K: Message + Hash + Ord + Clone + Send + Sync + 'static,
     M: Message,
 {
     TimerApiImpl::<K, M, Ctx, crate::tokio_time::TokioTimer<K, M>>::new(ctx).await
@@ -99,7 +99,7 @@ where
 impl<Ctx, Key, Msg, T> TimerApi for TimerApiImpl<Key, Msg, Ctx, T>
 where
     Ctx: Quit + Fork + Messaging + Now,
-    Key: Hash + Ord + Clone + Send + Sync + 'static,
+    Key: Message + Hash + Ord + Clone + Send + Sync + 'static,
     Msg: Message,
     T: t::Timer<Key = Key, Message = Msg, Instant = Ctx::Instant>,
     Ctx::Instant: Send,

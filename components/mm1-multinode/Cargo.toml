@@ -17,7 +17,7 @@ format-bincode = ["dep:bincode"]
 format-rmp = ["dep:rmp-serde"]
 
 [dependencies]
-mm1-address = {workspace = true, features = ["serde"]}
+mm1-address.workspace = true
 mm1-ask.workspace = true
 mm1-common.workspace = true
 mm1-core.workspace = true
@@ -25,6 +25,7 @@ mm1-runnable.workspace = true
 mm1-sup.workspace = true
 mm1-timer.workspace = true
 
+mm1-proto.workspace = true
 mm1-proto-ask.workspace = true
 mm1-proto-network-management.workspace = true
 mm1-proto-sup.workspace = true

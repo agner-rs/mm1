@@ -417,7 +417,7 @@ where
     queries_tx.send(query.into()).expect("tx failed");
     match (outcome_rx.await, on_rx_failure) {
         (Ok(ret), _) => ret,
-        (Err(reason), OnRxFailure::Panic) => panic!("rx failed: {}", reason),
+        (Err(reason), OnRxFailure::Panic) => panic!("rx failed: {reason}"),
         (Err(_), OnRxFailure::Freeze) => std::future::pending().await,
     }
 }

@@ -1,17 +1,17 @@
 use mm1_address::address::Address;
 use mm1_address::subnet::NetAddress;
-use mm1_core::prim::message;
+use mm1_proto::message;
 
-#[message]
+#[message(base_path = ::mm1_proto)]
 pub(super) struct Tick;
 
-#[message]
+#[message(base_path = ::mm1_proto)]
 pub(super) struct SubnetStarted {
     pub(super) net_address: NetAddress,
     pub(super) handled_by:  Address,
 }
 
-#[message]
+#[message(base_path = ::mm1_proto)]
 pub(super) struct SubnetStartFailed {
     pub(super) net_address: NetAddress,
 }

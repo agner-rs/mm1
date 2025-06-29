@@ -4,23 +4,23 @@ use mm1_address::address::Address;
 use mm1_proto::message;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[message]
+#[message(base_path = ::mm1_proto)]
 pub struct WatchRef(u64);
 
 #[derive(Debug)]
-#[message]
+#[message(base_path = ::mm1_proto)]
 pub struct Watch {
     pub peer: Address,
 }
 
 #[derive(Debug)]
-#[message]
+#[message(base_path = ::mm1_proto)]
 pub struct Unwatch {
     pub watch_ref: WatchRef,
 }
 
 #[derive(Debug)]
-#[message]
+#[message(base_path = ::mm1_proto)]
 pub struct Down {
     pub peer:        Address,
     pub watch_ref:   WatchRef,

@@ -8,7 +8,7 @@ use std::ops::{Add, Sub};
 use mm1_proto::{Message, message};
 
 pub trait Timer: Send + 'static {
-    type Key: Ord + Clone + Send + Hash;
+    type Key: Message + Ord + Clone + Send + Hash;
     type Instant: Copy
         + Send
         + Ord
@@ -25,22 +25,15 @@ pub trait Timer: Send + 'static {
     }
 }
 
-#[cfg_attr(
-    feature = "serde",
-    derive(derive_more::Debug, serde::Serialize, serde::Deserialize)
-)]
-#[message]
+#[message(base_path = ::mm1_proto)]
 pub struct ScheduleOnce<T: Timer> {
     pub key: T::Key,
+    #[serde(skip)]
     pub at:  T::Instant,
     pub msg: T::Message,
 }
 
-#[cfg_attr(
-    feature = "serde",
-    derive(derive_more::Debug, serde::Serialize, serde::Deserialize)
-)]
-#[message]
+#[message(base_path = ::mm1_proto)]
 pub struct SchedulePeriodic<T: Timer>
 where
     T::Message: Clone,
@@ -51,11 +44,7 @@ where
     pub msg:    T::Message,
 }
 
-#[cfg_attr(
-    feature = "serde",
-    derive(derive_more::Debug, serde::Serialize, serde::Deserialize)
-)]
-#[message]
+#[message(base_path = ::mm1_proto)]
 pub struct Cancel<T: Timer> {
     pub key: T::Key,
 }

@@ -19,16 +19,13 @@ async fn main() -> Result<(), AnyError> {
 
     let (side_a_stream, side_b_stream) = tokio::try_join!(a_run, b_run)?;
 
-    eprintln!(
-        "both sides:\n\ta: {:?}\n\tb: {:?}",
-        side_a_stream, side_b_stream
-    );
+    eprintln!("both sides:\n\ta: {side_a_stream:?}\n\tb: {side_b_stream:?}");
 
     Ok(())
 }
 
 async fn run_side(side: &str, bind: SocketAddr, peer: SocketAddr) -> Result<TcpStream, AnyError> {
-    eprintln!("side: {:?}; setting up", side);
+    eprintln!("side: {side:?}; setting up");
 
     // Setup reusable listener
     let listener_socket = if bind.is_ipv4() {
@@ -40,11 +37,11 @@ async fn run_side(side: &str, bind: SocketAddr, peer: SocketAddr) -> Result<TcpS
     listener_socket.set_reuseport(true)?; // Optional; required on some systems
     listener_socket.bind(bind)?;
     let listener = listener_socket.listen(1024)?; // Arbitrary backlog
-    eprintln!("side: {}; listening on {:?}", side, bind);
+    eprintln!("side: {side}; listening on {bind:?}");
 
     // Spawn connect attempt with reusable socket
     let connect_fut = async move {
-        eprintln!("side: {}; attempting connect to {:?}", side, peer);
+        eprintln!("side: {side}; attempting connect to {peer:?}");
         let stream = loop {
             let connector_socket = if bind.is_ipv4() {
                 TcpSocket::new_v4()?
@@ -59,7 +56,7 @@ async fn run_side(side: &str, bind: SocketAddr, peer: SocketAddr) -> Result<TcpS
             }
             time::sleep(Duration::from_millis(100)).await;
         };
-        eprintln!("side: {}; outbound connection established", side);
+        eprintln!("side: {side}; outbound connection established");
         Ok::<_, AnyError>(stream)
     };
 
@@ -67,12 +64,12 @@ async fn run_side(side: &str, bind: SocketAddr, peer: SocketAddr) -> Result<TcpS
     let stream = tokio::select! {
         incoming = listener.accept() => {
             let (stream, addr) = incoming?;
-            eprintln!("side: {}; incoming connection from {:?}", side, addr);
+            eprintln!("side: {side}; incoming connection from {addr:?}");
             Ok(stream)
         }
         outgoing = connect_fut => {
             let stream = outgoing?;
-            eprintln!("side: {}; connected to peer", side);
+            eprintln!("side: {side}; connected to peer");
             Ok(stream)
         }
     };

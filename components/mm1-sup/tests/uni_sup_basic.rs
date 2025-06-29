@@ -38,7 +38,7 @@ fn test_01() {
     let _ = mm1_logger::init(&logger_config());
 
     #[derive(Debug)]
-    #[message]
+    #[message(base_path = ::mm1_proto)]
     struct Hi {
         worker_id:      usize,
         worker_address: Address,
@@ -113,7 +113,7 @@ fn test_01() {
             let started = start_response.expect("start-response");
             debug!("started[{}]: {}", i, started);
 
-            assert!(workers.insert(started), "duplicate address: {}", started);
+            assert!(workers.insert(started), "duplicate address: {started}");
         }
 
         info!("WORKERS: {}", workers.len());
@@ -129,8 +129,7 @@ fn test_01() {
 
             assert!(
                 workers.remove(&worker_address),
-                "unknown address: {}",
-                worker_address
+                "unknown address: {worker_address}"
             );
             debug!("WORKER[{}]@{} said Hi", worker_id, worker_address);
 
@@ -243,7 +242,7 @@ async fn test_02() {
         EnvelopeHeader::to_address(address_sup),
         mm1_proto_ask::Request {
             header:  mm1_proto_ask::RequestHeader {
-                id:       (),
+                id:       Default::default(),
                 reply_to: address_client,
             },
             payload: mm1_proto_sup::uniform::StartRequest { args: "hello!" },

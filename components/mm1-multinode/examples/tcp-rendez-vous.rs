@@ -30,8 +30,8 @@ async fn main() -> Result<(), AnyError> {
 
     let (a, b) = tokio::try_join!(a.run(), b.run())?;
 
-    eprintln!("A: {:?}", a);
-    eprintln!("B: {:?}", b);
+    eprintln!("A: {a:?}");
+    eprintln!("B: {b:?}");
 
     Ok(())
 }

@@ -7,7 +7,7 @@ use mm1_ask::{Ask, AskErrorKind, Reply};
 use mm1_common::errors::error_kind::HasErrorKind;
 use mm1_core::context::Fork;
 use mm1_core::envelope::dispatch;
-use mm1_core::prim::message;
+use mm1_proto::message;
 use mm1_proto_ask::Request;
 use mm1_test_rt::rt::event::EventResolveResult;
 use mm1_test_rt::rt::{MainActorOutcome, TestRuntime, query};
@@ -116,11 +116,11 @@ async fn ergonomics() {
     assert_eq!(client_done.address, client_address);
 }
 
-#[message]
+#[message(base_path = ::mm1_proto)]
 struct Rq;
 
 #[derive(Debug)]
-#[message]
+#[message(base_path = ::mm1_proto)]
 struct Rs;
 
 async fn client<Ctx>(ctx: &mut Ctx, server_address: Address)

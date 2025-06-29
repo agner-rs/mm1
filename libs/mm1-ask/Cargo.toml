@@ -11,6 +11,7 @@ description = "M/M/1! Queueing, do you speak it?!"
 exclude = ["**/*.snap"]
 
 [dependencies]
+mm1-proto.workspace = true
 mm1-proto-ask.workspace = true
 
 mm1-address.workspace = true
@@ -22,4 +23,5 @@ derive_more = {workspace = true, features = ["from"] }
 [dev-dependencies]
 mm1-test-rt.workspace = true
 
+serde = {workspace = true, features = ["derive"]}
 tokio = {workspace = true, features = ["rt", "macros", "test-util"]}

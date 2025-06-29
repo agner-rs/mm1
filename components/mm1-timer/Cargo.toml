@@ -19,6 +19,7 @@ mm1-address.workspace = true
 mm1-common.workspace = true
 mm1-core.workspace = true
 
+mm1-proto.workspace = true
 mm1-proto-timer.workspace = true
 
 futures.workspace = true
@@ -34,7 +35,7 @@ tokio = {workspace = true, features = ["rt", "macros", "time", "test-util"]}
 
 mm1-logger.workspace = true
 mm1-node.workspace = true
-mm1-proto-timer = {workspace = true, features = ["serde"] }
+mm1-proto-timer = {workspace = true }
 mm1-runnable.workspace = true
 mm1-test-rt.workspace = true
 

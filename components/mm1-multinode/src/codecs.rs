@@ -5,7 +5,7 @@ use std::sync::Arc;
 use bytes::Bytes;
 use mm1_common::types::AnyError;
 use mm1_core::message::AnyMessage;
-use mm1_core::prim::Message;
+use mm1_proto::Message;
 
 use crate::remote_subnet::config::SerdeFormat;
 

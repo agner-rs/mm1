@@ -121,12 +121,12 @@ fn message_is_sent_and_received() {
     let _ = mm1_logger::init(&logger_config());
 
     #[derive(Debug)]
-    #[message]
+    #[message(base_path = ::mm1_proto)]
     struct Request {
         reply_to: Address,
     }
     #[derive(Debug)]
-    #[message]
+    #[message(base_path = ::mm1_proto)]
     struct Response;
 
     async fn main<C>(ctx: &mut C, tx: oneshot::Sender<()>)
@@ -217,7 +217,7 @@ fn actor_fork_run() {
         C: Messaging + Fork,
     {
         #[derive(Debug)]
-        #[message]
+        #[message(base_path = ::mm1_proto)]
         struct Hello(usize);
 
         let main_address = ctx.address();
@@ -263,7 +263,7 @@ fn actor_bind_and_recv() {
         C: Messaging + Fork + Bind<NetAddress>,
     {
         #[derive(Debug)]
-        #[message]
+        #[message(base_path = ::mm1_proto)]
         struct Hello;
 
         log::info!("hello!");

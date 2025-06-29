@@ -6,7 +6,7 @@ use mm1_proto::{Message, message};
 use crate::envelope::{Envelope, EnvelopeHeader};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[message]
+#[message(base_path = ::mm1_proto)]
 pub enum RecvErrorKind {
     Closed,
 }
@@ -14,7 +14,7 @@ pub enum RecvErrorKind {
 impl_error_kind!(RecvErrorKind);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[message]
+#[message(base_path = ::mm1_proto)]
 pub enum SendErrorKind {
     InternalError,
     NotFound,

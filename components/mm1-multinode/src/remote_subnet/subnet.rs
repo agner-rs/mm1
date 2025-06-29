@@ -62,7 +62,7 @@ where
         };
         codec_registry
             .get_codec(codec_name)
-            .ok_or_else(|| format!("no such codec: {}", codec_name))?
+            .ok_or_else(|| format!("no such codec: {codec_name}"))?
     };
 
     let mut subnet_ctx = ctx.fork().await?;

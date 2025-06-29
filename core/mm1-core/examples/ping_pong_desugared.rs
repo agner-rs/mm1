@@ -5,21 +5,21 @@ pub mod ping_pong {
     use mm1_proto::message;
 
     #[derive(Debug)]
-    #[message]
+    #[message(base_path = ::mm1_proto)]
     pub struct Ping {
         reply_to: Address,
         seq_num:  u64,
     }
 
     #[derive(Debug)]
-    #[message]
+    #[message(base_path = ::mm1_proto)]
     pub struct Forward<Message> {
         forward_to: Address,
         message:    Message,
     }
 
     #[derive(Debug)]
-    #[message]
+    #[message(base_path = ::mm1_proto)]
     pub struct Pong {
         #[allow(dead_code)]
         seq_num: u64,
@@ -60,7 +60,7 @@ pub mod ping_pong {
                     Err(inbound) => inbound,
                 };
 
-                panic!("unexpected message: {:?}", inbound)
+                panic!("unexpected message: {inbound:?}")
             };
 
             if let Some(ret_value) = ret_value_opt {

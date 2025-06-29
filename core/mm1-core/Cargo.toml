@@ -23,6 +23,7 @@ mm1-proto-system.workspace = true
 mm1-proc-macros.workspace = true
 
 futures.workspace = true
+serde = {workspace = true, features = ["derive"]}
 thiserror.workspace = true
 tokio = {workspace = true, features = ["time", "macros"]}
 tracing.workspace = true

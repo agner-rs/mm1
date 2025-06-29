@@ -23,10 +23,10 @@ async fn actor_returns_any_error<C>(_context: &mut C) -> Result<(), AnyError> {
 }
 
 async fn actor_accepts_one_arg<C>(_context: &mut C, name: &str) {
-    eprintln!("my name is {}", name);
+    eprintln!("my name is {name}");
 }
 async fn actor_accepts_two_args<C>(_context: &mut C, name: &str, idx: usize) {
-    eprintln!("my name is {}[{}]", name, idx);
+    eprintln!("my name is {name}[{idx}]");
 }
 
 async fn run_it<C, A>(context: &mut C, actor: A)

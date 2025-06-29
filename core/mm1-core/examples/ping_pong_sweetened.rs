@@ -9,20 +9,20 @@ pub mod ping_pong {
     use mm1_proto_ask::Request;
 
     #[derive(Debug)]
-    #[message]
+    #[message(base_path = ::mm1_proto)]
     pub struct Ping {
         seq_num: u64,
     }
 
     #[derive(Debug)]
-    #[message]
+    #[message(base_path = ::mm1_proto)]
     pub struct Forward<Message> {
         forward_to: Address,
         message:    Message,
     }
 
     #[derive(Debug)]
-    #[message]
+    #[message(base_path = ::mm1_proto)]
     pub struct Pong {
         #[allow(dead_code)]
         seq_num: u64,
@@ -34,7 +34,7 @@ pub mod ping_pong {
     {
         loop {
             let keep_running = dispatch!(match ctx.recv().await? {
-                Request::<_, ()> {
+                Request::<_> {
                     header: reply_to,
                     payload: Ping { seq_num },
                 } => {

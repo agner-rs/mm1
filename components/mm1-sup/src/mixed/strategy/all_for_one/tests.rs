@@ -222,13 +222,13 @@ where
                                 break Ok(())
                             }
                         },
-                        Ok(Some(action)) => report.push(format!(">>> {}", action)),
+                        Ok(Some(action)) => report.push(format!(">>> {action}")),
                     }
                 }
             },
         };
         if let Err(reason) = result {
-            report.push(format!("!!! ERROR: {}", reason));
+            report.push(format!("!!! ERROR: {reason}"));
             break
         }
     }
@@ -242,12 +242,12 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Add(k) => write!(f, "ADD     [{}]", k),
-            Self::Rm(k) => write!(f, "RM      [{}]", k),
+            Self::Add(k) => write!(f, "ADD     [{k}]"),
+            Self::Rm(k) => write!(f, "RM      [{k}]"),
             Self::Decide => write!(f, "DECIDE"),
-            Self::Started(k, a) => write!(f, "STARTED [{}] / {}", k, a),
-            Self::Exited(a, n) => write!(f, "EXITED  {} normal_exit={}", a, n),
-            Self::Delay(d) => write!(f, "DELAY {:?}", d),
+            Self::Started(k, a) => write!(f, "STARTED [{k}] / {a}"),
+            Self::Exited(a, n) => write!(f, "EXITED  {a} normal_exit={n}"),
+            Self::Delay(d) => write!(f, "DELAY {d:?}"),
         }
     }
 }
