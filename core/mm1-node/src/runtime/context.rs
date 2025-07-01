@@ -3,6 +3,7 @@ use std::sync::{Arc, Weak};
 
 use mm1_address::address::Address;
 use mm1_address::address_range::AddressRange;
+use mm1_common::log;
 use mm1_core::envelope::Envelope;
 use tokio::sync::mpsc;
 
@@ -38,7 +39,9 @@ impl Drop for ActorContext {
         for (address_range, net_node) in std::mem::take(&mut self.network_nodes) {
             if let Some(_net_node) = net_node.upgrade() {
                 let registry = self.rt_api.registry();
-                registry.unregister(address_range.into());
+                if !registry.unregister(address_range.into()) {
+                    log::error!("could not unregister {address_range}");
+                }
             }
         }
 

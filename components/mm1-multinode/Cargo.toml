@@ -1,6 +1,6 @@
 [package]
 name = "mm1-multinode"
-version = "0.6.3"
+version = "0.6.4"
 edition = "2024"
 
 license = "MIT"
@@ -41,5 +41,6 @@ serde_json = {workspace = true}
 sha3 = {workspace = true}
 tokio = {workspace = true, features = ["io-util", "net"]}
 tokio-util = {workspace = true, features = ["codec"]}
+tracing.workspace = true
 
 

@@ -118,7 +118,7 @@ pub struct SerdeJsonCodec<T>(std::marker::PhantomData<T>);
 #[cfg(feature = "format-bincode")]
 pub struct SerdeBincodeCodec<T>(std::marker::PhantomData<T>);
 
-#[cfg(feature = "format-bincode")]
+#[cfg(feature = "format-rmp")]
 pub struct SerdeRmpCodec<T>(std::marker::PhantomData<T>);
 
 impl SupportedType {

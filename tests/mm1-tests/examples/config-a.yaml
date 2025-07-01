@@ -1,0 +1,15 @@
+codecs:
+  - name: full
+subnets:
+  - net_address: <a:>/4
+    type: local
+  - net_address: <b:>/4
+    type: remote
+    codec: full
+    protocol: wip
+    authc:
+      shared_secret: one-two-three
+    serde: rmp
+    link:
+      bind: 127.0.0.1:12001
+      peer: 127.0.0.1:12002

@@ -26,11 +26,6 @@ pub trait UniformSupContext<Runnable>:
 {
 }
 
-impl<Ctx, Runnable> UniformSupContext<Runnable> for Ctx where
-    Ctx: Fork + InitDone + Linking + Messaging + Quit + Reply + Start<Runnable> + Stop + Watching
-{
-}
-
 #[derive(Debug, thiserror::Error)]
 #[message(base_path = ::mm1_proto)]
 pub enum UniformSupFailure {
@@ -42,11 +37,11 @@ pub enum UniformSupFailure {
 }
 
 pub struct UniformSup<F> {
-    pub child_spec: ChildSpec<F>,
+    pub child_spec: ChildSpec<F, ()>,
 }
 
 impl<F> UniformSup<F> {
-    pub fn new(child_spec: ChildSpec<F>) -> Self {
+    pub fn new(child_spec: ChildSpec<F, ()>) -> Self {
         Self { child_spec }
     }
 }
@@ -64,12 +59,10 @@ where
     let UniformSup { child_spec } = sup_spec;
     let ChildSpec {
         launcher: factory,
-        child_type,
+        child_type: (),
         init_type,
         stop_timeout,
     } = child_spec;
-
-    let _ = child_type;
 
     ctx.set_trap_exit(true).await;
     ctx.init_done(ctx.address()).await;
@@ -241,11 +234,16 @@ impl UniformSupFailure {
 
 impl<F> Clone for UniformSup<F>
 where
-    ChildSpec<F>: Clone,
+    ChildSpec<F, ()>: Clone,
 {
     fn clone(&self) -> Self {
         Self {
             child_spec: self.child_spec.clone(),
         }
     }
+}
+
+impl<Ctx, Runnable> UniformSupContext<Runnable> for Ctx where
+    Ctx: Fork + InitDone + Linking + Messaging + Quit + Reply + Start<Runnable> + Stop + Watching
+{
 }
