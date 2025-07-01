@@ -61,6 +61,7 @@ members = [
 ]
 
 [workspace.dependencies]
+mm1 = {path = ".", version = "=0.6.3"}
 mm1-core = {path = "core/mm1-core", version = "=0.6.3" }
 mm1-node = {path = "core/mm1-node", version = "=0.6.3" }
 mm1-runnable = {path = "core/mm1-runnable", version = "=0.6.3" }

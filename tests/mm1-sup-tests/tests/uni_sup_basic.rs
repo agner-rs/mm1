@@ -14,7 +14,7 @@ use mm1_node::runtime::{Local, Rt};
 use mm1_proto::message;
 use mm1_proto_sup::uniform;
 use mm1_runnable::local;
-use mm1_sup::common::child_spec::{ChildSpec, ChildType, InitType};
+use mm1_sup::common::child_spec::{ChildSpec, InitType};
 use mm1_sup::common::factory::{ActorFactory, ActorFactoryMut};
 use mm1_sup::uniform::{UniformSup, uniform_sup};
 use mm1_test_rt::rt::event::EventResolve;
@@ -80,7 +80,7 @@ fn test_01() {
         });
         let child = ChildSpec {
             launcher:     factory,
-            child_type:   ChildType::Temporary,
+            child_type:   (),
             init_type:    InitType::WithAck {
                 start_timeout: Duration::from_secs(1),
             },
@@ -198,7 +198,7 @@ async fn test_02() {
 
     let child_spec = ChildSpec {
         launcher:     Factory::default(),
-        child_type:   ChildType::Temporary,
+        child_type:   (),
         init_type:    InitType::NoAck,
         stop_timeout: Duration::from_secs(1),
     };

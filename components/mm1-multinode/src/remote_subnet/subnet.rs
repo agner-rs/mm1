@@ -9,7 +9,7 @@ use bytes::{Bytes, BytesMut};
 use futures::{SinkExt, StreamExt};
 use mm1_address::address::Address;
 use mm1_address::subnet::NetAddress;
-use mm1_common::log;
+use mm1_common::log::{self, instrument};
 use mm1_common::types::{AnyError, Never};
 use mm1_core::context::{Bind, BindArgs, Fork, InitDone, Messaging};
 use mm1_core::envelope::{Envelope, EnvelopeHeader};
@@ -42,6 +42,9 @@ where
         .inspect_err(|reason| log::error!("subnet {} failure: {}", net_address, reason))
 }
 
+#[instrument(skip_all, fields(
+        net = display(net_address),
+    ))]
 async fn run_inner<Ctx>(
     ctx: &mut Ctx,
     codec_registry: Arc<CodecRegistry>,

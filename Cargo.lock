@@ -616,6 +616,7 @@ dependencies = [
  "sha3",
  "tokio",
  "tokio-util",
+ "tracing",
 ]
 
 [[package]]
@@ -878,6 +879,17 @@ dependencies = [
  "mm1-proto-system",
  "mm1-test-rt",
  "serde",
+ "tokio",
+]
+
+[[package]]
+name = "mm1-tests"
+version = "0.1.0"
+dependencies = [
+ "mm1",
+ "mm1-logger",
+ "serde",
+ "serde_yaml",
  "tokio",
 ]
 
