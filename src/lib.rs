@@ -126,6 +126,8 @@ pub mod core {
         pub use mm1_core::context::InitDone;
         /// Link to/unlink from other actors.
         pub use mm1_core::context::Linking;
+        /// Provides a current Instant.
+        pub use mm1_core::context::Now;
         /// Terminate its own execution.
         pub use mm1_core::context::Quit;
         /// Start other actors.
