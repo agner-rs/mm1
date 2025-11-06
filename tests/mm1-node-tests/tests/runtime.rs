@@ -1,18 +1,16 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use mm1_address::address::Address;
-use mm1_address::pool::Pool;
-use mm1_address::subnet::{NetAddress, NetMask};
-use mm1_common::log::{self, info};
-use mm1_core::context::{
+use mm1::address::{Address, AddressPool, NetAddress, NetMask};
+use mm1::common::log::{self, info};
+use mm1::core::context::{
     Bind, BindArgs, Fork, InitDone, Linking, Messaging, Quit, Start, Stop, Tell,
 };
-use mm1_core::envelope::dispatch;
-use mm1_node::runtime::{Local, Rt};
-use mm1_proto::message;
-use mm1_proto_system::Exited;
-use mm1_runnable::local;
+use mm1::core::envelope::dispatch;
+use mm1::proto::message;
+use mm1::proto::system::Exited;
+use mm1::runnable::local;
+use mm1::runtime::{Local, Rt};
 use tokio::runtime::Runtime;
 use tokio::sync::{Notify, oneshot};
 
@@ -121,12 +119,12 @@ fn message_is_sent_and_received() {
     let _ = mm1_logger::init(&logger_config());
 
     #[derive(Debug)]
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     struct Request {
         reply_to: Address,
     }
     #[derive(Debug)]
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     struct Response;
 
     async fn main<C>(ctx: &mut C, tx: oneshot::Sender<()>)
@@ -217,7 +215,7 @@ fn actor_fork_run() {
         C: Messaging + Fork,
     {
         #[derive(Debug)]
-        #[message(base_path = ::mm1_proto)]
+        #[message]
         struct Hello(usize);
 
         let main_address = ctx.address();
@@ -263,13 +261,13 @@ fn actor_bind_and_recv() {
         C: Messaging + Fork + Bind<NetAddress>,
     {
         #[derive(Debug)]
-        #[message(base_path = ::mm1_proto)]
+        #[message]
         struct Hello;
 
         log::info!("hello!");
 
         let bind_to = "<beaf:>/16".parse().unwrap();
-        let pool = Pool::new(bind_to);
+        let pool = AddressPool::new(bind_to);
         let () = ctx
             .bind(BindArgs {
                 bind_to,

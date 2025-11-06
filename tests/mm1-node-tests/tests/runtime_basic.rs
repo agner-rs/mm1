@@ -1,13 +1,13 @@
 use std::time::Duration;
 
-use mm1_address::address::Address;
-use mm1_common::types::Never;
-use mm1_core::context::{Fork, InitDone, Messaging, Quit, Start, Stop, Tell};
-use mm1_core::envelope::dispatch;
-use mm1_node::config::Mm1NodeConfig;
-use mm1_node::runtime::Rt;
-use mm1_proto::message;
-use mm1_runnable::local::{self, BoxedRunnable};
+use mm1::address::Address;
+use mm1::common::Never;
+use mm1::core::context::{Fork, InitDone, Messaging, Quit, Start, Stop, Tell};
+use mm1::core::envelope::dispatch;
+use mm1::proto::message;
+use mm1::runnable::local::{self, BoxedRunnable};
+use mm1::runtime::Rt;
+use mm1::runtime::config::Mm1NodeConfig;
 
 #[test]
 fn hello_runtime() {
@@ -89,18 +89,18 @@ where
 }
 
 #[derive(Debug)]
-#[message(base_path = ::mm1_proto)]
+#[message]
 struct Request {
     reply_to: Address,
     message:  String,
 }
 
 #[derive(Debug)]
-#[message(base_path = ::mm1_proto)]
+#[message]
 struct Response;
 
 #[derive(Debug)]
-#[message(base_path = ::mm1_proto)]
+#[message]
 struct ImMain {
     address: Address,
 }

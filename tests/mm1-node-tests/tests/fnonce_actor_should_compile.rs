@@ -1,11 +1,11 @@
 use std::time::Duration;
 
-use mm1_address::address::Address;
-use mm1_common::errors::error_of::ErrorOf;
-use mm1_common::types::{AnyError, Never, StdError};
-use mm1_core::context::*;
-use mm1_core::envelope::Envelope;
-use mm1_runnable::local::{self, ActorRun};
+use mm1::address::Address;
+use mm1::common::Never;
+use mm1::common::error::{AnyError, ErrorOf, StdError};
+use mm1::core::context::*;
+use mm1::core::envelope::Envelope;
+use mm1::runnable::local::{self, ActorRun};
 use tokio::time;
 
 async fn actor_exits<C: Quit>(context: &mut C) -> Never {

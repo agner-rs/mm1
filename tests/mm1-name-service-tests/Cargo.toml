@@ -10,16 +10,11 @@ exclude.workspace = true
 
 [dependencies]
 [dev-dependencies]
-mm1-address.workspace = true
-mm1-ask.workspace = true
-mm1-core.workspace = true
+mm1 = {workspace = true, features = ["ask", "runtime", "test-util"]}
 mm1-logger.workspace = true
+
 mm1-name-service.workspace = true
-mm1-proto-ask.workspace = true
 mm1-proto-named.workspace = true
 mm1-proto-well-known.workspace = true
 
-mm1-node.workspace = true
-mm1-runnable.workspace = true
-mm1-test-rt.workspace = true
 tokio = {workspace = true, features = ["rt", "macros", "test-util"]}

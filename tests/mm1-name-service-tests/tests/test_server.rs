@@ -1,17 +1,16 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use mm1_address::pool::Pool;
-use mm1_address::subnet::{NetAddress, NetMask};
-use mm1_core::context::{Bind, Fork, InitDone, Messaging, Now, Quit};
-use mm1_core::envelope::{Envelope, EnvelopeHeader};
-use mm1_proto_ask::{Request, RequestHeader, Response};
+use mm1::address::{AddressPool, NetAddress, NetMask};
+use mm1::ask::proto::{Request, RequestHeader, Response};
+use mm1::core::context::{Bind, Fork, InitDone, Messaging, Now, Quit};
+use mm1::core::envelope::{Envelope, EnvelopeHeader};
+use mm1::test::rt::event::{EventResolve, EventResolveResult};
+use mm1::test::rt::{TestRuntime, query};
 use mm1_proto_named::{
     KeyProps, RegProps, RegisterRequest, RegisterResponse, ResolveRequest, ResolveResponse,
 };
 use mm1_proto_well_known::NAME_SERVICE;
-use mm1_test_rt::rt::event::{EventResolve, EventResolveResult};
-use mm1_test_rt::rt::{TestRuntime, query};
 use tokio::time::{self, Instant};
 
 #[tokio::test]
@@ -20,7 +19,7 @@ async fn test_simple_actor() {
 
     let rt = TestRuntime::<()>::new();
 
-    let address_pool = Pool::new("<cafe:>/16".parse().unwrap());
+    let address_pool = AddressPool::new("<cafe:>/16".parse().unwrap());
     let server_lease = address_pool.lease(NetMask::M_64).unwrap();
     let server_address = server_lease.address;
 

@@ -527,13 +527,7 @@ dependencies = [
 name = "mm1-ask-tests"
 version = "0.6.5"
 dependencies = [
- "mm1-address",
- "mm1-ask",
- "mm1-common",
- "mm1-core",
- "mm1-proto",
- "mm1-proto-ask",
- "mm1-test-rt",
+ "mm1",
  "serde",
  "tokio",
 ]
@@ -571,11 +565,7 @@ name = "mm1-core-tests"
 version = "0.6.5"
 dependencies = [
  "eyre",
- "mm1-address",
- "mm1-ask",
- "mm1-core",
- "mm1-proto",
- "mm1-proto-ask",
+ "mm1",
  "serde",
 ]
 
@@ -623,10 +613,9 @@ name = "mm1-multinode-tests"
 version = "0.6.5"
 dependencies = [
  "dotenv",
- "mm1-common",
+ "mm1",
  "mm1-logger",
  "mm1-multinode",
- "mm1-test-rt",
  "tokio",
 ]
 
@@ -649,17 +638,11 @@ dependencies = [
 name = "mm1-name-service-tests"
 version = "0.6.5"
 dependencies = [
- "mm1-address",
- "mm1-ask",
- "mm1-core",
+ "mm1",
  "mm1-logger",
  "mm1-name-service",
- "mm1-node",
- "mm1-proto-ask",
  "mm1-proto-named",
  "mm1-proto-well-known",
- "mm1-runnable",
- "mm1-test-rt",
  "tokio",
 ]
 
@@ -698,14 +681,8 @@ dependencies = [
 name = "mm1-node-tests"
 version = "0.6.5"
 dependencies = [
- "mm1-address",
- "mm1-common",
- "mm1-core",
+ "mm1",
  "mm1-logger",
- "mm1-node",
- "mm1-proto",
- "mm1-proto-system",
- "mm1-runnable",
  "serde",
  "serde_yaml",
  "tokio",
@@ -824,18 +801,8 @@ name = "mm1-sup-tests"
 version = "0.6.5"
 dependencies = [
  "insta",
- "mm1-address",
- "mm1-ask",
- "mm1-common",
- "mm1-core",
+ "mm1",
  "mm1-logger",
- "mm1-node",
- "mm1-proto",
- "mm1-proto-ask",
- "mm1-proto-sup",
- "mm1-runnable",
- "mm1-sup",
- "mm1-test-rt",
  "serde",
  "test-case",
  "tokio",
@@ -861,13 +828,8 @@ name = "mm1-test-rt-tests"
 version = "0.6.5"
 dependencies = [
  "futures",
- "mm1-address",
- "mm1-common",
- "mm1-core",
+ "mm1",
  "mm1-logger",
- "mm1-proto",
- "mm1-proto-system",
- "mm1-test-rt",
  "serde",
  "tokio",
 ]

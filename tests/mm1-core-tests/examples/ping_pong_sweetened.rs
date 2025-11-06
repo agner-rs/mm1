@@ -1,28 +1,28 @@
 pub mod ping_pong {
     use std::time::Duration;
 
-    use mm1_address::address::Address;
-    use mm1_ask::{Ask, Reply};
-    use mm1_core::context::{Fork, Messaging, Tell};
-    use mm1_core::envelope::dispatch;
-    use mm1_proto::message;
-    use mm1_proto_ask::Request;
+    use mm1::address::Address;
+    use mm1::ask::proto::Request;
+    use mm1::ask::{Ask, Reply};
+    use mm1::core::context::{Fork, Messaging, Tell};
+    use mm1::core::envelope::dispatch;
+    use mm1::proto::message;
 
     #[derive(Debug)]
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     pub struct Ping {
         seq_num: u64,
     }
 
     #[derive(Debug)]
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     pub struct Forward<Message> {
         forward_to: Address,
         message:    Message,
     }
 
     #[derive(Debug)]
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     pub struct Pong {
         #[allow(dead_code)]
         seq_num: u64,

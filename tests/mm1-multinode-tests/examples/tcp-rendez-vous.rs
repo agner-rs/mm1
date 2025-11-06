@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use mm1_common::types::AnyError;
+use mm1::common::error::AnyError;
 use mm1_multinode::remote_subnet::tcp_rendez_vous::RendezVous;
 
 #[tokio::main]

@@ -72,6 +72,9 @@ pub mod address {
     /// Address — a destination to send messages to.
     pub use mm1_address::address::Address;
     pub use mm1_address::address::AddressParseError;
+    pub use mm1_address::pool::{
+        Lease as AddressLease, LeaseError as AddressLeaseError, Pool as AddressPool,
+    };
     /// Address of a network, i.e. an `Address` in combination with a `NetMask`.
     pub use mm1_address::subnet::NetAddress;
     /// Mask — specifies how many leading bits in the address are fixed.
@@ -156,11 +159,16 @@ pub mod core {
 
 #[cfg(feature = "ask")]
 pub mod ask {
-    pub use mm1_ask::{Ask, Reply};
+    pub use mm1_ask::{Ask, AskErrorKind, Reply};
 
     pub mod proto {
         pub type RequestHeader = mm1_proto_ask::RequestHeader;
         pub type Request<Rq> = mm1_proto_ask::Request<Rq>;
+
+        #[doc(hidden)]
+        pub type ResponseHeader = mm1_proto_ask::ResponseHeader;
+        #[doc(hidden)]
+        pub type Response<Rs> = mm1_proto_ask::Response<Rs>;
     }
 }
 
@@ -174,6 +182,7 @@ pub mod sup {
         /// A recipe for a child-actor.
         pub use mm1_sup::common::child_spec::ChildSpec;
         pub use mm1_sup::common::child_spec::{ChildType, InitType};
+        pub use mm1_sup::common::factory::ActorFactory;
         /// Multiple-use actor factory.
         pub use mm1_sup::common::factory::ActorFactoryMut;
         /// Single-use actor-factory.

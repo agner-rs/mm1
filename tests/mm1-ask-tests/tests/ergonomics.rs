@@ -1,16 +1,14 @@
 use std::time::Duration;
 
-use mm1_address::address::Address;
-use mm1_address::pool::Pool;
-use mm1_address::subnet::NetMask;
-use mm1_ask::{Ask, AskErrorKind, Reply};
-use mm1_common::errors::error_kind::HasErrorKind;
-use mm1_core::context::Fork;
-use mm1_core::envelope::dispatch;
-use mm1_proto::message;
-use mm1_proto_ask::Request;
-use mm1_test_rt::rt::event::EventResolveResult;
-use mm1_test_rt::rt::{MainActorOutcome, TestRuntime, query};
+use mm1::address::{Address, AddressPool, NetMask};
+use mm1::ask::proto::Request;
+use mm1::ask::{Ask, AskErrorKind, Reply};
+use mm1::common::error::HasErrorKind;
+use mm1::core::context::Fork;
+use mm1::core::envelope::dispatch;
+use mm1::proto::message;
+use mm1::test::rt::event::EventResolveResult;
+use mm1::test::rt::{MainActorOutcome, TestRuntime, query};
 use tokio::time;
 
 #[tokio::test]
@@ -18,7 +16,7 @@ async fn ergonomics() {
     time::pause();
 
     let rt = TestRuntime::<()>::new();
-    let subnet = Pool::new("<ff:>/16".parse().unwrap());
+    let subnet = AddressPool::new("<ff:>/16".parse().unwrap());
     let server_lease = subnet.lease(NetMask::M_32).unwrap();
     let client_lease = subnet.lease(NetMask::M_32).unwrap();
 
@@ -116,11 +114,11 @@ async fn ergonomics() {
     assert_eq!(client_done.address, client_address);
 }
 
-#[message(base_path = ::mm1_proto)]
+#[message]
 struct Rq;
 
 #[derive(Debug)]
-#[message(base_path = ::mm1_proto)]
+#[message]
 struct Rs;
 
 async fn client<Ctx>(ctx: &mut Ctx, server_address: Address)

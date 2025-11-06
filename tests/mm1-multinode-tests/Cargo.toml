@@ -10,10 +10,9 @@ exclude.workspace = true
 
 [dependencies]
 [dev-dependencies]
-mm1-common.workspace = true
+mm1 = {workspace = true, features = []}
 mm1-logger.workspace = true
 mm1-multinode.workspace = true
-mm1-test-rt.workspace = true
 
 dotenv = "0.15"
 tokio = {workspace = true, features = ["rt", "macros", "rt-multi-thread"]}
