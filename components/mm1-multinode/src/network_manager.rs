@@ -11,10 +11,8 @@ use mm1_core::context::{Bind, BindArgs, Fork, InitDone, Messaging, Now, Quit};
 use mm1_core::envelope::dispatch;
 use mm1_proto_ask::Request;
 use mm1_proto_network_management::RegisterSubnetRequest;
-use mm1_timer::api::TimerApi;
+use mm1_timer::v1::OneshotTimer;
 use tokio::time::Instant;
-
-use crate::network_manager::messages::Tick;
 
 const DEFAULT_INBOX_SIZE: usize = 1024;
 
@@ -38,7 +36,7 @@ where
         + Sync,
     SubnetConfig: serde::de::DeserializeOwned + Send + Sync + 'static,
 {
-    let mut ticks = mm1_timer::new_tokio_timer::<NetAddress, Tick, _>(ctx).await?;
+    let mut ticks = OneshotTimer::create(ctx).await?;
 
     for bind_to in bind_to_networks {
         ctx.bind(BindArgs {
@@ -98,7 +96,8 @@ where
 
                 Action::TickAt(tick_at) => {
                     ticks
-                        .schedule_once_at((*address_range).into(), tick_at, messages::Tick)
+                        // distinct ticks per `(*address_range).into()`
+                        .schedule_once_at(tick_at, messages::Tick)
                         .await?;
                 },
 

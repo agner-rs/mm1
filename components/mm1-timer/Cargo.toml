@@ -1,28 +1,28 @@
 [package]
 name = "mm1-timer"
-version = "0.6.5"
-edition = "2024"
 
-license = "MIT"
-authors = ["That Roma <mm1@thatroma.me>"]
-repository = "https://github.com/agner-rs/mm1"
-description = "M/M/1! Queueing, do you speak it?!"
-
-exclude = ["**/*.snap"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description.workspace = true
+exclude.workspace = true
 
 [features]
-default = ["tokio-time"]
-tokio-time = ["tokio/time"]
+default = []
 
 [dependencies]
 mm1-address.workspace = true
+mm1-ask.workspace = true
 mm1-common.workspace = true
 mm1-core.workspace = true
 
 mm1-proto.workspace = true
-mm1-proto-timer.workspace = true
+mm1-proto-ask.workspace = true
 
 futures.workspace = true
+serde = {workspace = true, features = ["derive"]}
+slotmap = {workspace = true, features = ["serde"]}
 thiserror.workspace = true
-tokio = {workspace = true, features = ["rt", "macros"]}
+tokio = {workspace = true, features = ["rt", "macros", "time"]}
 

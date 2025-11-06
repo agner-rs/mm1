@@ -60,6 +60,15 @@ impl AnyMessage {
     }
 }
 
+impl<M> From<M> for AnyMessage
+where
+    M: Message,
+{
+    fn from(message: M) -> Self {
+        Self::new(message)
+    }
+}
+
 impl fmt::Debug for AnyMessage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("AnyMessage")

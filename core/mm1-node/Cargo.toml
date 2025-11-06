@@ -1,14 +1,12 @@
 [package]
 name = "mm1-node"
-version = "0.6.5"
-edition = "2024"
 
-license = "MIT"
-authors = ["That Roma <mm1@thatroma.me>"]
-repository = "https://github.com/agner-rs/mm1"
-description = "M/M/1! Queueing, do you speak it?!"
-
-exclude = ["**/*.snap"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description.workspace = true
+exclude.workspace = true
 
 [features]
 default = []

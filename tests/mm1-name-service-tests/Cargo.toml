@@ -1,7 +1,12 @@
 [package]
 name = "mm1-name-service-tests"
-version = "0.6.5"
-edition = "2024"
+
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description.workspace = true
+exclude.workspace = true
 
 [dependencies]
 [dev-dependencies]

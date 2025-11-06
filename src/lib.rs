@@ -226,13 +226,7 @@ pub use mm1_runnable as runnable;
 
 #[cfg(feature = "timer")]
 pub mod timer {
-    pub use mm1_timer::api::{TimerApi, TimerError};
-    pub use mm1_timer::new_tokio_timer;
-
-    pub mod plumbing {
-        pub use mm1_proto_timer as timer_protocol;
-        pub use mm1_timer::actor::timer_actor;
-    }
+    pub use mm1_timer::v1;
 }
 
 #[cfg(feature = "multinode")]

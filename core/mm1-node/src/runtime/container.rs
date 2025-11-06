@@ -447,19 +447,17 @@ impl Container {
                                 },
                             };
 
-                            if should_handle {
-                                if let Some(tx_priority) = job_entry.tx_priority_weak.upgrade() {
-                                    let message = system::Exited {
-                                        peer:        sender,
-                                        normal_exit: matches!(reason, ExitReason::Normal),
-                                    };
-                                    let envelope = Envelope::new(
-                                        EnvelopeHeader::to_address(receiver),
-                                        message,
-                                    )
-                                    .into_erased();
-                                    let _ = tx_priority.send(envelope);
-                                }
+                            if should_handle
+                                && let Some(tx_priority) = job_entry.tx_priority_weak.upgrade()
+                            {
+                                let message = system::Exited {
+                                    peer:        sender,
+                                    normal_exit: matches!(reason, ExitReason::Normal),
+                                };
+                                let envelope =
+                                    Envelope::new(EnvelopeHeader::to_address(receiver), message)
+                                        .into_erased();
+                                let _ = tx_priority.send(envelope);
                             }
                         }
                     },
