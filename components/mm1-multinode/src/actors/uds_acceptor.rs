@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -11,7 +11,8 @@ use mm1_proto_network_management::protocols::ProtocolResolved;
 use mm1_proto_network_management::{self as nm, protocols};
 use mm1_proto_sup::uniform as uni_sup;
 use mm1_proto_well_known::MULTINODE_MANAGER;
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::unix::SocketAddr;
+use tokio::net::{UnixListener, UnixStream};
 
 use crate::actors::context::ActorContext;
 use crate::codec::Protocol;
@@ -22,7 +23,7 @@ const CONNECTION_START_TIMEOUT: Duration = Duration::from_secs(5);
 pub async fn run<Ctx>(
     ctx: &mut Ctx,
     connection_sup: Address,
-    bind_addr: SocketAddr,
+    bind_addr: Box<Path>,
     protocol_name: nm::ProtocolName,
     _options: nm::Options,
 ) -> Result<Never, AnyError>
@@ -34,11 +35,9 @@ where
     let protocol = wait_for_protocol(ctx, protocol_name)
         .await
         .wrap_err("wait_for_protocol")?;
-    let tcp_listener = TcpListener::bind(bind_addr)
-        .await
-        .wrap_err("TcpListener::bind")?;
+    let uds_listener = UnixListener::bind(bind_addr).wrap_err("UnixListener::bind")?;
 
-    event_loop(ctx, connection_sup, &tcp_listener, protocol).await
+    event_loop(ctx, connection_sup, &uds_listener, protocol).await
 }
 
 async fn wait_for_protocol<Ctx>(
@@ -67,7 +66,7 @@ where
 async fn event_loop<Ctx>(
     ctx: &mut Ctx,
     connection_sup: Address,
-    tcp_listener: &TcpListener,
+    uds_listener: &UnixListener,
     protocol: ProtocolResolved<Protocol>,
 ) -> Result<Never, AnyError>
 where
@@ -75,13 +74,13 @@ where
 {
     let protocol = Arc::new(protocol);
     loop {
-        let accepted = tcp_listener.accept();
+        let accepted = uds_listener.accept();
         let received = ctx.recv();
 
         tokio::select! {
             accept_result = accepted => {
-                let (tcp_stream, peer_addr) = accept_result.wrap_err("tcp_listener.accept")?;
-                handle_accepted(ctx, connection_sup, protocol.clone(), tcp_stream, peer_addr).await.wrap_err("handle_accepted")?;
+                let (uds_stream, peer_addr) = accept_result.wrap_err("uds_listener.accept")?;
+                handle_accepted(ctx, connection_sup, protocol.clone(), uds_stream, peer_addr).await.wrap_err("handle_accepted")?;
             },
             recv_result = received => {
                 let envelope = recv_result.wrap_err("ctx.recv")?;
@@ -95,20 +94,23 @@ async fn handle_accepted<Ctx>(
     ctx: &mut Ctx,
     connection_sup: Address,
     protocol: Arc<ProtocolResolved<Protocol>>,
-    tcp_stream: TcpStream,
+    uds_stream: UnixStream,
     peer_addr: SocketAddr,
 ) -> Result<(), AnyError>
 where
     Ctx: ActorContext,
 {
-    let local_addr = tcp_stream.local_addr().wrap_err("tcp_stream.local_addr")?;
-    info!("accepted a connection form {} to {}", peer_addr, local_addr);
+    let local_addr = uds_stream.local_addr().wrap_err("uds_stream.local_addr")?;
+    info!(
+        "accepted a connection form {:?} to {:?}",
+        peer_addr, local_addr
+    );
 
     let connection_addr = ctx
         .fork_ask::<_, uni_sup::StartResponse>(
             connection_sup,
             uni_sup::StartRequest {
-                args: (tcp_stream, protocol),
+                args: (uds_stream, protocol),
             },
             CONNECTION_START_TIMEOUT,
         )
@@ -116,7 +118,7 @@ where
         .wrap_err("fork_ask")?
         .wrap_err("uni_sup::Start")?;
     info!(
-        "connection started {} [peer: {}; local: {}]",
+        "connection started {} [peer: {:?}; local: {:?}]",
         connection_addr, peer_addr, local_addr
     );
 

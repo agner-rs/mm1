@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::net::SocketAddr;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -27,7 +28,7 @@ use mm1_sup::uniform::UniformSup;
 use mm1_timer::v1::{OneshotKey, OneshotTimer};
 use slotmap::SlotMap;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::net::TcpStream;
+use tokio::net::{TcpStream, UnixStream};
 use {mm1_proto_network_management as nm, mm1_proto_system as sys};
 
 use crate::actors::context::ActorContext;
@@ -48,10 +49,25 @@ where
         .await
         .wrap_err("OneshotTimer::create")?;
 
+    let uds_connection_sup = start_connection_sup::<_, UnixStream>(ctx, ctx.address())
+        .await
+        .wrap_err("start_connection_sup::<UnixStream>")?;
+    debug!("uds-connection-sup: {}", uds_connection_sup);
+
+    let uds_connector_sup = start_uds_connector_sup(ctx, uds_connection_sup)
+        .await
+        .wrap_err("start_uds_connector_sup")?;
+    debug!("uds-connector-sup: {}", uds_connector_sup);
+
+    let uds_acceptor_sup = start_uds_acceptor_sup(ctx, uds_connection_sup)
+        .await
+        .wrap_err("start_uds_acceptor_sup")?;
+    debug!("uds-acceptor-sup: {}", uds_acceptor_sup);
+
     let tcp_connection_sup = start_connection_sup::<_, TcpStream>(ctx, ctx.address())
         .await
         .wrap_err("start_connection_sup::<TcpStream>")?;
-    debug!("connection-sup: {}", tcp_connection_sup);
+    debug!("tcp-connection-sup: {}", tcp_connection_sup);
 
     let tcp_connector_sup = start_tcp_connector_sup(ctx, tcp_connection_sup)
         .await
@@ -88,10 +104,14 @@ where
             protocol_waitlist: Default::default(),
             tcp_connector_sup,
             tcp_acceptor_sup,
+            uds_connector_sup,
+            uds_acceptor_sup,
             subnet_ingress_sup,
             subnet_ingress_workers: Default::default(),
             tcp_acceptors: Default::default(),
             tcp_connectors: Default::default(),
+            uds_acceptors: Default::default(),
+            uds_connectors: Default::default(),
         },
         &mut timer_api,
     )
@@ -107,39 +127,48 @@ struct State {
     protocol_waitlist:      Waitlist,
     tcp_connector_sup:      Address,
     tcp_acceptor_sup:       Address,
+    uds_connector_sup:      Address,
+    uds_acceptor_sup:       Address,
     subnet_ingress_sup:     Address,
     subnet_ingress_workers: BTreeMap<AddressRange, Address>,
-    tcp_acceptors:          TcpAcceptors,
-    tcp_connectors:         TcpConnectors,
+    tcp_acceptors:          Ifaces<TcpAcceptorKey, SocketAddr>,
+    uds_acceptors:          Ifaces<UdsAcceptorKey, Box<Path>>,
+    tcp_connectors:         Ifaces<TcpConnectorKey, SocketAddr>,
+    uds_connectors:         Ifaces<UdsConnectorKey, Box<Path>>,
 }
 
-#[derive(Default)]
-struct TcpAcceptors {
-    entries:      SlotMap<TcpAcceptorKey, TcpAcceptorEntry>,
-    by_bind_addr: HashMap<SocketAddr, TcpAcceptorKey>,
+struct Ifaces<K, A>
+where
+    K: slotmap::Key,
+{
+    entries:       SlotMap<K, IfaceEntry<A>>,
+    by_iface_addr: HashMap<A, K>,
+}
+
+impl<K, A> Default for Ifaces<K, A>
+where
+    K: slotmap::Key,
+{
+    fn default() -> Self {
+        Self {
+            entries:       Default::default(),
+            by_iface_addr: Default::default(),
+        }
+    }
 }
 
 #[allow(dead_code)]
-struct TcpAcceptorEntry {
-    bind_address:     SocketAddr,
-    acceptor_address: Address,
-}
-
-#[derive(Default)]
-struct TcpConnectors {
-    entries:     SlotMap<TcpConnectorKey, TcpConnectorEntry>,
-    by_dst_addr: HashMap<SocketAddr, TcpConnectorKey>,
-}
-
-#[allow(dead_code)]
-struct TcpConnectorEntry {
-    dst_address:       SocketAddr,
-    connector_address: Address,
+struct IfaceEntry<A> {
+    iface_address: A,
+    actor_address: Address,
 }
 
 slotmap::new_key_type! {
     struct TcpAcceptorKey;
     struct TcpConnectorKey;
+
+    struct UdsAcceptorKey;
+    struct UdsConnectorKey;
 }
 
 slotmap::new_key_type! {struct WaitlistKey;}
@@ -182,11 +211,19 @@ where
                     .await
                     .wrap_err("handle_register_local_subnet")?,
             Request::<i::ConnectRequest<SocketAddr>> { header, payload } =>
-                handle_connect(ctx, state, header, payload,)
+                handle_connect_tcp(ctx, state, header, payload,)
+                    .await
+                    .wrap_err("handle_connect")?,
+            Request::<i::ConnectRequest<Box<Path>>> { header, payload } =>
+                handle_connect_uds(ctx, state, header, payload,)
                     .await
                     .wrap_err("handle_connect")?,
             Request::<i::BindRequest<SocketAddr>> { header, payload } =>
-                handle_bind(ctx, state, header, payload,)
+                handle_bind_tcp(ctx, state, header, payload,)
+                    .await
+                    .wrap_err("handle_bind")?,
+            Request::<i::BindRequest<Box<Path>>> { header, payload } =>
+                handle_bind_uds(ctx, state, header, payload,)
                     .await
                     .wrap_err("handle_bind")?,
             Request::<p::RegisterProtocolRequest::<Protocol>> { header, payload } => {
@@ -348,6 +385,39 @@ where
     Ok(connection_sup)
 }
 
+async fn start_uds_acceptor_sup<Ctx>(
+    ctx: &mut Ctx,
+    connection_sup: Address,
+) -> Result<Address, AnyError>
+where
+    Ctx: ActorContext,
+{
+    let launcher = ActorFactoryMut::new(
+        move |(bind_addr, protocol_name, options): (Box<Path>, nm::ProtocolName, nm::Options)| {
+            local::boxed_from_fn((
+                crate::actors::uds_acceptor::run,
+                (connection_sup, bind_addr, protocol_name, options),
+            ))
+        },
+    );
+    let child_spec = ChildSpec {
+        launcher,
+        child_type: (),
+        init_type: InitType::WithAck {
+            start_timeout: Duration::from_secs(5),
+        },
+        stop_timeout: Duration::from_secs(10),
+    };
+    let sup_spec = UniformSup::new(child_spec);
+    let sup_runnable = local::boxed_from_fn((mm1_sup::uniform::uniform_sup, (sup_spec,)));
+    let acceptor_sup = ctx
+        .start(sup_runnable, true, Duration::from_secs(1))
+        .await
+        .wrap_err("ctx.start")?;
+
+    Ok(acceptor_sup)
+}
+
 async fn start_tcp_connector_sup<Ctx>(
     ctx: &mut Ctx,
     connection_sup: Address,
@@ -363,6 +433,43 @@ where
         )| {
             local::boxed_from_fn((
                 crate::actors::tcp_connector::run,
+                (connection_sup, destination_addr, protocol_name, options),
+            ))
+        },
+    );
+    let child_spec = ChildSpec {
+        launcher,
+        child_type: (),
+        init_type: InitType::WithAck {
+            start_timeout: Duration::from_secs(5),
+        },
+        stop_timeout: Duration::from_secs(10),
+    };
+    let sup_spec = UniformSup::new(child_spec);
+    let sup_runnable = local::boxed_from_fn((mm1_sup::uniform::uniform_sup, (sup_spec,)));
+    let connector_sup = ctx
+        .start(sup_runnable, true, Duration::from_secs(1))
+        .await
+        .wrap_err("ctx.start")?;
+
+    Ok(connector_sup)
+}
+
+async fn start_uds_connector_sup<Ctx>(
+    ctx: &mut Ctx,
+    connection_sup: Address,
+) -> Result<Address, AnyError>
+where
+    Ctx: ActorContext,
+{
+    let launcher = ActorFactoryMut::new(
+        move |(destination_addr, protocol_name, options): (
+            Box<Path>,
+            nm::ProtocolName,
+            nm::Options,
+        )| {
+            local::boxed_from_fn((
+                crate::actors::uds_connector::run,
                 (connection_sup, destination_addr, protocol_name, options),
             ))
         },
@@ -440,7 +547,7 @@ where
     Ok(())
 }
 
-async fn handle_connect<Ctx>(
+async fn handle_connect_tcp<Ctx>(
     ctx: &mut Ctx,
     state: &mut State,
     reply_to: RequestHeader,
@@ -452,7 +559,7 @@ where
     use std::collections::hash_map::Entry::*;
 
     let i::ConnectRequest {
-        dst_address,
+        dst_address: iface_address,
         protocol_name,
         options,
     } = connect;
@@ -462,33 +569,33 @@ where
         tcp_connectors: connectors,
         ..
     } = state;
-    let TcpConnectors {
+    let Ifaces {
         entries,
-        by_dst_addr,
+        by_iface_addr,
     } = connectors;
 
     let reply_with: i::ConnectResponse = 'reply: {
-        let Vacant(by_dst_addr) = by_dst_addr.entry(dst_address) else {
+        let Vacant(by_dst_addr) = by_iface_addr.entry(iface_address) else {
             break 'reply Err(ErrorOf::new(
                 i::ConnectErrorKind::DuplicateDstAddr,
                 "address already being connected to",
             ))
         };
 
-        let connector_address = ctx
+        let actor_address = ctx
             .fork_ask::<_, uni_sup::StartResponse>(
                 *connector_sup,
                 uni_sup::StartRequest {
-                    args: (dst_address, protocol_name, options),
+                    args: (iface_address, protocol_name, options),
                 },
                 CONNECTOR_START_TIMEOUT,
             )
             .await
             .wrap_err("ctx.fork_ask")?
             .wrap_err("uni_sup::Start")?;
-        let connector_key = entries.insert(TcpConnectorEntry {
-            dst_address,
-            connector_address,
+        let connector_key = entries.insert(IfaceEntry {
+            iface_address,
+            actor_address,
         });
 
         by_dst_addr.insert(connector_key);
@@ -501,7 +608,68 @@ where
     Ok(())
 }
 
-async fn handle_bind<Ctx>(
+async fn handle_connect_uds<Ctx>(
+    ctx: &mut Ctx,
+    state: &mut State,
+    reply_to: RequestHeader,
+    connect: i::ConnectRequest<Box<Path>>,
+) -> Result<(), AnyError>
+where
+    Ctx: ActorContext,
+{
+    use std::collections::hash_map::Entry::*;
+
+    let i::ConnectRequest {
+        dst_address: iface_address,
+        protocol_name,
+        options,
+    } = connect;
+
+    let State {
+        uds_connector_sup: connector_sup,
+        uds_connectors: connectors,
+        ..
+    } = state;
+    let Ifaces {
+        entries,
+        by_iface_addr,
+    } = connectors;
+
+    let reply_with: i::ConnectResponse = 'reply: {
+        let Vacant(by_dst_addr) = by_iface_addr.entry(iface_address.clone()) else {
+            break 'reply Err(ErrorOf::new(
+                i::ConnectErrorKind::DuplicateDstAddr,
+                "address already being connected to",
+            ))
+        };
+
+        let actor_address = ctx
+            .fork_ask::<_, uni_sup::StartResponse>(
+                *connector_sup,
+                uni_sup::StartRequest {
+                    args: (iface_address.clone(), protocol_name, options),
+                },
+                CONNECTOR_START_TIMEOUT,
+            )
+            .await
+            .wrap_err("ctx.fork_ask")?
+            .wrap_err("uni_sup::Start")?;
+        let connector_key = entries.insert(IfaceEntry {
+            iface_address,
+            actor_address,
+        });
+
+        by_dst_addr.insert(connector_key);
+
+        Ok(())
+    };
+
+    let _ = ctx.reply(reply_to, reply_with).await;
+
+    Ok(())
+}
+
+async fn handle_bind_tcp<Ctx>(
     ctx: &mut Ctx,
     state: &mut State,
     reply_to: RequestHeader,
@@ -513,7 +681,7 @@ where
     use std::collections::hash_map::Entry::*;
 
     let i::BindRequest {
-        bind_address,
+        bind_address: iface_address,
         protocol_name,
         options,
     } = bind;
@@ -523,24 +691,24 @@ where
         tcp_acceptors: acceptors,
         ..
     } = state;
-    let TcpAcceptors {
+    let Ifaces {
         entries,
-        by_bind_addr,
+        by_iface_addr,
     } = acceptors;
 
     let reply_with: i::BindResponse = 'reply: {
-        let Vacant(by_bind_addr) = by_bind_addr.entry(bind_address) else {
+        let Vacant(by_bind_addr) = by_iface_addr.entry(iface_address) else {
             break 'reply Err(ErrorOf::new(
                 i::BindErrorKind::DuplicateBindAddr,
                 "address already bound",
             ))
         };
 
-        let acceptor_address = ctx
+        let actor_address = ctx
             .fork_ask::<_, uni_sup::StartResponse>(
                 *acceptor_sup,
                 uni_sup::StartRequest {
-                    args: (bind_address, protocol_name, options),
+                    args: (iface_address, protocol_name, options),
                 },
                 ACCEPTOR_START_TIMEOUT,
             )
@@ -548,9 +716,71 @@ where
             .wrap_err("ctx.fork_ask")?
             .wrap_err("uni_sup::Start")?;
 
-        let acceptor_key = entries.insert(TcpAcceptorEntry {
-            bind_address,
-            acceptor_address,
+        let acceptor_key = entries.insert(IfaceEntry {
+            iface_address,
+            actor_address,
+        });
+
+        by_bind_addr.insert(acceptor_key);
+
+        Ok(())
+    };
+
+    let _ = ctx.reply(reply_to, reply_with).await;
+
+    Ok(())
+}
+
+async fn handle_bind_uds<Ctx>(
+    ctx: &mut Ctx,
+    state: &mut State,
+    reply_to: RequestHeader,
+    bind: i::BindRequest<Box<Path>>,
+) -> Result<(), AnyError>
+where
+    Ctx: ActorContext,
+{
+    use std::collections::hash_map::Entry::*;
+
+    let i::BindRequest {
+        bind_address: iface_address,
+        protocol_name,
+        options,
+    } = bind;
+
+    let State {
+        uds_acceptor_sup: acceptor_sup,
+        uds_acceptors: acceptors,
+        ..
+    } = state;
+    let Ifaces {
+        entries,
+        by_iface_addr,
+    } = acceptors;
+
+    let reply_with: i::BindResponse = 'reply: {
+        let Vacant(by_bind_addr) = by_iface_addr.entry(iface_address.clone()) else {
+            break 'reply Err(ErrorOf::new(
+                i::BindErrorKind::DuplicateBindAddr,
+                "address already bound",
+            ))
+        };
+
+        let actor_address = ctx
+            .fork_ask::<_, uni_sup::StartResponse>(
+                *acceptor_sup,
+                uni_sup::StartRequest {
+                    args: (iface_address.clone(), protocol_name, options),
+                },
+                ACCEPTOR_START_TIMEOUT,
+            )
+            .await
+            .wrap_err("ctx.fork_ask")?
+            .wrap_err("uni_sup::Start")?;
+
+        let acceptor_key = entries.insert(IfaceEntry {
+            iface_address,
+            actor_address,
         });
 
         by_bind_addr.insert(acceptor_key);

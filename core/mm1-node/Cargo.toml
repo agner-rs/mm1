@@ -13,6 +13,11 @@ default = []
 name-service = ["dep:mm1-proto-well-known", "dep:mm1-name-service"]
 multinode = ["name-service", "dep:mm1-proto-well-known", "dep:mm1-multinode"]
 
+[dev-dependencies]
+insta.workspace = true
+test-case.workspace = true
+serde_yaml.workspace = true
+
 [dependencies]
 mm1-address = { workspace = true}
 mm1-ask.workspace = true
@@ -41,8 +46,5 @@ serde-value.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "macros", "net"] }
 tracing.workspace = true
+url.workspace = true
 
-[dev-dependencies]
-insta.workspace = true
-test-case.workspace = true
-serde_yaml.workspace = true

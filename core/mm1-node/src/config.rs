@@ -1,10 +1,8 @@
 use std::collections::HashMap;
-#[cfg(feature = "multinode")]
-use std::net::SocketAddr;
 
+use eyre::Context;
 use mm1_address::subnet::NetAddress;
-#[cfg(feature = "multinode")]
-use mm1_proto_network_management as nm;
+use mm1_common::types::AnyError;
 
 mod actor_config;
 mod rt_config;
@@ -12,6 +10,7 @@ mod validation;
 
 pub(crate) use actor_config::EffectiveActorConfig;
 use tokio::runtime::Runtime;
+use url::Url;
 pub use validation::{Valid, ValidationError};
 
 use crate::actor_key::ActorKey;
@@ -40,21 +39,6 @@ pub struct Mm1NodeConfig {
 struct DefLocalSubnet {
     net:  NetAddress,
     kind: LocalSubnetKind,
-}
-
-#[cfg(feature = "multinode")]
-#[derive(Debug, Clone, serde::Deserialize)]
-struct DefMultinodeInbound {
-    proto:     nm::ProtocolName,
-    bind_addr: SocketAddr,
-}
-
-#[cfg(feature = "multinode")]
-#[derive(Debug, Clone, serde::Deserialize)]
-struct DefMultinodeOutbound {
-    proto:    nm::ProtocolName,
-    dst_addr: SocketAddr,
-    src_addr: Option<SocketAddr>,
 }
 
 #[derive(Debug, Clone, Copy, serde::Deserialize)]
@@ -86,21 +70,111 @@ impl Valid<Mm1NodeConfig> {
             .iter()
             .filter_map(|d| matches!(d.kind, LocalSubnetKind::Bind).then_some(d.net))
     }
+}
 
-    #[cfg(feature = "multinode")]
-    pub(crate) fn multinode_inbound(
-        &self,
-    ) -> impl Iterator<Item = (nm::ProtocolName, SocketAddr)> + '_ {
-        self.inbound.iter().map(|d| (d.proto.clone(), d.bind_addr))
+#[cfg(feature = "multinode")]
+pub(crate) use multinode::*;
+#[cfg(feature = "multinode")]
+mod multinode {
+
+    use std::net::{IpAddr, SocketAddr};
+    use std::path::Path;
+    use std::{fmt, str};
+
+    use mm1_proto_network_management as nm;
+    use serde::Deserialize;
+
+    use super::*;
+
+    impl Valid<Mm1NodeConfig> {
+        pub(crate) fn multinode_inbound(
+            &self,
+        ) -> impl Iterator<Item = (nm::ProtocolName, DefAddr)> + '_ {
+            self.inbound
+                .iter()
+                .map(|d| (d.proto.clone(), d.addr.clone()))
+        }
+
+        pub(crate) fn multinode_outbound(
+            &self,
+        ) -> impl Iterator<Item = (nm::ProtocolName, DefAddr)> + '_ {
+            self.outbound
+                .iter()
+                .map(|d| (d.proto.clone(), d.addr.clone()))
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    pub(crate) enum DefAddr {
+        Tcp(SocketAddr),
+        Uds(Box<Path>),
+    }
+
+    #[derive(Debug, Clone, serde::Deserialize)]
+    pub(super) struct DefMultinodeInbound {
+        proto: nm::ProtocolName,
+        addr:  DefAddr,
     }
 
     #[cfg(feature = "multinode")]
-    pub(crate) fn multinode_outbound(
-        &self,
-    ) -> impl Iterator<Item = (nm::ProtocolName, SocketAddr, Option<SocketAddr>)> + '_ {
-        self.outbound
-            .iter()
-            .map(|d| (d.proto.clone(), d.dst_addr, d.src_addr))
+    #[derive(Debug, Clone, serde::Deserialize)]
+    pub(super) struct DefMultinodeOutbound {
+        proto: nm::ProtocolName,
+        addr:  DefAddr,
+    }
+
+    impl std::fmt::Display for DefAddr {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                Self::Tcp(tcp) => write!(f, "tcp://{}", tcp),
+                Self::Uds(uds) => write!(f, "uds://{:?}", uds),
+            }
+        }
+    }
+
+    impl std::str::FromStr for DefAddr {
+        type Err = AnyError;
+
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            let url: Url = s.parse().wrap_err("Url::from_str")?;
+            match url.scheme() {
+                "uds" => {
+                    let s = format!(
+                        "{}{}",
+                        url.host().map(|d| d.to_string()).unwrap_or_default(),
+                        url.path()
+                    );
+                    let p: &Path = Path::new(s.as_str());
+                    Ok(Self::Uds(p.into()))
+                },
+                "tcp" => {
+                    let ip: IpAddr = url
+                        .host()
+                        .ok_or(eyre::format_err!("url.host must be present"))?
+                        .to_string()
+                        .parse()
+                        .wrap_err("IpAddr::parse")?;
+                    let port: u16 = url
+                        .port()
+                        .ok_or(eyre::format_err!("url.port must be present"))?;
+                    let socket_addr = SocketAddr::new(ip, port);
+                    Ok(Self::Tcp(socket_addr))
+                },
+                unsupported => Err(eyre::format_err!("unsupported url-scheme: {}", unsupported)),
+            }
+        }
+    }
+
+    impl<'de> Deserialize<'de> for DefAddr {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            use serde::de::Error as _;
+            String::deserialize(deserializer)?
+                .parse()
+                .map_err(D::Error::custom)
+        }
     }
 }
 

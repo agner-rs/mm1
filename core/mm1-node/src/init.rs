@@ -1,6 +1,4 @@
 #[cfg(feature = "multinode")]
-use std::net::SocketAddr;
-#[cfg(feature = "multinode")]
 use std::time::Duration;
 
 use eyre::Context;
@@ -14,6 +12,8 @@ use mm1_core::envelope::dispatch;
 use mm1_proto_network_management as nm;
 use mm1_runnable::local::BoxedRunnable;
 
+#[cfg(feature = "multinode")]
+use crate::config::DefAddr;
 use crate::config::EffectiveActorConfig;
 use crate::runtime::ActorContext;
 
@@ -24,9 +24,9 @@ pub(crate) struct InitActorArgs {
     pub(crate) local_subnet_auto:  NetAddress,
     pub(crate) local_subnets_bind: Vec<NetAddress>,
     #[cfg(feature = "multinode")]
-    pub(crate) multinode_inbound:  Vec<(nm::ProtocolName, SocketAddr)>,
+    pub(crate) multinode_inbound:  Vec<(nm::ProtocolName, DefAddr)>,
     #[cfg(feature = "multinode")]
-    pub(crate) multinode_outbound: Vec<(nm::ProtocolName, SocketAddr, Option<SocketAddr>)>,
+    pub(crate) multinode_outbound: Vec<(nm::ProtocolName, DefAddr)>,
 }
 
 pub(crate) async fn run(
@@ -120,45 +120,77 @@ pub(crate) async fn run(
             );
 
             type Ret = iface::BindResponse;
-            let request = iface::BindRequest {
-                protocol_name,
-                bind_address,
-                options: nm::Options::Unit,
-            };
-            let () = ctx
-                .ask::<_, Ret>(
-                    multinode_manager_address,
-                    request,
-                    MULTINODE_MANAGER_ASK_TIMEOUT,
-                )
-                .await
-                .wrap_err("ctx.ask::<nm::Bind>")?
-                .wrap_err("nm::Bind")?;
+            let () = match bind_address {
+                DefAddr::Tcp(bind_address) => {
+                    let request = iface::BindRequest {
+                        protocol_name,
+                        bind_address,
+                        options: nm::Options::Unit,
+                    };
+                    ctx.ask::<_, Ret>(
+                        multinode_manager_address,
+                        request,
+                        MULTINODE_MANAGER_ASK_TIMEOUT,
+                    )
+                    .await
+                },
+                DefAddr::Uds(bind_address) => {
+                    let request = iface::BindRequest {
+                        protocol_name,
+                        bind_address,
+                        options: nm::Options::Unit,
+                    };
+                    ctx.ask::<_, Ret>(
+                        multinode_manager_address,
+                        request,
+                        MULTINODE_MANAGER_ASK_TIMEOUT,
+                    )
+                    .await
+                },
+            }
+            .wrap_err("ctx.ask::<nm::Bind>")?
+            .wrap_err("nm::Bind")?;
         }
 
-        for (protocol_name, dst_address, src_addr) in multinode_outbound {
+        for (protocol_name, dst_address) in multinode_outbound {
             use mm1_proto_network_management::iface;
 
             info!(
-                "adding outbound multinode-interface: {} @ {} [from {:?}]",
-                protocol_name, dst_address, src_addr
+                "adding outbound multinode-interface: {} @ {}",
+                protocol_name, dst_address
             );
 
             type Ret = iface::ConnectResponse;
-            let request = iface::ConnectRequest {
-                protocol_name,
-                dst_address,
-                options: nm::Options::Unit,
-            };
-            let () = ctx
-                .ask::<_, Ret>(
-                    multinode_manager_address,
-                    request,
-                    MULTINODE_MANAGER_ASK_TIMEOUT,
-                )
-                .await
-                .wrap_err("ctx.ask::<nm::Connect>")?
-                .wrap_err("nm::Connect")?;
+            let () = match dst_address {
+                DefAddr::Tcp(dst_address) => {
+                    let request = iface::ConnectRequest {
+                        protocol_name,
+                        dst_address,
+                        options: nm::Options::Unit,
+                    };
+                    ctx.ask::<_, Ret>(
+                        multinode_manager_address,
+                        request,
+                        MULTINODE_MANAGER_ASK_TIMEOUT,
+                    )
+                    .await
+                },
+                DefAddr::Uds(dst_address) => {
+                    let request = iface::ConnectRequest {
+                        protocol_name,
+                        dst_address,
+                        options: nm::Options::Unit,
+                    };
+                    ctx.ask::<_, Ret>(
+                        multinode_manager_address,
+                        request,
+                        MULTINODE_MANAGER_ASK_TIMEOUT,
+                    )
+                    .await
+                },
+            }
+            .wrap_err("ctx.ask::<nm::Connect>")?
+            .wrap_err("nm::Connect")?;
         }
     }
 

@@ -1,4 +1,3 @@
-use std::net::SocketAddr;
 use std::time::Duration;
 
 use eyre::Context;
@@ -18,6 +17,7 @@ use mm1_proto_well_known::MULTINODE_MANAGER;
 use serde_json::json;
 use structopt::StructOpt;
 use tokio::sync::mpsc;
+use url::Url;
 
 #[derive(StructOpt)]
 struct Args {
@@ -25,10 +25,10 @@ struct Args {
     local: NetAddress,
 
     #[structopt(long)]
-    bind: Vec<SocketAddr>,
+    bind: Vec<Url>,
 
     #[structopt(long)]
-    connect: Vec<SocketAddr>,
+    connect: Vec<Url>,
 
     #[structopt(long = "dst", short = "d")]
     destinations: Vec<Address>,
@@ -76,7 +76,7 @@ fn run(args: Args) -> Result<(), AnyError> {
         .map(|bind_addr| {
             json!({
                 "proto": "proto",
-                "bind_addr": bind_addr,
+                "addr": bind_addr,
             })
         })
         .collect::<Vec<_>>();
@@ -85,7 +85,7 @@ fn run(args: Args) -> Result<(), AnyError> {
         .map(|dst_addr| {
             json!({
                 "proto": "proto",
-                "dst_addr": dst_addr,
+                "addr": dst_addr,
             })
         })
         .collect::<Vec<_>>();
