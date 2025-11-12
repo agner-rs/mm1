@@ -6,6 +6,7 @@ use mm1_common::errors::error_kind::ErrorKind;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::futures::timeout::FutureTimeoutExt;
 use mm1_common::impl_error_kind;
+use mm1_common::log::warn;
 use mm1_core::context::{Fork, ForkErrorKind, Messaging, RecvErrorKind, SendErrorKind};
 use mm1_core::envelope::{Envelope, EnvelopeHeader};
 use mm1_proto::Message;
@@ -96,7 +97,14 @@ where
             })?
             .map_err(into_ask_error)?
             .cast()
-            .map_err(|_| ErrorOf::new(AskErrorKind::Cast, "unexpected response type"))?;
+            .map_err(|envelope| {
+                warn!(
+                    "invalid cast [expected: {}; actual: {}]",
+                    std::any::type_name::<Response<Rs>>(),
+                    envelope.message_name()
+                );
+                ErrorOf::new(AskErrorKind::Cast, "unexpected response type")
+            })?;
         let (response_message, _empty_envelope) = response_envelope.take();
         let Response {
             header: _,

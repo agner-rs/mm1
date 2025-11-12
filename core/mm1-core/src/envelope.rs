@@ -116,7 +116,7 @@ impl Envelope<AnyMessage> {
         self.message.tid()
     }
 
-    pub fn message_name(&self) -> &'static str {
+    pub fn message_name(&self) -> &str {
         self.message.type_name()
     }
 }

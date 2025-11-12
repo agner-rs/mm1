@@ -7,7 +7,7 @@ pub const SUBNET_WELL_KNOWN: NetAddress = NetAddress {
 };
 
 pub const NAME_SERVICE: Address = Address::from_u64(0xFFFF_FFFF_FFFF_0001);
-pub const NETWORK_MANAGER: Address = Address::from_u64(0xFFFF_FFFF_FFFF_0002);
+pub const MULTINODE_MANAGER: Address = Address::from_u64(0xFFFF_FFFF_FFFF_0002);
 
 #[cfg(test)]
 mod tests {

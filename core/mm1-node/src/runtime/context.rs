@@ -4,6 +4,7 @@ use std::sync::{Arc, Weak};
 use mm1_address::address::Address;
 use mm1_address::address_range::AddressRange;
 use mm1_common::log;
+use mm1_common::types::AnyError;
 use mm1_core::envelope::Envelope;
 use tokio::sync::mpsc;
 
@@ -32,6 +33,8 @@ pub struct ActorContext {
     pub(crate) tx_priority_weak: mpsc::WeakUnboundedSender<Envelope>,
     pub(crate) tx_regular_weak:  mpsc::WeakUnboundedSender<MessageWithPermit<Envelope>>,
     pub(crate) call:             sys_call::Tx,
+
+    pub(crate) tx_actor_failure: mpsc::UnboundedSender<(Address, AnyError)>,
 }
 
 impl Drop for ActorContext {

@@ -1,17 +1,32 @@
+#[cfg(feature = "multinode")]
+use std::net::SocketAddr;
+#[cfg(feature = "multinode")]
+use std::time::Duration;
+
+use eyre::Context;
 use futures::never::Never;
-use mm1_address::subnet::NetMask;
+use mm1_address::subnet::{NetAddress, NetMask};
 use mm1_common::log;
 use mm1_common::types::AnyError;
 use mm1_core::context::{Linking, Messaging, Quit, Start};
 use mm1_core::envelope::dispatch;
+#[cfg(feature = "multinode")]
+use mm1_proto_network_management as nm;
 use mm1_runnable::local::BoxedRunnable;
 
 use crate::config::EffectiveActorConfig;
 use crate::runtime::ActorContext;
 
+#[cfg(feature = "multinode")]
+const MULTINODE_MANAGER_ASK_TIMEOUT: Duration = Duration::from_secs(1);
+
 pub(crate) struct InitActorArgs {
+    pub(crate) local_subnet_auto:  NetAddress,
+    pub(crate) local_subnets_bind: Vec<NetAddress>,
     #[cfg(feature = "multinode")]
-    pub(crate) codec_registry: mm1_multinode::codecs::CodecRegistry,
+    pub(crate) multinode_inbound:  Vec<(nm::ProtocolName, SocketAddr)>,
+    #[cfg(feature = "multinode")]
+    pub(crate) multinode_outbound: Vec<(nm::ProtocolName, SocketAddr, Option<SocketAddr>)>,
 }
 
 pub(crate) async fn run(
@@ -22,14 +37,22 @@ pub(crate) async fn run(
     ctx.set_trap_exit(true).await;
 
     let InitActorArgs {
+        #[allow(unused)]
+        local_subnet_auto,
+        #[allow(unused)]
+        local_subnets_bind,
+
         #[cfg(feature = "multinode")]
-        codec_registry,
+        multinode_outbound,
+        #[cfg(feature = "multinode")]
+        multinode_inbound,
     } = args;
 
     #[cfg(feature = "name-service")]
     {
         use std::time::Duration;
 
+        use eyre::Context;
         use mm1_runnable::local;
 
         let name_service_address = ctx
@@ -39,9 +62,10 @@ pub(crate) async fn run(
                     ([mm1_proto_well_known::NAME_SERVICE.into()],),
                 )),
                 true,
-                Duration::from_millis(10),
+                Duration::from_secs(1),
             )
-            .await?;
+            .await
+            .wrap_err("name-service start")?;
         log::debug!("started name-service at {}", name_service_address);
     };
 
@@ -49,97 +73,104 @@ pub(crate) async fn run(
     {
         use std::time::Duration;
 
+        use eyre::Context;
+        use mm1_ask::Ask;
+        use mm1_common::log::info;
+        use mm1_multinode::actors::multinode_manager;
+        use mm1_proto_network_management as nm;
         use mm1_runnable::local;
 
-        let remote_subnet_sup = ctx
+        let multinode_manager_address = ctx
             .start(
-                local::boxed_from_fn((mm1_multinode::remote_subnet::sup::run, (codec_registry,))),
+                local::boxed_from_fn(multinode_manager::run),
                 true,
-                Duration::from_millis(10),
+                Duration::from_secs(1),
             )
-            .await?;
+            .await
+            .wrap_err("multinode-connection-manager start")?;
+        log::debug!(
+            "started multinode-connection-manager at {}",
+            multinode_manager_address
+        );
 
-        log::debug!("started remote-subnet-sup at {}", remote_subnet_sup);
+        for net in local_subnets_bind.into_iter().chain([local_subnet_auto]) {
+            use mm1_proto_network_management::protocols;
 
-        let network_manager_address = ctx
-            .start(
-                local::boxed_from_fn((
-                    mm1_multinode::network_manager::network_manager_actor::<
-                        _,
-                        mm1_multinode::remote_subnet::config::RemoteSubnetConfig,
-                    >,
-                    (
-                        [mm1_proto_well_known::NETWORK_MANAGER.into()],
-                        remote_subnet_sup,
-                    ),
-                )),
-                true,
-                Duration::from_millis(10),
-            )
-            .await?;
-        log::debug!("started network-manager at {}", network_manager_address);
-    };
+            info!("registering local-subnet: {}", net);
 
-    #[cfg(feature = "multinode")]
-    {
-        use std::time::Duration;
-
-        use mm1_ask::Ask;
-        use mm1_core::context::Fork;
-        use mm1_proto_network_management::{RegisterSubnetRequest, RegisterSubnetResponse};
-        use serde_json::json;
-
-        use crate::config::SubnetKind;
-
-        let mut ctx_register_subnet = ctx.fork().await?;
-        for subnet in ctx.rt_config.subnets() {
-            let config = match &subnet.kind {
-                SubnetKind::Local => json!({"type": "local"}),
-                SubnetKind::Remote(remote) => {
-                    json!({
-                        "type": "remote",
-                        "props": remote,
-                    })
-                },
-            };
-
-            let request = RegisterSubnetRequest {
-                net_address: subnet.net_address,
-                config,
-            };
-
-            let response: RegisterSubnetResponse = ctx_register_subnet
-                .ask(
-                    mm1_proto_well_known::NETWORK_MANAGER,
+            type Ret = protocols::RegisterLocalSubnetResponse;
+            let request = protocols::RegisterLocalSubnetRequest { net };
+            let () = ctx
+                .ask::<_, Ret>(
+                    multinode_manager_address,
                     request,
-                    Duration::from_millis(100),
+                    MULTINODE_MANAGER_ASK_TIMEOUT,
                 )
                 .await
-                .inspect_err(|ask_error| {
-                    log::error!(
-                        "error registering {}; asking network-manager failed: {}",
-                        subnet.net_address,
-                        ask_error
-                    )
-                })?;
-            let () = response.inspect_err(|reason| {
-                log::error!(
-                    "error registering {}; network-manager replied: {}",
-                    subnet.net_address,
-                    reason
-                )
-            })?;
+                .wrap_err("ctx.ask::<nm::RegisterLocalSubnet>")?
+                .wrap_err("nm::RegisterLocalSubnet")?;
+        }
 
-            log::debug!("registered {}", subnet.net_address);
+        for (protocol_name, bind_address) in multinode_inbound {
+            use mm1_proto_network_management::iface;
+
+            info!(
+                "adding inbound multinode-interface: {} @ {}",
+                protocol_name, bind_address
+            );
+
+            type Ret = iface::BindResponse;
+            let request = iface::BindRequest {
+                protocol_name,
+                bind_address,
+                options: nm::Options::Unit,
+            };
+            let () = ctx
+                .ask::<_, Ret>(
+                    multinode_manager_address,
+                    request,
+                    MULTINODE_MANAGER_ASK_TIMEOUT,
+                )
+                .await
+                .wrap_err("ctx.ask::<nm::Bind>")?
+                .wrap_err("nm::Bind")?;
+        }
+
+        for (protocol_name, dst_address, src_addr) in multinode_outbound {
+            use mm1_proto_network_management::iface;
+
+            info!(
+                "adding outbound multinode-interface: {} @ {} [from {:?}]",
+                protocol_name, dst_address, src_addr
+            );
+
+            type Ret = iface::ConnectResponse;
+            let request = iface::ConnectRequest {
+                protocol_name,
+                dst_address,
+                options: nm::Options::Unit,
+            };
+            let () = ctx
+                .ask::<_, Ret>(
+                    multinode_manager_address,
+                    request,
+                    MULTINODE_MANAGER_ASK_TIMEOUT,
+                )
+                .await
+                .wrap_err("ctx.ask::<nm::Connect>")?
+                .wrap_err("nm::Connect")?;
         }
     }
 
     log::debug!("about to start main-actor: {}", main_actor.func_name());
-    let main_actor_address = ctx.spawn(main_actor, true).await?;
+    let main_actor_address = ctx
+        .spawn(main_actor, true)
+        .await
+        .wrap_err("main-actor spawn")?;
     log::debug!("main-actor address: {}", main_actor_address);
 
     let main_actor_exited = loop {
-        let envelope = ctx.recv().await?;
+        let envelope = ctx.recv().await.wrap_err("init-actor recv")?;
         dispatch!(match envelope {
             exited @ mm1_proto_system::Exited { .. } => break exited,
             unexpected @ _ => {

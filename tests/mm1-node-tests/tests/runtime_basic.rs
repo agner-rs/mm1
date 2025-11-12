@@ -13,9 +13,11 @@ use mm1::runtime::config::Mm1NodeConfig;
 fn hello_runtime() {
     let config: Mm1NodeConfig = serde_yaml::from_str(
         r#"
-            subnets:
-                - net_address: <aaaabbbbcccc:>/48
-                  type: local
+            local_subnets:
+                - net: <aaaabbbbcccc:>/48
+                  kind: auto
+                - net: <aaaabbbbcccd:>/48
+                  kind: bind
         "#,
     )
     .expect("parse-config error");

@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use mm1_address::address::Address;
+use mm1_common::types::AnyError;
 use mm1_runnable::local::{self, BoxedRunnable};
 use tokio::runtime::{Handle, Runtime};
-use tracing::{instrument, warn};
+use tokio::sync::mpsc;
+use tracing::{error, instrument};
 
 use crate::actor_key::ActorKey;
 use crate::config::{EffectiveActorConfig, Mm1NodeConfig, Valid};
@@ -15,12 +18,10 @@ use crate::runtime::rt_api::{RequestAddressError, RtApi};
 #[derive(Debug)]
 pub struct Rt {
     #[allow(unused)]
-    config:     Valid<Mm1NodeConfig>,
-    rt_default: Runtime,
-    rt_named:   HashMap<String, Runtime>,
-
-    #[cfg(feature = "multinode")]
-    multinode_codecs: mm1_multinode::codecs::CodecRegistry,
+    config:           Valid<Mm1NodeConfig>,
+    rt_default:       Runtime,
+    rt_named:         HashMap<String, Runtime>,
+    tx_actor_failure: mpsc::UnboundedSender<(Address, AnyError)>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -53,14 +54,23 @@ impl Rt {
             .build_runtimes()
             .map_err(RtCreateError::RuntimeInitError)?;
 
+        let (tx_actor_failure, _rx_actor_failure) = mpsc::unbounded_channel();
         Ok(Self {
             config,
             rt_default,
             rt_named,
-
-            #[cfg(feature = "multinode")]
-            multinode_codecs: Default::default(),
+            tx_actor_failure,
         })
+    }
+
+    pub fn with_actor_failure_sink(
+        self,
+        tx_actor_failure: mpsc::UnboundedSender<(Address, AnyError)>,
+    ) -> Self {
+        Self {
+            tx_actor_failure,
+            ..self
+        }
     }
 
     pub fn run(&self, main_actor: BoxedRunnable<context::ActorContext>) -> Result<(), RtRunError> {
@@ -75,8 +85,12 @@ impl Rt {
         let rt_handle = rt_default.clone();
 
         let init_actor_args = InitActorArgs {
+            local_subnet_auto: config.local_subnet_address_auto(),
+            local_subnets_bind: config.local_subnet_addresses_bind().collect(),
             #[cfg(feature = "multinode")]
-            codec_registry:                               self.multinode_codecs.clone(),
+            multinode_inbound: config.multinode_inbound().collect(),
+            #[cfg(feature = "multinode")]
+            multinode_outbound: config.multinode_outbound().collect(),
         };
 
         rt_handle.block_on(run_inner(
@@ -86,24 +100,8 @@ impl Rt {
             rt_default,
             rt_named,
             local::boxed_from_fn((crate::init::run, (main_actor, init_actor_args))),
+            self.tx_actor_failure.clone(),
         ))
-    }
-}
-
-#[cfg(feature = "multinode")]
-impl Rt {
-    pub fn add_codec(
-        &mut self,
-        codec_name: &str,
-        codec: mm1_multinode::codecs::Codec,
-    ) -> &mut Self {
-        self.multinode_codecs.add_codec(codec_name, codec);
-        self
-    }
-
-    pub fn with_codec(mut self, codec_name: &str, codec: mm1_multinode::codecs::Codec) -> Self {
-        self.add_codec(codec_name, codec);
-        self
     }
 }
 
@@ -115,8 +113,9 @@ async fn run_inner(
     rt_default: Handle,
     rt_named: HashMap<String, Handle>,
     main_actor: BoxedRunnable<context::ActorContext>,
+    tx_actor_failure: mpsc::UnboundedSender<(Address, AnyError)>,
 ) -> Result<(), RtRunError> {
-    let rt_api = RtApi::create(config.local_subnet_address(), rt_default, rt_named);
+    let rt_api = RtApi::create(config.local_subnet_address_auto(), rt_default, rt_named);
 
     let subnet_lease = rt_api
         .request_address(actor_config.netmask())
@@ -132,14 +131,21 @@ async fn run_inner(
         rt_api: rt_api.clone(),
         rt_config: Arc::new(config),
     };
-    let exit_reason = Container::create(args, main_actor)
+    let exit_reason = Container::create(args, main_actor, tx_actor_failure)
         .map_err(RtRunError::ContainerError)?
         .run()
         .await
         .map_err(RtRunError::ContainerError)?;
 
     if let Err(failure) = exit_reason {
-        warn!("main-actor failure: {}", failure);
+        error!(
+            "main-actor failure: {}",
+            failure
+                .chain()
+                .map(|reason| reason.to_string())
+                .collect::<Vec<_>>()
+                .join(" <- ")
+        );
     }
 
     Ok(())

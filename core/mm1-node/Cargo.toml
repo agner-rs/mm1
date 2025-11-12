@@ -11,7 +11,7 @@ exclude.workspace = true
 [features]
 default = []
 name-service = ["dep:mm1-proto-well-known", "dep:mm1-name-service"]
-multinode = ["name-service", "dep:mm1-proto-well-known", "dep:mm1-multinode", "dep:serde_json"]
+multinode = ["name-service", "dep:mm1-proto-well-known", "dep:mm1-multinode"]
 
 [dependencies]
 mm1-address = { workspace = true}
@@ -30,12 +30,14 @@ mm1-name-service = {workspace = true, features = [], optional = true }
 
 derive_more = {workspace = true, features = ["debug", "from"]}
 either.workspace = true
+eyre.workspace = true
 futures.workspace = true
 num_cpus = "^1"
 pin-project.workspace = true
 scc = "^2.3.4"
 serde = {workspace = true, features = ["derive"]}
-serde_json = {workspace = true, optional = true}
+# serde_json = {workspace = true, optional = true}
+serde-value.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "macros", "net"] }
 tracing.workspace = true

@@ -10,7 +10,7 @@ exclude.workspace = true
 
 [dependencies]
 [dev-dependencies]
-mm1 = { workspace = true, features = ["message-format-rmp"] }
+mm1 = { workspace = true, features = ["multinode"] }
 mm1-logger.workspace = true
 
 serde = { workspace = true, features = ["derive"] }

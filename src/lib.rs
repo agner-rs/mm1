@@ -239,9 +239,14 @@ pub mod timer {
 }
 
 #[cfg(feature = "multinode")]
-pub mod message_codec {
-    pub use mm1_multinode::codecs::Codec;
+pub mod multinode {
+    pub use mm1_multinode::codec::Protocol;
 }
+
+// #[cfg(feature = "multinode")]
+// pub mod message_codec {
+//     pub use mm1_multinode::codecs::Codec;
+// }
 
 #[cfg(feature = "test-util")]
 pub mod test {

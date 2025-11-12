@@ -245,6 +245,29 @@ where
             move |outcome_tx| {
                 query::Tell {
                     task_key,
+                    to: envelope.header().to,
+                    envelope,
+                    outcome_tx,
+                }
+            },
+            OnRxFailure::Panic,
+        )
+        .await
+    }
+
+    async fn forward(
+        &mut self,
+        to: Address,
+        envelope: Envelope,
+    ) -> Result<(), ErrorOf<mm1_core::context::SendErrorKind>> {
+        let task_key = self.task_key;
+
+        invoke(
+            &self.queries_tx,
+            move |outcome_tx| {
+                query::Tell {
+                    task_key,
+                    to,
                     envelope,
                     outcome_tx,
                 }

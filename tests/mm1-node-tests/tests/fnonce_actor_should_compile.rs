@@ -56,6 +56,14 @@ impl Messaging for Context {
     async fn send(&mut self, _envelope: Envelope) -> Result<(), ErrorOf<SendErrorKind>> {
         Ok(())
     }
+
+    async fn forward(
+        &mut self,
+        _to: Address,
+        _envelope: Envelope,
+    ) -> Result<(), ErrorOf<SendErrorKind>> {
+        Ok(())
+    }
 }
 
 impl Quit for Context {

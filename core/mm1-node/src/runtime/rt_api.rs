@@ -61,9 +61,12 @@ impl RtApi {
             .map_err(|_| SendErrorKind::Closed)
     }
 
-    pub(crate) fn send(&self, priority: bool, outbound: Envelope) -> Result<(), SendErrorKind> {
-        let to = outbound.header().to;
-
+    pub(crate) fn send_to(
+        &self,
+        to: Address,
+        priority: bool,
+        outbound: Envelope,
+    ) -> Result<(), SendErrorKind> {
         self.inner
             .registry
             .lookup(to)

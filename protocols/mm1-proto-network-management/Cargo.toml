@@ -16,6 +16,6 @@ mm1-address.workspace = true
 mm1-common.workspace = true
 mm1-proto.workspace = true
 
-serde_json.workspace = true
-
+serde-value.workspace = true
 serde = {workspace = true, features = ["derive"]}
+slotmap = {workspace = true, features = ["serde"]}

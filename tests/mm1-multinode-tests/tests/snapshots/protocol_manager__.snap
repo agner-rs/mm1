@@ -1,0 +1,8 @@
+---
+source: tests/mm1-multinode-tests/tests/protocol-manager.rs
+expression: "[e(unregister(ctx, \"proto-1\").await.expect_err(\"p1 is in use\")),\ne(unregister(ctx, \"proto-2\").await.expect_err(\"p2 is in use\")),]"
+---
+- - unregister
+  - "ProtocolInUse: protocol in use"
+- - unregister
+  - "ProtocolInUse: protocol in use"
