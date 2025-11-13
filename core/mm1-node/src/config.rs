@@ -1,16 +1,13 @@
 use std::collections::HashMap;
 
-use eyre::Context;
 use mm1_address::subnet::NetAddress;
-use mm1_common::types::AnyError;
+use tokio::runtime::Runtime;
 
 mod actor_config;
 mod rt_config;
 mod validation;
 
 pub(crate) use actor_config::EffectiveActorConfig;
-use tokio::runtime::Runtime;
-use url::Url;
 pub use validation::{Valid, ValidationError};
 
 use crate::actor_key::ActorKey;
@@ -81,8 +78,11 @@ mod multinode {
     use std::path::Path;
     use std::{fmt, str};
 
+    use eyre::Context;
+    use mm1_common::types::AnyError;
     use mm1_proto_network_management as nm;
     use serde::Deserialize;
+    use url::Url;
 
     use super::*;
 

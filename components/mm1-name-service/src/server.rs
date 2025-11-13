@@ -63,14 +63,14 @@ where
                 let response = state
                     .register(key, addr, key_props.exclusive, valid_thru)
                     .map_err(|k| ErrorOf::new(k, "registration error"));
-                let _ = ctx.reply(header, response).await;
+                ctx.reply(header, response).await.ok();
             },
             Request::<UnregisterRequest::<Arc<str>>> { header, payload } => {
                 let UnregisterRequest { key, addr } = payload;
                 let response = state
                     .unregister(key, addr)
                     .map_err(|k| ErrorOf::new(k, "unregistration error"));
-                let _ = ctx.reply(header, response).await;
+                ctx.reply(header, response).await.ok();
             },
             Request::<ResolveRequest::<Arc<str>>> { header, payload } => {
                 let ResolveRequest { key } = payload;
@@ -85,7 +85,7 @@ where
                 }
                 let response: ResolveResponse = Ok(to_return);
 
-                let _ = ctx.reply(header, response).await;
+                ctx.reply(header, response).await.ok();
             },
         });
     }

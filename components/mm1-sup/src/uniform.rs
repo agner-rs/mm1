@@ -87,7 +87,7 @@ where
                         async move {
                             let result =
                                 do_start_child(&mut ctx, sup_address, init_type, runnable).await;
-                            let _ = ctx.reply(reply_to, result).await;
+                            ctx.reply(reply_to, result).await.ok();
                         }
                     })
                     .await;
@@ -111,20 +111,20 @@ where
                             async move {
                                 let result =
                                     do_stop_child(&mut ctx, sup_address, stop_timeout, child).await;
-                                let _ = ctx.reply(reply_to, result).await;
+                                ctx.reply(reply_to, result).await.ok();
                             }
                         })
                         .await;
                 } else {
-                    let _ = ctx
-                        .reply(
-                            reply_to,
-                            unisup::StopResponse::Err(ErrorOf::new(
-                                StopErrorKind::NotFound,
-                                "not found",
-                            )),
-                        )
-                        .await;
+                    ctx.reply(
+                        reply_to,
+                        unisup::StopResponse::Err(ErrorOf::new(
+                            StopErrorKind::NotFound,
+                            "not found",
+                        )),
+                    )
+                    .await
+                    .ok();
                 }
             },
 

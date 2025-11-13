@@ -245,17 +245,17 @@ where
                 header,
                 payload: GetLocalSubnetsRequest,
             } => {
-                let _ = ctx
-                    .reply(
-                        header,
-                        state
-                            .local_subnets
-                            .iter()
-                            .copied()
-                            .map(NetAddress::from)
-                            .collect::<Vec<_>>(),
-                    )
-                    .await;
+                ctx.reply(
+                    header,
+                    state
+                        .local_subnets
+                        .iter()
+                        .copied()
+                        .map(NetAddress::from)
+                        .collect::<Vec<_>>(),
+                )
+                .await
+                .ok();
             },
             Request::<_> {
                 header,
@@ -543,7 +543,7 @@ where
     local_subnets.insert(net.into());
 
     info!("registered local subnet: {}", net,);
-    let _ = ctx.reply(reply_to, Ret::Ok(())).await;
+    ctx.reply(reply_to, Ret::Ok(())).await.ok();
     Ok(())
 }
 
@@ -603,7 +603,7 @@ where
         Ok(())
     };
 
-    let _ = ctx.reply(reply_to, reply_with).await;
+    ctx.reply(reply_to, reply_with).await.ok();
 
     Ok(())
 }
@@ -664,7 +664,7 @@ where
         Ok(())
     };
 
-    let _ = ctx.reply(reply_to, reply_with).await;
+    ctx.reply(reply_to, reply_with).await.ok();
 
     Ok(())
 }
@@ -726,7 +726,7 @@ where
         Ok(())
     };
 
-    let _ = ctx.reply(reply_to, reply_with).await;
+    ctx.reply(reply_to, reply_with).await.ok();
 
     Ok(())
 }
@@ -788,7 +788,7 @@ where
         Ok(())
     };
 
-    let _ = ctx.reply(reply_to, reply_with).await;
+    ctx.reply(reply_to, reply_with).await.ok();
 
     Ok(())
 }
@@ -869,7 +869,7 @@ where
         }
     }
 
-    let _ = ctx.reply(reply_to, reply_with).await;
+    ctx.reply(reply_to, reply_with).await.ok();
 
     let outbound: Vec<_> = protocol
         .outbound_types()
@@ -890,16 +890,16 @@ where
 
         let outbound = outbound.clone();
         let inbound = inbound.clone();
-        let _ = ctx
-            .reply(
-                reply_to,
-                Ret::Ok(p::ProtocolResolved {
-                    protocol,
-                    outbound,
-                    inbound,
-                }),
-            )
-            .await;
+        ctx.reply(
+            reply_to,
+            Ret::Ok(p::ProtocolResolved {
+                protocol,
+                outbound,
+                inbound,
+            }),
+        )
+        .await
+        .ok();
     }
 
     Ok(())
@@ -934,15 +934,15 @@ where
     let existing_key = by_protocol.remove(&(protocol, Some(waitlist_key)));
     assert!(existing_key);
 
-    let _ = ctx
-        .reply(
-            reply_to,
-            Ret::Err(ErrorOf::new(
-                p::GetProtocolByNameErrorKind::NoProtocol,
-                "timed out waiting for protocol",
-            )),
-        )
-        .await;
+    ctx.reply(
+        reply_to,
+        Ret::Err(ErrorOf::new(
+            p::GetProtocolByNameErrorKind::NoProtocol,
+            "timed out waiting for protocol",
+        )),
+    )
+    .await
+    .ok();
 
     Ok(())
 }
@@ -968,7 +968,7 @@ where
     };
 
     let reply_with = process_request();
-    let _ = ctx.reply(reply_to, reply_with).await;
+    ctx.reply(reply_to, reply_with).await.ok();
 
     Ok(())
 }
@@ -1006,27 +1006,27 @@ where
                 .map(|c| (c.name(), protocol_registry.register_message(c)))
                 .collect();
 
-            let _ = ctx
-                .reply(
-                    reply_to,
-                    Ret::Ok(p::ProtocolResolved {
-                        protocol,
-                        outbound,
-                        inbound,
-                    }),
-                )
-                .await;
+            ctx.reply(
+                reply_to,
+                Ret::Ok(p::ProtocolResolved {
+                    protocol,
+                    outbound,
+                    inbound,
+                }),
+            )
+            .await
+            .ok();
         },
         (None, None) => {
-            let _ = ctx
-                .reply(
-                    reply_to,
-                    Ret::Err(ErrorOf::new(
-                        p::GetProtocolByNameErrorKind::NoProtocol,
-                        "no such protocol",
-                    )),
-                )
-                .await;
+            ctx.reply(
+                reply_to,
+                Ret::Err(ErrorOf::new(
+                    p::GetProtocolByNameErrorKind::NoProtocol,
+                    "no such protocol",
+                )),
+            )
+            .await
+            .ok();
         },
         (None, Some(timeout)) => {
             let Waitlist {
