@@ -360,10 +360,14 @@ where
     IO: AsyncRead + AsyncWrite + Unpin + Send + Sync + 'static,
 {
     let launcher = ActorFactoryMut::new(
-        move |(io, protocol): (IO, Arc<p::ProtocolResolved<Protocol>>)| {
+        move |(io, options, protocol): (
+            IO,
+            Arc<nm::Options>,
+            Arc<p::ProtocolResolved<Protocol>>,
+        )| {
             local::boxed_from_fn((
                 crate::actors::iostream_connection::run,
-                (multinode_manager, io, protocol),
+                (multinode_manager, io, options, protocol),
             ))
         },
     );

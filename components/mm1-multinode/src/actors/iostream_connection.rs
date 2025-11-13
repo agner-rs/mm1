@@ -16,6 +16,7 @@ use mm1_proto_network_management::protocols as p;
 use mm1_timer::v1::OneshotTimer;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
+mod config;
 mod hello;
 mod pdu;
 
@@ -30,6 +31,7 @@ pub async fn run<Ctx, IO>(
     ctx: &mut Ctx,
     multinode_manager: Address,
     mut io: IO,
+    options: Arc<nm::Options>,
     protocol_resolved: Arc<p::ProtocolResolved<Protocol>>,
 ) -> Result<Never, AnyError>
 where
@@ -54,7 +56,7 @@ where
         inbound,
     } = protocol_resolved.as_ref();
 
-    let () = hello::run(&mut io).await.wrap_err("hello::run")?;
+    let hello::HandshakeDone {} = hello::run(&mut io, &options).await.wrap_err("hello::run")?;
 
     let proto::SubscribeToRoutesResponse { routes } = ctx
         .fork_ask::<_, proto::SubscribeToRoutesResponse>(
