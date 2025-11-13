@@ -24,7 +24,7 @@ pub async fn run<Ctx>(
     connection_sup: Address,
     bind_addr: SocketAddr,
     protocol_name: nm::ProtocolName,
-    _options: nm::Options,
+    options: nm::Options,
 ) -> Result<Never, AnyError>
 where
     Ctx: ActorContext,
@@ -38,7 +38,14 @@ where
         .await
         .wrap_err("TcpListener::bind")?;
 
-    event_loop(ctx, connection_sup, &tcp_listener, protocol).await
+    event_loop(
+        ctx,
+        connection_sup,
+        &tcp_listener,
+        Arc::new(options),
+        protocol,
+    )
+    .await
 }
 
 async fn wait_for_protocol<Ctx>(
@@ -68,6 +75,7 @@ async fn event_loop<Ctx>(
     ctx: &mut Ctx,
     connection_sup: Address,
     tcp_listener: &TcpListener,
+    options: Arc<nm::Options>,
     protocol: ProtocolResolved<Protocol>,
 ) -> Result<Never, AnyError>
 where
@@ -81,7 +89,7 @@ where
         tokio::select! {
             accept_result = accepted => {
                 let (tcp_stream, peer_addr) = accept_result.wrap_err("tcp_listener.accept")?;
-                handle_accepted(ctx, connection_sup, protocol.clone(), tcp_stream, peer_addr).await.wrap_err("handle_accepted")?;
+                handle_accepted(ctx, connection_sup, options.clone(), protocol.clone(), tcp_stream, peer_addr).await.wrap_err("handle_accepted")?;
             },
             recv_result = received => {
                 let envelope = recv_result.wrap_err("ctx.recv")?;
@@ -94,6 +102,7 @@ where
 async fn handle_accepted<Ctx>(
     ctx: &mut Ctx,
     connection_sup: Address,
+    options: Arc<nm::Options>,
     protocol: Arc<ProtocolResolved<Protocol>>,
     tcp_stream: TcpStream,
     peer_addr: SocketAddr,
@@ -108,7 +117,7 @@ where
         .fork_ask::<_, uni_sup::StartResponse>(
             connection_sup,
             uni_sup::StartRequest {
-                args: (tcp_stream, protocol),
+                args: (tcp_stream, options, protocol),
             },
             CONNECTION_START_TIMEOUT,
         )

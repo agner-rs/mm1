@@ -24,9 +24,9 @@ pub(crate) struct InitActorArgs {
     pub(crate) local_subnet_auto:  NetAddress,
     pub(crate) local_subnets_bind: Vec<NetAddress>,
     #[cfg(feature = "multinode")]
-    pub(crate) multinode_inbound:  Vec<(nm::ProtocolName, DefAddr)>,
+    pub(crate) multinode_inbound:  Vec<(nm::ProtocolName, DefAddr, nm::Options)>,
     #[cfg(feature = "multinode")]
-    pub(crate) multinode_outbound: Vec<(nm::ProtocolName, DefAddr)>,
+    pub(crate) multinode_outbound: Vec<(nm::ProtocolName, DefAddr, nm::Options)>,
 }
 
 pub(crate) async fn run(
@@ -77,7 +77,6 @@ pub(crate) async fn run(
         use mm1_ask::Ask;
         use mm1_common::log::info;
         use mm1_multinode::actors::multinode_manager;
-        use mm1_proto_network_management as nm;
         use mm1_runnable::local;
 
         let multinode_manager_address = ctx
@@ -111,7 +110,7 @@ pub(crate) async fn run(
                 .wrap_err("nm::RegisterLocalSubnet")?;
         }
 
-        for (protocol_name, bind_address) in multinode_inbound {
+        for (protocol_name, bind_address, options) in multinode_inbound {
             use mm1_proto_network_management::iface;
 
             info!(
@@ -125,7 +124,7 @@ pub(crate) async fn run(
                     let request = iface::BindRequest {
                         protocol_name,
                         bind_address,
-                        options: nm::Options::Unit,
+                        options,
                     };
                     ctx.ask::<_, Ret>(
                         multinode_manager_address,
@@ -138,7 +137,7 @@ pub(crate) async fn run(
                     let request = iface::BindRequest {
                         protocol_name,
                         bind_address,
-                        options: nm::Options::Unit,
+                        options,
                     };
                     ctx.ask::<_, Ret>(
                         multinode_manager_address,
@@ -152,7 +151,7 @@ pub(crate) async fn run(
             .wrap_err("nm::Bind")?;
         }
 
-        for (protocol_name, dst_address) in multinode_outbound {
+        for (protocol_name, dst_address, options) in multinode_outbound {
             use mm1_proto_network_management::iface;
 
             info!(
@@ -166,7 +165,7 @@ pub(crate) async fn run(
                     let request = iface::ConnectRequest {
                         protocol_name,
                         dst_address,
-                        options: nm::Options::Unit,
+                        options,
                     };
                     ctx.ask::<_, Ret>(
                         multinode_manager_address,
@@ -179,7 +178,7 @@ pub(crate) async fn run(
                     let request = iface::ConnectRequest {
                         protocol_name,
                         dst_address,
-                        options: nm::Options::Unit,
+                        options,
                     };
                     ctx.ask::<_, Ret>(
                         multinode_manager_address,

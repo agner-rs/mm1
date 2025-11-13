@@ -39,9 +39,10 @@ derive_more = {workspace = true, features = ["from"]}
 erased-serde = {workspace = true}
 eyre.workspace = true
 futures.workspace = true
+masked.workspace = true
 rmp-serde = {workspace = true}
 serde = {workspace = true, features = ["derive"]}
-serde_json = {workspace = true, optional = true}
+serde-value = {workspace = true}
 slotmap.workspace = true
 static_assertions.workspace = true
 thiserror.workspace = true

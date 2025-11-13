@@ -537,6 +537,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
 
 [[package]]
+name = "masked"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56a144e6fd080d65670f59256ee4abd45efb1d5544931d2fa6a37e15109cc477"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "memchr"
 version = "2.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -666,6 +675,7 @@ dependencies = [
  "erased-serde",
  "eyre",
  "futures",
+ "masked",
  "mm1-address",
  "mm1-ask",
  "mm1-common",
@@ -682,7 +692,7 @@ dependencies = [
  "mm1-timer",
  "rmp-serde",
  "serde",
- "serde_json",
+ "serde-value",
  "slotmap",
  "static_assertions",
  "test-case",

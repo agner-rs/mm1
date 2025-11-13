@@ -17,6 +17,7 @@ static_assertions::assert_eq_size!(ForeignTypeKey, u64);
 pub(crate) const HEADER_FRAME_SIZE: usize = mem::size_of::<Header<u64>>();
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, derive_more::From)]
+#[repr(C)]
 pub(crate) enum Header<TypeKey> {
     Hello(Hello),
     KeepAlive,
@@ -26,9 +27,11 @@ pub(crate) enum Header<TypeKey> {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[repr(C)]
 pub(crate) struct Hello(pub(crate) [u8; 30]);
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[repr(C)]
 pub(crate) struct SubnetDistance<TypeKey> {
     pub(crate) net_address: NetAddress,
     pub(crate) type_handle: TypeKey,
@@ -36,12 +39,14 @@ pub(crate) struct SubnetDistance<TypeKey> {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[repr(C)]
 pub(crate) struct DeclareType<TypeKey> {
     pub(crate) message_type:  TypeKey,
     pub(crate) type_name_len: u16,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[repr(C)]
 pub(crate) struct TransmitMessage<TypeKey> {
     pub(crate) dst_address:  Address,
     pub(crate) message_type: TypeKey,

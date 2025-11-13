@@ -25,6 +25,9 @@ struct Args {
     local: NetAddress,
 
     #[structopt(long)]
+    cookie: Option<String>,
+
+    #[structopt(long)]
     bind: Vec<Url>,
 
     #[structopt(long)]
@@ -66,10 +69,19 @@ fn run(args: Args) -> Result<(), AnyError> {
     let Args {
         local,
         bind,
+        cookie,
         connect,
         destinations,
         receive_at,
     } = args;
+
+    let authc_config = if let Some(cookie) = cookie {
+        json!({
+            "cookie": cookie,
+        })
+    } else {
+        json!("trusted")
+    };
 
     let inbound = bind
         .into_iter()
@@ -77,6 +89,7 @@ fn run(args: Args) -> Result<(), AnyError> {
             json!({
                 "proto": "proto",
                 "addr": bind_addr,
+                "authc": authc_config,
             })
         })
         .collect::<Vec<_>>();
@@ -86,6 +99,7 @@ fn run(args: Args) -> Result<(), AnyError> {
             json!({
                 "proto": "proto",
                 "addr": dst_addr,
+                "authc": authc_config,
             })
         })
         .collect::<Vec<_>>();
