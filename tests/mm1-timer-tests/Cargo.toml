@@ -1,12 +1,18 @@
 [package]
 name = "mm1-timer-tests"
-version = "0.6.5"
-edition = "2024"
+
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description.workspace = true
+exclude.workspace = true
+publish = false
 
 [features]
-tokio-time = ["mm1-timer/tokio-time"]
 
 [dependencies]
+
 [dev-dependencies]
 insta.workspace = true
 serde = {workspace = true, features = ["derive"]}
@@ -14,13 +20,5 @@ serde_json.workspace = true
 test-case.workspace = true
 tokio = {workspace = true, features = ["rt", "macros", "time", "test-util"]}
 
-mm1-address.workspace = true
-mm1-common.workspace = true
-mm1-core.workspace = true
+mm1 = {workspace = true, features = ["runtime", "timer"]}
 mm1-logger.workspace = true
-mm1-node.workspace = true
-mm1-proto-timer.workspace = true
-mm1-runnable.workspace = true
-mm1-test-rt.workspace = true
-mm1-timer.workspace = true
-

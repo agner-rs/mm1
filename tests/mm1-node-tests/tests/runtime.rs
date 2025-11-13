@@ -1,19 +1,18 @@
+use std::mem;
 use std::sync::Arc;
 use std::time::Duration;
 
-use mm1_address::address::Address;
-use mm1_address::pool::Pool;
-use mm1_address::subnet::{NetAddress, NetMask};
-use mm1_common::log::{self, info};
-use mm1_core::context::{
-    Bind, BindArgs, Fork, InitDone, Linking, Messaging, Quit, Start, Stop, Tell,
+use futures::FutureExt;
+use mm1::address::{Address, AddressPool, NetAddress, NetMask};
+use mm1::common::log::{self, info};
+use mm1::core::context::{
+    Bind, BindArgs, Fork, InitDone, Linking, Messaging, Quit, Start, Stop, Tell, Watching,
 };
-use mm1_core::envelope::dispatch;
-use mm1_node::runtime::{Local, Rt};
-use mm1_proto::message;
-use mm1_proto_system::Exited;
-use mm1_runnable::local;
-use tokio::runtime::Runtime;
+use mm1::core::envelope::dispatch;
+use mm1::proto::message;
+use mm1::proto::system::Exited;
+use mm1::runnable::local;
+use mm1::runtime::{Local, Rt};
 use tokio::sync::{Notify, oneshot};
 
 fn logger_config() -> mm1_logger::LoggingConfig {
@@ -40,7 +39,7 @@ fn main_actor_is_executed() {
     }
     let rt = Rt::create(Default::default()).expect("Rt::create");
     rt.run(local::boxed_from_fn((main, (tx,)))).expect("rt.run");
-    Runtime::new().unwrap().block_on(rx).expect("rx.await");
+    rx.now_or_never().unwrap().expect("rx.await");
 }
 
 #[test]
@@ -68,7 +67,7 @@ fn main_actor_forks() {
 
     let rt = Rt::create(Default::default()).expect("Rt::create");
     rt.run(local::boxed_from_fn((main, (tx,)))).expect("rt.run");
-    Runtime::new().unwrap().block_on(rx).expect("rx.await");
+    rx.now_or_never().unwrap().expect("rx.await");
 }
 
 #[test]
@@ -113,7 +112,7 @@ fn child_actor_panics() {
 
     let rt = Rt::create(Default::default()).expect("Rt::create");
     rt.run(local::boxed_from_fn((main, (tx,)))).expect("rt.run");
-    Runtime::new().unwrap().block_on(rx).expect("rx.await");
+    rx.now_or_never().unwrap().expect("rx.await");
 }
 
 #[test]
@@ -121,12 +120,12 @@ fn message_is_sent_and_received() {
     let _ = mm1_logger::init(&logger_config());
 
     #[derive(Debug)]
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     struct Request {
         reply_to: Address,
     }
     #[derive(Debug)]
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     struct Response;
 
     async fn main<C>(ctx: &mut C, tx: oneshot::Sender<()>)
@@ -170,7 +169,7 @@ fn message_is_sent_and_received() {
     let (tx, rx) = oneshot::channel();
     let rt = Rt::create(Default::default()).expect("Rt::create");
     rt.run(local::boxed_from_fn((main, (tx,)))).expect("rt.run");
-    Runtime::new().unwrap().block_on(rx).expect("rx.await");
+    rx.now_or_never().unwrap().expect("rx.await");
 }
 
 #[test]
@@ -207,7 +206,7 @@ fn child_actor_force_exit_with_trapexit() {
 
     let rt = Rt::create(Default::default()).expect("Rt::create");
     rt.run(local::boxed_from_fn((main, (tx,)))).expect("rt.run");
-    Runtime::new().unwrap().block_on(rx).expect("rx.await");
+    rx.now_or_never().unwrap().expect("rx.await");
 }
 
 #[test]
@@ -217,7 +216,7 @@ fn actor_fork_run() {
         C: Messaging + Fork,
     {
         #[derive(Debug)]
-        #[message(base_path = ::mm1_proto)]
+        #[message]
         struct Hello(usize);
 
         let main_address = ctx.address();
@@ -263,13 +262,13 @@ fn actor_bind_and_recv() {
         C: Messaging + Fork + Bind<NetAddress>,
     {
         #[derive(Debug)]
-        #[message(base_path = ::mm1_proto)]
+        #[message]
         struct Hello;
 
         log::info!("hello!");
 
         let bind_to = "<beaf:>/16".parse().unwrap();
-        let pool = Pool::new(bind_to);
+        let pool = AddressPool::new(bind_to);
         let () = ctx
             .bind(BindArgs {
                 bind_to,
@@ -296,6 +295,48 @@ fn actor_bind_and_recv() {
             r#"
                 subnet: <cafe:>/16
 
+            "#,
+        )
+        .expect("Mm1Config from yaml"),
+    )
+    .expect("Rt::create")
+    .run(local::boxed_from_fn(main))
+    .expect("Rt::run");
+}
+
+#[test]
+fn actor_fork_watched_yields_down() {
+    let _ = mm1_logger::init(&logger_config());
+
+    async fn main<C>(ctx: &mut C)
+    where
+        C: Messaging + Fork + Watching,
+    {
+        log::info!("hello!");
+
+        let fork_ctx = ctx.fork().await.expect("ctx.fork");
+        let fork_address = fork_ctx.address();
+
+        info!("I ({}) watch for {}", ctx.address(), fork_ctx.address());
+
+        let fork_watch_ref = ctx.watch(fork_address).await;
+        mem::drop(fork_ctx);
+        let envelope = ctx.recv().await.expect("ctx.recv");
+        dispatch!(match envelope {
+            down @ mm1::proto::system::Down {
+                watch_ref, peer, ..
+            } => {
+                assert_eq!(watch_ref, fork_watch_ref);
+                assert_eq!(peer, fork_address);
+                eprintln!("{:?}", down);
+            },
+        })
+    }
+
+    Rt::create(
+        serde_yaml::from_str(
+            r#"
+                subnet: <cafe:>/16
             "#,
         )
         .expect("Mm1Config from yaml"),

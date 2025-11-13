@@ -1,19 +1,20 @@
 [package]
 name = "mm1-test-rt-tests"
-version = "0.6.5"
-edition = "2024"
+
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description.workspace = true
+exclude.workspace = true
+publish = false
 
 [dependencies]
 [dev-dependencies]
 futures.workspace = true
 tokio = {workspace = true, features = ["test-util"]}
 
-mm1-address.workspace = true
-mm1-common.workspace = true
-mm1-core.workspace = true
+mm1 = {workspace = true, features = ["test-util"]}
 mm1-logger.workspace = true
-mm1-proto.workspace = true
-mm1-test-rt.workspace = true
-mm1-proto-system.workspace = true
 
 serde = {workspace = true, features = ["derive"]}

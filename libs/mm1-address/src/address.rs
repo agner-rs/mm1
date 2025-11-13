@@ -1,4 +1,3 @@
-use std::convert::Infallible;
 use std::fmt::{self, Write};
 use std::str::FromStr;
 
@@ -23,11 +22,9 @@ impl Address {
     }
 }
 
-impl TryFrom<u64> for Address {
-    type Error = Infallible;
-
-    fn try_from(value: u64) -> Result<Self, Self::Error> {
-        Ok(Self(value))
+impl From<u64> for Address {
+    fn from(value: u64) -> Self {
+        Self(value)
     }
 }
 

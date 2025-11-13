@@ -1,13 +1,14 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use mm1_address::subnet::NetAddress;
-use mm1_ask::Ask;
-use mm1_core::context::{Bind, Fork, InitDone, Messaging, Quit, Start};
+use mm1::address::NetAddress;
+use mm1::ask::Ask;
+use mm1::core::context::{Bind, Fork, InitDone, Messaging, Quit, Start};
+use mm1::runnable::local;
+use mm1::runnable::local::BoxedRunnable;
+use mm1::runtime::Rt;
 use mm1_name_service::api::{Registration, Resolver};
-use mm1_node::runtime::Rt;
 use mm1_proto_well_known::NAME_SERVICE;
-use mm1_runnable::local::{self, BoxedRunnable};
 use tokio::time;
 
 #[test]

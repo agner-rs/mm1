@@ -1,25 +1,25 @@
 pub mod ping_pong {
 
-    use mm1_address::address::Address;
-    use mm1_core::context::{Messaging, Tell};
-    use mm1_proto::message;
+    use mm1::address::Address;
+    use mm1::core::context::{Messaging, Tell};
+    use mm1::proto::message;
 
     #[derive(Debug)]
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     pub struct Ping {
         reply_to: Address,
         seq_num:  u64,
     }
 
     #[derive(Debug)]
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     pub struct Forward<Message> {
         forward_to: Address,
         message:    Message,
     }
 
     #[derive(Debug)]
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     pub struct Pong {
         #[allow(dead_code)]
         seq_num: u64,

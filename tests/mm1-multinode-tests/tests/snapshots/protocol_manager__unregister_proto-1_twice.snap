@@ -1,0 +1,6 @@
+---
+source: tests/mm1-multinode-tests/tests/protocol-manager.rs
+expression: "e(unregister(ctx,\n\"proto-1\").await.expect_err(\"unregister proto-1 should have failed\"))"
+---
+- unregister
+- "NoProtocol: no such protocol"

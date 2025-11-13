@@ -2,20 +2,18 @@ use std::pin::pin;
 use std::time::Duration;
 
 use futures::FutureExt;
-use mm1_address::address::Address;
-use mm1_address::pool::Pool as SubnetPool;
-use mm1_address::subnet::{NetAddress, NetMask};
-use mm1_common::errors::error_of::ErrorOf;
-use mm1_common::log;
-use mm1_core::context::{
+use mm1::address::{Address, AddressPool, NetAddress, NetMask};
+use mm1::common::error::ErrorOf;
+use mm1::common::log;
+use mm1::core::context::{
     Bind, BindArgs, Fork, InitDone, Linking, Messaging, Quit, RecvErrorKind, Start, Stop, Tell,
     Watching,
 };
-use mm1_core::envelope::{Envelope, EnvelopeHeader};
-use mm1_proto::message;
-use mm1_proto_system::WatchRef;
-use mm1_test_rt::rt::event::{EventResolve, EventResolveResult};
-use mm1_test_rt::rt::{ForkTaskOutcome, MainActorOutcome, TaskKey, TestRuntime, query};
+use mm1::core::envelope::{Envelope, EnvelopeHeader};
+use mm1::proto::message;
+use mm1::proto::system::WatchRef;
+use mm1::test::rt::event::{EventResolve, EventResolveResult};
+use mm1::test::rt::{ForkTaskOutcome, MainActorOutcome, TaskKey, TestRuntime, query};
 use tokio::time;
 
 #[derive(Debug)]
@@ -28,7 +26,7 @@ async fn t_simplest() {
     let _ = mm1_logger::init(&logger_config());
     time::pause();
 
-    let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
+    let node_net = AddressPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let rt = TestRuntime::<Runnable>::new();
     rt.add_actor(lease_a.address, Some(lease_a), a)
@@ -55,7 +53,7 @@ async fn t_spawn() {
     let _ = mm1_logger::init(&logger_config());
     time::pause();
 
-    let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
+    let node_net = AddressPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let lease_b = node_net.lease(NetMask::M_64).unwrap();
     let rt = TestRuntime::<Runnable>::new();
@@ -103,7 +101,7 @@ async fn t_start() {
     let _ = mm1_logger::init(&logger_config());
     time::pause();
 
-    let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
+    let node_net = AddressPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let lease_b = node_net.lease(NetMask::M_64).unwrap();
     let rt = TestRuntime::<Runnable>::new();
@@ -155,13 +153,13 @@ async fn t_start() {
 
 #[tokio::test]
 async fn t_recv() {
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     struct Hello;
 
     let _ = mm1_logger::init(&logger_config());
     time::pause();
 
-    let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
+    let node_net = AddressPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let rt = TestRuntime::<Runnable>::new();
     let address_a = lease_a.address;
@@ -205,7 +203,7 @@ async fn t_init_done() {
     let _ = mm1_logger::init(&logger_config());
     time::pause();
 
-    let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
+    let node_net = AddressPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let rt = TestRuntime::<Runnable>::new();
     let address_a = lease_a.address;
@@ -247,7 +245,7 @@ async fn t_recv_close() {
     let _ = mm1_logger::init(&logger_config());
     time::pause();
 
-    let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
+    let node_net = AddressPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let rt = TestRuntime::<Runnable>::new();
     let address_a = lease_a.address;
@@ -287,13 +285,13 @@ async fn t_recv_close() {
 
 #[tokio::test]
 async fn t_fork_and_run() {
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     struct Hello;
 
     let _ = mm1_logger::init(&logger_config());
     time::pause();
 
-    let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
+    let node_net = AddressPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let lease_b = node_net.lease(NetMask::M_60).unwrap();
     let rt = TestRuntime::<Runnable>::new();
@@ -387,7 +385,7 @@ async fn t_bind_net_address() {
     let _ = mm1_logger::init(&logger_config());
     time::pause();
 
-    let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
+    let node_net = AddressPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let address_a = lease_a.address;
     let rt = TestRuntime::<Runnable>::new();
@@ -419,13 +417,13 @@ async fn t_bind_net_address() {
 
 #[tokio::test]
 async fn t_tell() {
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     struct Hello;
 
     let _ = mm1_logger::init(&logger_config());
     time::pause();
 
-    let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
+    let node_net = AddressPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let lease_b = node_net.lease(NetMask::M_48).unwrap();
     let rt = TestRuntime::<Runnable>::new();
@@ -474,7 +472,7 @@ async fn t_quit() {
     let _ = mm1_logger::init(&logger_config());
     time::pause();
 
-    let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
+    let node_net = AddressPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let rt = TestRuntime::<Runnable>::new();
     let address_a = lease_a.address;
@@ -516,7 +514,7 @@ async fn t_watching() {
     let _ = mm1_logger::init(&logger_config());
     time::pause();
 
-    let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
+    let node_net = AddressPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let lease_b = node_net.lease(NetMask::M_64).unwrap();
     let rt = TestRuntime::<Runnable>::new();
@@ -578,7 +576,7 @@ async fn t_linking() {
     let _ = mm1_logger::init(&logger_config());
     time::pause();
 
-    let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
+    let node_net = AddressPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let lease_b = node_net.lease(NetMask::M_64).unwrap();
     let rt = TestRuntime::<Runnable>::new();
@@ -644,7 +642,7 @@ async fn t_stop() {
     let _ = mm1_logger::init(&logger_config());
     time::pause();
 
-    let node_net = SubnetPool::new("<ff:>/32".parse().unwrap());
+    let node_net = AddressPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
     let lease_b = node_net.lease(NetMask::M_64).unwrap();
     let rt = TestRuntime::<Runnable>::new();

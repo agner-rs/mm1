@@ -1,10 +1,10 @@
 use std::time::Duration;
 
-use mm1_common::futures::timeout::FutureTimeoutExt;
-use mm1_core::context::{Fork, InitDone, Linking, Messaging, Start, Stop, Watching};
-use mm1_node::runtime::{Local, Rt};
-use mm1_proto_system::{Down, Exited};
-use mm1_runnable::local;
+use mm1::common::future::FutureTimeoutExt;
+use mm1::core::context::{Fork, InitDone, Linking, Messaging, Start, Stop, Watching};
+use mm1::proto::system::{Down, Exited};
+use mm1::runnable::local;
+use mm1::runtime::{Local, Rt};
 
 #[test]
 fn test_linking_with_trap_exit() {

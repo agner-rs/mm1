@@ -2,23 +2,20 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-use mm1_address::address::Address;
-use mm1_address::pool::Pool as SubnetPool;
-use mm1_address::subnet::{NetAddress, NetMask};
-use mm1_ask::Ask;
-use mm1_common::log::{debug, info};
-use mm1_common::types::Never;
-use mm1_core::context::{Fork, InitDone, Messaging, Quit, Start, Tell};
-use mm1_core::envelope::{Envelope, EnvelopeHeader};
-use mm1_node::runtime::{Local, Rt};
-use mm1_proto::message;
-use mm1_proto_sup::uniform;
-use mm1_runnable::local;
-use mm1_sup::common::child_spec::{ChildSpec, InitType};
-use mm1_sup::common::factory::{ActorFactory, ActorFactoryMut};
-use mm1_sup::uniform::{UniformSup, uniform_sup};
-use mm1_test_rt::rt::event::EventResolve;
-use mm1_test_rt::rt::{TaskKey, query};
+use mm1::address::{Address, AddressPool, NetAddress, NetMask};
+use mm1::ask::Ask;
+use mm1::common::Never;
+use mm1::common::log::{debug, info};
+use mm1::core::context::{Fork, InitDone, Messaging, Quit, Start, Tell};
+use mm1::core::envelope::{Envelope, EnvelopeHeader};
+use mm1::proto::message;
+use mm1::proto::sup::uniform;
+use mm1::runnable::local;
+use mm1::runtime::{Local, Rt};
+use mm1::sup::common::{ActorFactory, ActorFactoryMut, ChildSpec, InitType};
+use mm1::sup::uniform::{UniformSup, uniform_sup};
+use mm1::test::rt::event::EventResolve;
+use mm1::test::rt::{TaskKey, query};
 use tokio::time;
 
 fn logger_config() -> mm1_logger::LoggingConfig {
@@ -38,7 +35,7 @@ fn test_01() {
     let _ = mm1_logger::init(&logger_config());
 
     #[derive(Debug)]
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     struct Hi {
         worker_id:      usize,
         worker_address: Address,
@@ -185,9 +182,9 @@ async fn test_02() {
         }
     }
 
-    let node_subnet = SubnetPool::new("<ff:>/32".parse().unwrap());
+    let node_subnet = AddressPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_subnet.lease(NetMask::M_56).unwrap();
-    let subnet_sup = SubnetPool::new(NetAddress {
+    let subnet_sup = AddressPool::new(NetAddress {
         address: lease_a.address,
         mask:    lease_a.mask,
     });
@@ -203,11 +200,11 @@ async fn test_02() {
         stop_timeout: Duration::from_secs(1),
     };
     let uniform_sup = UniformSup::new(child_spec);
-    let rt = mm1_test_rt::rt::TestRuntime::<Runnable<&'static str>>::new()
+    let rt = mm1::test::rt::TestRuntime::<Runnable<&'static str>>::new()
         .with_actor(
             address_sup,
             Some(lease_a),
-            (mm1_sup::uniform::uniform_sup, (uniform_sup,)),
+            (mm1::sup::uniform::uniform_sup, (uniform_sup,)),
         )
         .await
         .unwrap();
@@ -240,12 +237,12 @@ async fn test_02() {
     let address_client = lease_client.address;
     let envelope = Envelope::new(
         EnvelopeHeader::to_address(address_sup),
-        mm1_proto_ask::Request {
-            header:  mm1_proto_ask::RequestHeader {
+        mm1::ask::proto::Request {
+            header:  mm1::ask::proto::RequestHeader {
                 id:       Default::default(),
                 reply_to: address_client,
             },
-            payload: mm1_proto_sup::uniform::StartRequest { args: "hello!" },
+            payload: uniform::StartRequest { args: "hello!" },
         },
     )
     .into_erased();
@@ -335,7 +332,7 @@ async fn test_02() {
     let envelope = tell.take_envelope();
     assert_eq!(envelope.header().to, address_client);
     let (response, _envelope) = envelope
-        .cast::<mm1_proto_ask::Response<mm1_proto_sup::uniform::StartResponse>>()
+        .cast::<mm1::ask::proto::Response<uniform::StartResponse>>()
         .unwrap()
         .take();
     assert_eq!(response.payload.unwrap(), address_child);

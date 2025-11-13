@@ -96,12 +96,15 @@ pub(crate) struct Container {
     rt_config: Arc<Valid<Mm1NodeConfig>>,
 
     runnable: BoxedRunnable<context::ActorContext>,
+
+    tx_actor_failure: mpsc::UnboundedSender<(Address, AnyError)>,
 }
 
 impl Container {
     pub(crate) fn create(
         args: ContainerArgs,
         runnable: BoxedRunnable<context::ActorContext>,
+        tx_actor_failure: mpsc::UnboundedSender<(Address, AnyError)>,
     ) -> Result<Self, ContainerError> {
         let ContainerArgs {
             ack_to,
@@ -149,6 +152,7 @@ impl Container {
             tx_system_weak,
             tx_priority_weak,
             tx_regular_weak,
+            tx_actor_failure,
         };
         Ok(container)
     }
@@ -183,6 +187,7 @@ impl Container {
             tx_priority_weak,
             tx_regular_weak,
             tx_system_weak,
+            tx_actor_failure,
         } = self;
 
         trace!("starting up");
@@ -244,6 +249,7 @@ impl Container {
             tx_priority_weak,
             tx_regular_weak,
             call: call_tx,
+            tx_actor_failure,
         };
 
         let exit_reason = {
@@ -320,7 +326,11 @@ impl Container {
                     },
 
                     (_, Either::Left(SysMsg::ForkDone(fork_address))) => {
-                        let JobEntry { linked_to, .. } = job_entries
+                        let JobEntry {
+                            linked_to,
+                            watched_by,
+                            ..
+                        } = job_entries
                             .remove(&fork_address.address)
                             .expect("unknown fork");
                         for peer in linked_to {
@@ -331,6 +341,17 @@ impl Container {
                                     receiver: peer,
                                 }),
                             );
+                        }
+                        for peer in watched_by.into_iter().map(|(peer, _)| peer).filter_map({
+                            let mut prev = None;
+                            move |this| {
+                                prev.replace(this)
+                                    .is_none_or(|prev| prev != this)
+                                    .then_some(this)
+                            }
+                        }) {
+                            let msg = sys_watch_down_message(true, fork_address.address, peer);
+                            let _ = rt_api.sys_send(peer, msg);
                         }
                     },
 
@@ -447,19 +468,17 @@ impl Container {
                                 },
                             };
 
-                            if should_handle {
-                                if let Some(tx_priority) = job_entry.tx_priority_weak.upgrade() {
-                                    let message = system::Exited {
-                                        peer:        sender,
-                                        normal_exit: matches!(reason, ExitReason::Normal),
-                                    };
-                                    let envelope = Envelope::new(
-                                        EnvelopeHeader::to_address(receiver),
-                                        message,
-                                    )
-                                    .into_erased();
-                                    let _ = tx_priority.send(envelope);
-                                }
+                            if should_handle
+                                && let Some(tx_priority) = job_entry.tx_priority_weak.upgrade()
+                            {
+                                let message = system::Exited {
+                                    peer:        sender,
+                                    normal_exit: matches!(reason, ExitReason::Normal),
+                                };
+                                let envelope =
+                                    Envelope::new(EnvelopeHeader::to_address(receiver), message)
+                                        .into_erased();
+                                let _ = tx_priority.send(envelope);
                             }
                         }
                     },
@@ -491,6 +510,7 @@ impl Container {
 
                         job_entry.watches.insert((receiver, watch_ref));
 
+                        trace!("{} requests watch of {}", sender, receiver);
                         let sys_send_result = rt_api.sys_send(
                             receiver,
                             SysMsg::Watch(SysWatch::Watch {
@@ -543,8 +563,13 @@ impl Container {
                         })),
                     ) => {
                         if let Some(job_entry) = job_entries.get_mut(&receiver) {
+                            trace!("{} is now watched by {}", receiver, sender);
                             job_entry.watched_by.insert((sender, watch_ref));
                         } else {
+                            trace!(
+                                "{} is now watched by {}; sending Down immediately",
+                                receiver, sender
+                            );
                             let _ = rt_api.sys_send(
                                 sender,
                                 SysMsg::Watch(SysWatch::Down {
@@ -641,11 +666,14 @@ impl Container {
                     for peer in watched_by.into_iter().map(|(peer, _)| peer).filter_map({
                         let mut prev = None;
                         move |this| {
-                            if prev.replace(this) == Some(this) {
-                                None
-                            } else {
-                                Some(this)
-                            }
+                            prev.replace(this)
+                                .is_none_or(|prev| prev != this)
+                                .then_some(this)
+                            // if prev.replace(this) == Some(this) {
+                            //     None
+                            // } else {
+                            //     Some(this)
+                            // }
                         }
                     }) {
                         let msg =

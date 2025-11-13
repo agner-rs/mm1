@@ -72,6 +72,9 @@ pub mod address {
     /// Address — a destination to send messages to.
     pub use mm1_address::address::Address;
     pub use mm1_address::address::AddressParseError;
+    pub use mm1_address::pool::{
+        Lease as AddressLease, LeaseError as AddressLeaseError, Pool as AddressPool,
+    };
     /// Address of a network, i.e. an `Address` in combination with a `NetMask`.
     pub use mm1_address::subnet::NetAddress;
     /// Mask — specifies how many leading bits in the address are fixed.
@@ -156,11 +159,16 @@ pub mod core {
 
 #[cfg(feature = "ask")]
 pub mod ask {
-    pub use mm1_ask::{Ask, Reply};
+    pub use mm1_ask::{Ask, AskErrorKind, Reply};
 
     pub mod proto {
         pub type RequestHeader = mm1_proto_ask::RequestHeader;
         pub type Request<Rq> = mm1_proto_ask::Request<Rq>;
+
+        #[doc(hidden)]
+        pub type ResponseHeader = mm1_proto_ask::ResponseHeader;
+        #[doc(hidden)]
+        pub type Response<Rs> = mm1_proto_ask::Response<Rs>;
     }
 }
 
@@ -174,6 +182,7 @@ pub mod sup {
         /// A recipe for a child-actor.
         pub use mm1_sup::common::child_spec::ChildSpec;
         pub use mm1_sup::common::child_spec::{ChildType, InitType};
+        pub use mm1_sup::common::factory::ActorFactory;
         /// Multiple-use actor factory.
         pub use mm1_sup::common::factory::ActorFactoryMut;
         /// Single-use actor-factory.
@@ -226,19 +235,18 @@ pub use mm1_runnable as runnable;
 
 #[cfg(feature = "timer")]
 pub mod timer {
-    pub use mm1_timer::api::{TimerApi, TimerError};
-    pub use mm1_timer::new_tokio_timer;
-
-    pub mod plumbing {
-        pub use mm1_proto_timer as timer_protocol;
-        pub use mm1_timer::actor::timer_actor;
-    }
+    pub use mm1_timer::v1;
 }
 
 #[cfg(feature = "multinode")]
-pub mod message_codec {
-    pub use mm1_multinode::codecs::Codec;
+pub mod multinode {
+    pub use mm1_multinode::codec::Protocol;
 }
+
+// #[cfg(feature = "multinode")]
+// pub mod message_codec {
+//     pub use mm1_multinode::codecs::Codec;
+// }
 
 #[cfg(feature = "test-util")]
 pub mod test {

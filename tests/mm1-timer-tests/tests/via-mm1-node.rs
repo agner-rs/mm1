@@ -1,17 +1,15 @@
-#![cfg(feature = "tokio-time")]
-
 use std::time::Duration;
 
-use mm1_common::log;
-use mm1_core::context::{Fork, Messaging, Now, Quit};
-use mm1_core::envelope::dispatch;
-use mm1_node::runtime::Rt;
-use mm1_runnable::local;
-use mm1_timer::api::TimerApi;
+use mm1::common::log;
+use mm1::core::context::{Fork, Messaging, Now, Quit};
+use mm1::core::envelope::dispatch;
+use mm1::runnable::local;
+use mm1::runtime::Rt;
+use mm1::timer::v1::OneshotTimer;
 use tokio::task;
 use tokio::time::Instant;
 
-const INITIAL_DELAY: Duration = Duration::from_millis(100);
+const INITIAL_DELAY: Duration = Duration::from_millis(200);
 const STEP: Duration = Duration::from_millis(25);
 
 #[test]
@@ -29,16 +27,14 @@ where
 {
     log::info!("HELLO!");
 
-    let mut next_key = 1u32;
-    let mut timers = mm1_timer::new_tokio_timer::<u32, Duration, _>(ctx)
+    let mut timers = OneshotTimer::create(ctx)
         .await
-        .unwrap();
+        .expect("could not create timer");
 
     timers
-        .schedule_once_after(next_key, INITIAL_DELAY, INITIAL_DELAY)
+        .schedule_once_after(INITIAL_DELAY, INITIAL_DELAY)
         .await
         .unwrap();
-    next_key += 1;
 
     loop {
         let envelope = ctx.recv().await.unwrap();
@@ -49,10 +45,8 @@ where
 
         let Some(d) = d.checked_sub(STEP) else { break };
 
-        timers.schedule_once_after(next_key, d, d).await.unwrap();
-        next_key += 1;
-        timers.schedule_once_after(next_key, d, d).await.unwrap();
-        next_key += 1;
+        timers.schedule_once_after(d, d).await.unwrap();
+        timers.schedule_once_after(d, d).await.unwrap();
 
         task::yield_now().await;
     }

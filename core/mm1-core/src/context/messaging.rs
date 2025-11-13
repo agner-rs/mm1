@@ -33,6 +33,12 @@ pub trait Messaging {
         &mut self,
         envelope: Envelope,
     ) -> impl Future<Output = Result<(), ErrorOf<SendErrorKind>>> + Send;
+
+    fn forward(
+        &mut self,
+        to: Address,
+        envelope: Envelope,
+    ) -> impl Future<Output = Result<(), ErrorOf<SendErrorKind>>> + Send;
 }
 
 impl_error_kind!(SendErrorKind);

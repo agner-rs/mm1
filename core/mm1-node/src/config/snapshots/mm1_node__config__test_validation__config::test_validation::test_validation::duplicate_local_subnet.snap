@@ -1,5 +1,0 @@
----
-source: core/mm1-node/src/config/test_validation.rs
-expression: actual_errors
----
-- "a subnet of type 'local' defined more than once: at least <cafe:>/16 and <beef:>/16"

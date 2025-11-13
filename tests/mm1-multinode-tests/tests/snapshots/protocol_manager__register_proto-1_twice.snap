@@ -1,0 +1,6 @@
+---
+source: tests/mm1-multinode-tests/tests/protocol-manager.rs
+expression: "e(register(ctx, \"proto-1\",\nProtocol::new()).await.expect_err(\"register proto-1 should have failed\"))"
+---
+- register
+- "DuplicateProtocolName: duplicate protocol name"

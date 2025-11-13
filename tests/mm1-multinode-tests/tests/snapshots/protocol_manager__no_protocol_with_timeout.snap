@@ -1,0 +1,6 @@
+---
+source: tests/mm1-multinode-tests/tests/protocol-manager.rs
+expression: e(reason)
+---
+- get
+- "NoProtocol: timed out waiting for protocol"

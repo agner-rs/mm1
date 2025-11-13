@@ -1,43 +1,43 @@
 use messages::*;
-use mm1_address::address::Address;
-use mm1_core::envelope::{Envelope, EnvelopeHeader, dispatch};
+use mm1::address::Address;
+use mm1::core::envelope::{Envelope, EnvelopeHeader, dispatch};
 
 pub mod messages {
-    use mm1_proto::message;
+    use mm1::proto::message;
 
     use crate::Address;
 
     #[derive(Debug)]
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     pub struct AUnit;
 
     #[derive(Debug)]
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     pub struct ATuple(pub String, pub String);
 
     #[derive(Debug)]
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     pub struct AStruct {
         pub s: String,
         pub i: i64,
     }
 
     #[derive(Debug)]
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     pub struct Ping {
         pub reply_to: Address,
         pub seq_num:  u64,
     }
 
     #[derive(Debug)]
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     pub struct Forward<Message> {
         pub forward_to: Address,
         pub message:    Message,
     }
 
     #[derive(Debug)]
-    #[message(base_path = ::mm1_proto)]
+    #[message]
     pub struct Pong {
         pub seq_num: u64,
     }

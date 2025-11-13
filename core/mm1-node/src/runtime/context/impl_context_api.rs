@@ -9,7 +9,7 @@ use mm1_address::subnet::NetAddress;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::futures::timeout::FutureTimeoutExt;
 use mm1_common::log;
-use mm1_common::types::Never;
+use mm1_common::types::{AnyError, Never};
 use mm1_core::context::{
     Bind, BindArgs, BindErrorKind, Fork, ForkErrorKind, InitDone, Linking, Messaging, Now, Quit,
     RecvErrorKind, SendErrorKind, Start, Stop, Watching,
@@ -93,6 +93,8 @@ impl Fork for ActorContext {
             tx_priority_weak,
             tx_regular_weak,
             call: self.call.clone(),
+
+            tx_actor_failure: self.tx_actor_failure.clone(),
         };
 
         Ok(context)
@@ -216,6 +218,14 @@ impl Messaging for ActorContext {
         envelope: Envelope,
     ) -> impl Future<Output = Result<(), ErrorOf<SendErrorKind>>> + Send {
         std::future::ready(do_send(self, envelope))
+    }
+
+    fn forward(
+        &mut self,
+        to: Address,
+        envelope: Envelope,
+    ) -> impl Future<Output = Result<(), ErrorOf<SendErrorKind>>> + Send {
+        std::future::ready(do_forward(self, to, envelope))
     }
 }
 
@@ -359,8 +369,6 @@ async fn do_spawn(
         .await
         .map_err(|e| ErrorOf::new(SpawnErrorKind::ResourceConstraint, e.to_string()))?;
 
-    trace!("subnet-lease: {}", subnet_lease.net_address());
-
     let rt_api = context.rt_api.clone();
     let rt_config = context.rt_config.clone();
     let container = container::Container::create(
@@ -375,14 +383,35 @@ async fn do_spawn(
             rt_config,
         },
         runnable,
+        context.tx_actor_failure.clone(),
     )
     .map_err(|e| ErrorOf::new(SpawnErrorKind::InternalError, e.to_string()))?;
     let actor_address = container.actor_address();
 
     trace!("actor-address: {}", actor_address);
 
+    let tx_actor_failure = context.tx_actor_failure.clone();
     // TODO: maybe keep it somewhere too?
-    let _join_handle = execute_on.spawn(container.run());
+    let _join_handle = execute_on.spawn(async move {
+        match container.run().await {
+            Ok(Ok(())) => (),
+            Ok(Err(actor_failure)) => {
+                let _ = tx_actor_failure.send((actor_address, actor_failure));
+            },
+            Err(container_failure) => {
+                let report = AnyError::from(container_failure);
+                mm1_common::log::error!(
+                    "actor container failure [addr: {}]: {}",
+                    actor_address,
+                    report
+                        .chain()
+                        .map(|e| e.to_string())
+                        .collect::<Vec<_>>()
+                        .join(" <- ")
+                );
+            },
+        }
+    });
 
     Ok(actor_address)
 }
@@ -457,13 +486,27 @@ async fn do_init_done(context: &mut ActorContext, address: Address) {
         return;
     };
     let envelope = Envelope::new(EnvelopeHeader::to_address(ack_to_address), message);
-    let _ = context.rt_api.send(true, envelope.into_erased());
+    let _ = context
+        .rt_api
+        .send_to(envelope.header().to, true, envelope.into_erased());
 }
 
 fn do_send(context: &mut ActorContext, outbound: Envelope) -> Result<(), ErrorOf<SendErrorKind>> {
     trace!("sending [outbound: {:?}]", outbound);
     context
         .rt_api
-        .send(false, outbound)
+        .send_to(outbound.header().to, false, outbound)
+        .map_err(|k| ErrorOf::new(k, ""))
+}
+
+fn do_forward(
+    context: &mut ActorContext,
+    to: Address,
+    outbound: Envelope,
+) -> Result<(), ErrorOf<SendErrorKind>> {
+    trace!("forwarding [to: {}, outbound: {:?}]", to, outbound);
+    context
+        .rt_api
+        .send_to(to, false, outbound)
         .map_err(|k| ErrorOf::new(k, ""))
 }
