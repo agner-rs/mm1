@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use eyre::Context;
 use mm1::address::{Address, NetAddress, NetMask};
@@ -26,6 +26,9 @@ struct Args {
 
     #[structopt(long)]
     cookie: Option<String>,
+
+    #[structopt(long, short)]
+    proto: Vec<String>,
 
     #[structopt(long)]
     bind: Vec<Url>,
@@ -69,6 +72,7 @@ fn run(args: Args) -> Result<(), AnyError> {
     let Args {
         local,
         bind,
+        proto,
         cookie,
         connect,
         destinations,
@@ -87,7 +91,7 @@ fn run(args: Args) -> Result<(), AnyError> {
         .into_iter()
         .map(|bind_addr| {
             json!({
-                "proto": "proto",
+                "proto": proto,
                 "addr": bind_addr,
                 "authc": authc_config,
             })
@@ -97,7 +101,7 @@ fn run(args: Args) -> Result<(), AnyError> {
         .into_iter()
         .map(|dst_addr| {
             json!({
-                "proto": "proto",
+                "proto": proto,
                 "addr": dst_addr,
                 "authc": authc_config,
             })
@@ -203,13 +207,20 @@ where
             proto::Tick => {
                 info!("TICK");
                 for d in destinations.iter().copied() {
-                    let _ = ctx.tell(d, proto::M1).await;
+                    ctx.tell(d, proto::M1(ctx.address(), now())).await.ok();
                 }
                 timer_api
                     .schedule_once_after(Duration::from_secs(5), proto::Tick)
                     .await
                     .wrap_err("timer_api.schedule_once_after")?;
             },
+            proto::M1(reply_to, sent_at) => {
+                info!("M1 from {} [dt: {:?}]", reply_to, Duration::from_micros(now().saturating_sub(sent_at)));
+                ctx.tell(reply_to, proto::M2(ctx.address(), now())).await.ok();
+            }
+            proto::M2(replied_by, sent_at) => {
+                info!("M2 from {} [dt: {:?}]", replied_by, Duration::from_micros(now().saturating_sub(sent_at)));
+            }
             a_message @ _ => {
                 info!("RECEIVED {:?}", a_message);
             },
@@ -217,14 +228,18 @@ where
     }
 }
 
+fn now() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).expect("okay").as_micros() as u64
+}
+
 mod proto {
-    use mm1::proto::message;
+    use mm1::{address::Address, proto::message};
 
     #[message]
     pub struct Tick;
 
     #[message]
-    pub struct M1;
+    pub struct M1(pub Address, pub u64);
     #[message]
-    pub struct M2;
+    pub struct M2(pub Address, pub u64);
 }

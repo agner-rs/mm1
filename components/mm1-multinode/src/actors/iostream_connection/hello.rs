@@ -8,7 +8,7 @@ use mm1_proto_network_management as nm;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-use super::{config, pdu, util};
+use super::{config, iostream_util, pdu};
 
 const HELLO: &[u8] = b"MM1!";
 const BINCODE_CONFIG: bincode::config::Configuration = bincode::config::standard();
@@ -27,7 +27,7 @@ where
     let local_capabilities = capabilities(&config).wrap_err("capabilities from config")?;
 
     let inbound_header = async {
-        util::read_header(&mut io_r)
+        iostream_util::read_header(&mut io_r)
             .await
             .wrap_err("read_header (Hello)")
     };
@@ -45,7 +45,7 @@ where
         )
         .wrap_err("capabilities write error")?;
 
-        util::write_header(&mut io_w, pdu::Hello(outbound_hello))
+        iostream_util::write_header(&mut io_w, pdu::Hello(outbound_hello))
             .await
             .wrap_err("write_header (Hello)")?;
 

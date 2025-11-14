@@ -24,9 +24,9 @@ pub(crate) struct InitActorArgs {
     pub(crate) local_subnet_auto:  NetAddress,
     pub(crate) local_subnets_bind: Vec<NetAddress>,
     #[cfg(feature = "multinode")]
-    pub(crate) multinode_inbound:  Vec<(nm::ProtocolName, DefAddr, nm::Options)>,
+    pub(crate) multinode_inbound:  Vec<(Vec<nm::ProtocolName>, DefAddr, nm::Options)>,
     #[cfg(feature = "multinode")]
-    pub(crate) multinode_outbound: Vec<(nm::ProtocolName, DefAddr, nm::Options)>,
+    pub(crate) multinode_outbound: Vec<(Vec<nm::ProtocolName>, DefAddr, nm::Options)>,
 }
 
 pub(crate) async fn run(
@@ -110,19 +110,19 @@ pub(crate) async fn run(
                 .wrap_err("nm::RegisterLocalSubnet")?;
         }
 
-        for (protocol_name, bind_address, options) in multinode_inbound {
+        for (protocol_names, bind_address, options) in multinode_inbound {
             use mm1_proto_network_management::iface;
 
             info!(
-                "adding inbound multinode-interface: {} @ {}",
-                protocol_name, bind_address
+                "adding inbound multinode-interface: {:?} @ {}",
+                protocol_names, bind_address
             );
 
             type Ret = iface::BindResponse;
             let () = match bind_address {
                 DefAddr::Tcp(bind_address) => {
                     let request = iface::BindRequest {
-                        protocol_name,
+                        protocol_names,
                         bind_address,
                         options,
                     };
@@ -135,7 +135,7 @@ pub(crate) async fn run(
                 },
                 DefAddr::Uds(bind_address) => {
                     let request = iface::BindRequest {
-                        protocol_name,
+                        protocol_names,
                         bind_address,
                         options,
                     };
@@ -155,7 +155,7 @@ pub(crate) async fn run(
             use mm1_proto_network_management::iface;
 
             info!(
-                "adding outbound multinode-interface: {} @ {}",
+                "adding outbound multinode-interface: {:?} @ {}",
                 protocol_name, dst_address
             );
 
@@ -163,7 +163,7 @@ pub(crate) async fn run(
             let () = match dst_address {
                 DefAddr::Tcp(dst_address) => {
                     let request = iface::ConnectRequest {
-                        protocol_name,
+                        protocol_names: protocol_name,
                         dst_address,
                         options,
                     };
@@ -176,7 +176,7 @@ pub(crate) async fn run(
                 },
                 DefAddr::Uds(dst_address) => {
                     let request = iface::ConnectRequest {
-                        protocol_name,
+                        protocol_names: protocol_name,
                         dst_address,
                         options,
                     };

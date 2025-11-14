@@ -89,7 +89,7 @@ mod multinode {
     impl Valid<Mm1NodeConfig> {
         pub(crate) fn multinode_inbound(
             &self,
-        ) -> impl Iterator<Item = (nm::ProtocolName, DefAddr, nm::Options)> + '_ {
+        ) -> impl Iterator<Item = (Vec<nm::ProtocolName>, DefAddr, nm::Options)> + '_ {
             self.inbound
                 .iter()
                 .map(|d| (d.proto.clone(), d.addr.clone(), d.options.clone()))
@@ -97,7 +97,7 @@ mod multinode {
 
         pub(crate) fn multinode_outbound(
             &self,
-        ) -> impl Iterator<Item = (nm::ProtocolName, DefAddr, nm::Options)> + '_ {
+        ) -> impl Iterator<Item = (Vec<nm::ProtocolName>, DefAddr, nm::Options)> + '_ {
             self.outbound
                 .iter()
                 .map(|d| (d.proto.clone(), d.addr.clone(), d.options.clone()))
@@ -112,7 +112,8 @@ mod multinode {
 
     #[derive(Debug, Clone, serde::Deserialize)]
     pub(super) struct DefMultinodeInbound {
-        proto: nm::ProtocolName,
+        #[serde(default)]
+        proto: Vec<nm::ProtocolName>,
         addr:  DefAddr,
 
         #[serde(flatten)]
@@ -122,7 +123,8 @@ mod multinode {
     #[cfg(feature = "multinode")]
     #[derive(Debug, Clone, serde::Deserialize)]
     pub(super) struct DefMultinodeOutbound {
-        proto: nm::ProtocolName,
+        #[serde(default)]
+        proto: Vec<nm::ProtocolName>,
         addr:  DefAddr,
 
         #[serde(flatten)]

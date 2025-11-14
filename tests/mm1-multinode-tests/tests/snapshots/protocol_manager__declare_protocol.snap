@@ -1,8 +1,0 @@
----
-source: tests/mm1-multinode-tests/tests/protocol-manager.rs
-expression: types
----
-[
-    "protocol_manager::proto::Hello",
-    "protocol_manager::proto::Bye",
-]

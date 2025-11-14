@@ -32,7 +32,7 @@ use tokio::net::{TcpStream, UnixStream};
 use {mm1_proto_network_management as nm, mm1_proto_system as sys};
 
 use crate::actors::context::ActorContext;
-use crate::codec::Protocol;
+use crate::codec::{self, Protocol};
 use crate::proto::{SetRoute, SubscribeToRoutesRequest, SubscribeToRoutesResponse};
 use crate::protocol_registry::ProtocolRegistry;
 use crate::route_registry::RouteRegistry;
@@ -236,6 +236,16 @@ where
                     .await
                     .wrap_err("handle_unregister_protocol")?;
             },
+            Request::<p::RegisterOpaqueMessageRequest> { header, payload } => {
+                let () = handle_register_opaque_message(ctx, state, header, payload)
+                    .await
+                    .wrap_err("handle_register_opaque_message")?;
+            },
+            Request::<p::GetMessageNameRequest> { header, payload } => {
+                let () = handle_get_message_name_request(ctx, state, header, payload)
+                    .await
+                    .wrap_err("handle_get_message_name_request")?;
+            },
             Request::<p::GetProtocolByNameRequest> { header, payload } => {
                 let () = handle_get_protocol_by_name(ctx, state, timer_api, header, payload)
                     .await
@@ -363,7 +373,7 @@ where
         move |(io, options, protocol): (
             IO,
             Arc<nm::Options>,
-            Arc<p::ProtocolResolved<Protocol>>,
+            Arc<[p::ProtocolResolved<Protocol>]>,
         )| {
             local::boxed_from_fn((
                 crate::actors::iostream_connection::run,
@@ -397,10 +407,14 @@ where
     Ctx: ActorContext,
 {
     let launcher = ActorFactoryMut::new(
-        move |(bind_addr, protocol_name, options): (Box<Path>, nm::ProtocolName, nm::Options)| {
+        move |(bind_addr, protocol_names, options): (
+            Box<Path>,
+            Vec<nm::ProtocolName>,
+            nm::Options,
+        )| {
             local::boxed_from_fn((
                 crate::actors::uds_acceptor::run,
-                (connection_sup, bind_addr, protocol_name, options),
+                (connection_sup, bind_addr, protocol_names, options),
             ))
         },
     );
@@ -430,14 +444,14 @@ where
     Ctx: ActorContext,
 {
     let launcher = ActorFactoryMut::new(
-        move |(destination_addr, protocol_name, options): (
+        move |(destination_addr, protocol_names, options): (
             SocketAddr,
-            nm::ProtocolName,
+            Vec<nm::ProtocolName>,
             nm::Options,
         )| {
             local::boxed_from_fn((
                 crate::actors::tcp_connector::run,
-                (connection_sup, destination_addr, protocol_name, options),
+                (connection_sup, destination_addr, protocol_names, options),
             ))
         },
     );
@@ -467,14 +481,14 @@ where
     Ctx: ActorContext,
 {
     let launcher = ActorFactoryMut::new(
-        move |(destination_addr, protocol_name, options): (
+        move |(destination_addr, protocol_names, options): (
             Box<Path>,
-            nm::ProtocolName,
+            Vec<nm::ProtocolName>,
             nm::Options,
         )| {
             local::boxed_from_fn((
                 crate::actors::uds_connector::run,
-                (connection_sup, destination_addr, protocol_name, options),
+                (connection_sup, destination_addr, protocol_names, options),
             ))
         },
     );
@@ -504,10 +518,14 @@ where
     Ctx: ActorContext,
 {
     let launcher = ActorFactoryMut::new(
-        move |(bind_addr, protocol_name, options): (SocketAddr, nm::ProtocolName, nm::Options)| {
+        move |(bind_addr, protocol_names, options): (
+            SocketAddr,
+            Vec<nm::ProtocolName>,
+            nm::Options,
+        )| {
             local::boxed_from_fn((
                 crate::actors::tcp_acceptor::run,
-                (connection_sup, bind_addr, protocol_name, options),
+                (connection_sup, bind_addr, protocol_names, options),
             ))
         },
     );
@@ -527,6 +545,46 @@ where
         .wrap_err("ctx.start")?;
 
     Ok(acceptor_sup)
+}
+
+async fn handle_register_opaque_message<Ctx>(
+    ctx: &mut Ctx,
+    state: &mut State,
+    reply_to: RequestHeader,
+    payload: p::RegisterOpaqueMessageRequest,
+) -> Result<(), AnyError>
+where
+    Ctx: ActorContext,
+{
+    let p::RegisterOpaqueMessageRequest { name } = payload;
+    let State {
+        protocol_registry, ..
+    } = state;
+    let key = protocol_registry.register_message(codec::Opaque(name).into());
+    let response = p::RegisterOpaqueMessageResponse { key };
+    ctx.reply(reply_to, response).await.ok();
+
+    Ok(())
+}
+
+async fn handle_get_message_name_request<Ctx>(
+    ctx: &mut Ctx,
+    state: &mut State,
+    reply_to: RequestHeader,
+    payload: p::GetMessageNameRequest,
+) -> Result<(), AnyError>
+where
+    Ctx: ActorContext,
+{
+    let p::GetMessageNameRequest { key } = payload;
+    let State {
+        protocol_registry, ..
+    } = state;
+    let name = protocol_registry.message_name_by_key(key);
+    let response = p::GetMessageNameResponse { name };
+    ctx.reply(reply_to, response).await.ok();
+
+    Ok(())
 }
 
 async fn handle_register_local_subnet<Ctx>(
@@ -564,7 +622,7 @@ where
 
     let i::ConnectRequest {
         dst_address: iface_address,
-        protocol_name,
+        protocol_names,
         options,
     } = connect;
 
@@ -590,7 +648,7 @@ where
             .fork_ask::<_, uni_sup::StartResponse>(
                 *connector_sup,
                 uni_sup::StartRequest {
-                    args: (iface_address, protocol_name, options),
+                    args: (iface_address, protocol_names, options),
                 },
                 CONNECTOR_START_TIMEOUT,
             )
@@ -625,7 +683,7 @@ where
 
     let i::ConnectRequest {
         dst_address: iface_address,
-        protocol_name,
+        protocol_names,
         options,
     } = connect;
 
@@ -651,7 +709,7 @@ where
             .fork_ask::<_, uni_sup::StartResponse>(
                 *connector_sup,
                 uni_sup::StartRequest {
-                    args: (iface_address.clone(), protocol_name, options),
+                    args: (iface_address.clone(), protocol_names, options),
                 },
                 CONNECTOR_START_TIMEOUT,
             )
@@ -686,7 +744,7 @@ where
 
     let i::BindRequest {
         bind_address: iface_address,
-        protocol_name,
+        protocol_names,
         options,
     } = bind;
 
@@ -712,7 +770,7 @@ where
             .fork_ask::<_, uni_sup::StartResponse>(
                 *acceptor_sup,
                 uni_sup::StartRequest {
-                    args: (iface_address, protocol_name, options),
+                    args: (iface_address, protocol_names, options),
                 },
                 ACCEPTOR_START_TIMEOUT,
             )
@@ -748,7 +806,7 @@ where
 
     let i::BindRequest {
         bind_address: iface_address,
-        protocol_name,
+        protocol_names,
         options,
     } = bind;
 
@@ -774,7 +832,7 @@ where
             .fork_ask::<_, uni_sup::StartResponse>(
                 *acceptor_sup,
                 uni_sup::StartRequest {
-                    args: (iface_address.clone(), protocol_name, options),
+                    args: (iface_address.clone(), protocol_names, options),
                 },
                 ACCEPTOR_START_TIMEOUT,
             )

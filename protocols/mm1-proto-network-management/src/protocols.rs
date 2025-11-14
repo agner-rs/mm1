@@ -7,8 +7,6 @@ use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::impl_error_kind;
 use mm1_proto::message;
 
-use crate::MessageName;
-
 slotmap::new_key_type! {
     pub struct LocalTypeKey;
     pub struct ForeignTypeKey;
@@ -17,6 +15,18 @@ slotmap::new_key_type! {
 #[derive(Debug)]
 #[message(base_path = ::mm1_proto)]
 pub struct RegisterOpaqueMessageRequest {
+    pub name: crate::MessageName,
+}
+
+#[derive(Debug)]
+#[message(base_path = ::mm1_proto)]
+pub struct GetMessageNameRequest {
+    pub key: LocalTypeKey,
+}
+
+#[derive(Debug)]
+#[message(base_path = ::mm1_proto)]
+pub struct GetMessageNameResponse {
     pub name: crate::MessageName,
 }
 
@@ -95,8 +105,8 @@ pub struct ProtocolResolved<P> {
     #[serde(skip)]
     pub protocol: Arc<P>,
 
-    pub outbound: Vec<(MessageName, LocalTypeKey)>,
-    pub inbound:  Vec<(MessageName, LocalTypeKey)>,
+    pub outbound: Vec<(crate::MessageName, LocalTypeKey)>,
+    pub inbound:  Vec<(crate::MessageName, LocalTypeKey)>,
 }
 
 pub type GetProtocolByNameResponse<P> =

@@ -14,10 +14,15 @@ use mm1_proto::message;
 use mm1_proto_network_management as nm;
 use mm1_proto_network_management::protocols as p;
 use mm1_timer::v1::OneshotTimer;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 
 mod config;
 mod hello;
+mod iostream_read_loop;
+mod iostream_util;
+mod iostream_write;
+mod mn_mgr;
+mod multiple_protocols;
 mod pdu;
 
 use crate::actors::context::ActorContext;
@@ -32,7 +37,7 @@ pub async fn run<Ctx, IO>(
     multinode_manager: Address,
     mut io: IO,
     options: Arc<nm::Options>,
-    protocol_resolved: Arc<p::ProtocolResolved<Protocol>>,
+    protocols_resolved: Arc<[p::ProtocolResolved<Protocol>]>,
 ) -> Result<Never, AnyError>
 where
     Ctx: ActorContext,
@@ -54,22 +59,16 @@ where
         protocol,
         outbound,
         inbound,
-    } = protocol_resolved.as_ref();
+    } = multiple_protocols::reduce(&protocols_resolved).wrap_err("multiple_protocols::reduce")?;
 
     let hello::HandshakeDone {} = hello::run(&mut io, &options).await.wrap_err("hello::run")?;
 
-    let proto::SubscribeToRoutesResponse { routes } = ctx
-        .fork_ask::<_, proto::SubscribeToRoutesResponse>(
-            multinode_manager,
-            proto::SubscribeToRoutesRequest {
-                deliver_to: ctx.address(),
-            },
-            Duration::from_secs(5),
-        )
+    let routes = mn_mgr::subscribe_to_routes(ctx, multinode_manager, ctx.address())
         .await
-        .wrap_err("ctx.fork_ask::<proto::SubscribeToRoutes>")?;
+        .wrap_err("mn_mgr::subscribe_to_routes")?;
 
-    let (io_reader, mut io_writer) = tokio::io::split(io);
+    let (io_reader, io_writer) = tokio::io::split(io);
+
     let inbound_by_name: HashMap<nm::MessageName, p::LocalTypeKey> =
         inbound.iter().cloned().collect();
 
@@ -96,58 +95,63 @@ where
         })
         .collect();
 
+    let mut output_writer = iostream_write::OutputWriter::new(
+        ctx.fork().await.wrap_err("ctx.fork (for WriteContext)")?,
+        io_writer,
+        multinode_manager,
+        outbound_by_type_id,
+    );
+
     io_reader_ctx
-        .run(move |c| io_read_loop(c, io_reader, conn_address))
+        .run(move |c| iostream_read_loop::run(c, io_reader, conn_address))
         .await;
 
-    let () = declare_outbound_types(&mut io_writer, outbound.as_ref()).await?;
+    for (name, key) in outbound.iter() {
+        output_writer
+            .write_delcare_type(*key, name.clone())
+            .await
+            .wrap_err("output_writer.write_declare_type")?;
+    }
 
     let mut route_registry = RouteRegistry::default();
-    let () = handle_set_routes(&mut io_writer, &mut route_registry, gw_address, &routes)
+    let () = handle_set_routes(&mut output_writer, &mut route_registry, gw_address, &routes)
         .await
         .wrap_err("handle_set_routes (on init)")?;
 
-    let local_subnets: p::GetLocalSubnetsResponse = ctx
-        .fork_ask(
-            multinode_manager,
-            p::GetLocalSubnetsRequest,
-            Duration::from_secs(1),
-        )
+    let local_subnets = mn_mgr::get_local_subnets(ctx, multinode_manager)
         .await
-        .wrap_err("ctx.fork_ask")?;
+        .wrap_err("mn_gr::get_local_subnets")?;
 
     event_loop(
         ctx,
         &mut gw_ctx,
-        io_writer,
+        &mut output_writer,
         &mut timer_api,
         &mut route_registry,
         multinode_manager,
         gw_address,
         &inbound_by_name,
         &inbound_by_lkey,
-        &outbound_by_type_id,
         &local_subnets.into_iter().map(From::from).collect(),
     )
     .await
     .wrap_err("event_loop")
 }
 
-#[message(base_path= ::mm1_proto)]
+#[message(base_path = ::mm1_proto)]
 struct KeepAliveTick;
 
 #[allow(clippy::too_many_arguments)]
 async fn event_loop<Ctx, W>(
     ctx: &mut Ctx,
     gw_ctx: &mut Ctx,
-    mut io: W,
+    output_writer: &mut iostream_write::OutputWriter<Ctx, W>,
     timer_api: &mut OneshotTimer<Ctx>,
     route_registry: &mut RouteRegistry,
     multinode_manager: Address,
     gw: Address,
     inbound_by_name: &HashMap<nm::MessageName, p::LocalTypeKey>,
     inbound_by_lkey: &HashMap<p::LocalTypeKey, ErasedCodec>,
-    outbound_by_type_id: &HashMap<TypeId, (p::LocalTypeKey, ErasedCodec)>,
     local_subnets: &BTreeSet<AddressRange>,
 ) -> Result<Never, AnyError>
 where
@@ -168,9 +172,9 @@ where
         tokio::select! {
             recv_result = to_connection => {
                 let inbound = recv_result.wrap_err("ctx.recv")?;
-                let () = handle_inbound(
+                let () = handle_connection_actor_message(
                     ctx,
-                    &mut io,
+                    output_writer,
                     timer_api,
                     route_registry,
                     multinode_manager,
@@ -186,75 +190,46 @@ where
             recv_result = to_gw => {
                 let to_forward = recv_result.wrap_err("ctx.recv")?;
 
-                let () = handle_forward(ctx, &mut io, outbound_by_type_id, to_forward).await.wrap_err("handle_forward")?;
+                let () = handle_forward_actor_message(ctx, output_writer, to_forward).await.wrap_err("handle_forward")?;
             }
         }
     }
 }
 
-async fn handle_forward<Ctx, W>(
+async fn handle_forward_actor_message<Ctx, W>(
     _ctx: &mut Ctx,
-    mut io: W,
-    outbound_by_type_id: &HashMap<TypeId, (p::LocalTypeKey, ErasedCodec)>,
+    output_writer: &mut iostream_write::OutputWriter<Ctx, W>,
     to_forward: Envelope,
 ) -> Result<(), AnyError>
 where
+    Ctx: ActorContext,
     W: AsyncWrite + Unpin,
 {
-    let dst_address = to_forward.header().to;
-    // FIXME: other Header information is erased here
+    let (message, empty_envelope) = to_forward.take();
+    let envelope_header = empty_envelope.header();
 
-    let (message_type, body) = match to_forward.cast::<proto::Forward>() {
+    match message.cast::<proto::Forward>() {
         Ok(to_forward) => {
-            let (
-                proto::Forward {
-                    local_type_key,
-                    body,
-                },
-                _,
-            ) = to_forward.take();
-            (local_type_key, body)
+            output_writer
+                .write_opaque_message(envelope_header, to_forward)
+                .await
+                .wrap_err("output_writer.write_opaque_message")?
         },
         Err(to_forward) => {
-            let tid = to_forward.tid();
-            let &(message_type, ref codec) = outbound_by_type_id
-                .get(&tid)
-                .ok_or_else(|| eyre::format_err!("no codec for {}", to_forward.message_name()))?;
-
-            let (message, _empty_envelope) = to_forward.take();
-
-            let mut buf: Vec<u8> = vec![];
-            codec.encode(&message, &mut buf).wrap_err("codec::encode")?;
-
-            (message_type, buf.into_boxed_slice())
+            output_writer
+                .write_known_message(envelope_header, to_forward)
+                .await
+                .wrap_err("output_writer.write_known_message")?;
         },
     };
-
-    let payload_size = body.len().try_into().wrap_err("message too large")?;
-
-    let header = pdu::TransmitMessage {
-        dst_address,
-        message_type,
-        payload_size,
-    };
-
-    trace!("writing header: {:?}", header);
-    let () = util::write_header(&mut io, header)
-        .await
-        .wrap_err("util::write_header (TransmitMessage)")?;
-
-    trace!("writing body [{} bytes]", body.len());
-    let () = io.write_all(&body).await.wrap_err("write body")?;
-
-    io.flush().await.wrap_err("io.flush")?;
 
     Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn handle_inbound<Ctx, W>(
+async fn handle_connection_actor_message<Ctx, W>(
     ctx: &mut Ctx,
-    io: W,
+    output_writer: &mut iostream_write::OutputWriter<Ctx, W>,
     timer_api: &mut OneshotTimer<Ctx>,
     route_registry: &mut RouteRegistry,
     multinode_manager: Address,
@@ -271,19 +246,17 @@ where
 {
     use std::collections::hash_map::Entry::*;
 
-    let mut io = pin!(io);
-
-    use read_loop_proto as rl;
+    use iostream_read_loop as rl;
     dispatch!(match inbound {
         KeepAliveTick => {
-            util::write_header(&mut io, pdu::Header::KeepAlive)
+            output_writer
+                .write_keep_alive()
                 .await
-                .wrap_err("util::write_header")?;
+                .wrap_err("output_writer.write_keep_alive")?;
             timer_api
                 .schedule_once_after(KEEP_ALIVE_INTERVAL, KeepAliveTick)
                 .await
                 .wrap_err("timer_api.schedule_once_after")?;
-            io.flush().await.wrap_err("io.flush")?;
         },
 
         rl::DeclareType {
@@ -303,13 +276,11 @@ where
                 );
                 entry.insert(local_type_key);
             } else {
-                let request = p::RegisterOpaqueMessageRequest { name: name.clone() };
-                let p::RegisterOpaqueMessageResponse {
-                    key: local_type_key,
-                } = ctx
-                    .fork_ask(multinode_manager, request, Duration::from_secs(1))
-                    .await
-                    .wrap_err("ctx.fork_ask")?;
+                let local_type_key =
+                    mn_mgr::register_opaque_message(ctx, multinode_manager, name.clone())
+                        .await
+                        .wrap_err("mn_mgr::register_opaque_message")?;
+
                 debug!(
                     "declared opaque type [f-key: {:?}; l-key: {:?}; name: {}]",
                     foreign_type_key, local_type_key, name
@@ -371,7 +342,7 @@ where
         },
 
         set_route @ proto::SetRoute { .. } => {
-            let () = handle_set_routes(&mut io, route_registry, gw, &[set_route])
+            let () = handle_set_routes(output_writer, route_registry, gw, &[set_route])
                 .await
                 .wrap_err("handle_set_route")?;
         },
@@ -384,13 +355,14 @@ where
     Ok(())
 }
 
-async fn handle_set_routes<W>(
-    mut io: W,
+async fn handle_set_routes<Ctx, W>(
+    output_writer: &mut iostream_write::OutputWriter<Ctx, W>,
     route_registry: &mut RouteRegistry,
     own_gw: Address,
     routes: &[SetRoute],
 ) -> Result<(), AnyError>
 where
+    Ctx: ActorContext,
     W: AsyncWrite + Unpin,
 {
     for set_route in routes.iter() {
@@ -418,227 +390,16 @@ where
             message, destination, metric_before, metric_after, via, own_gw
         );
 
-        if metric_after != metric_before {
-            let () = announce_route_to_peer(&mut io, set_route, own_gw)
+        if metric_after != metric_before && via.is_none_or(|gw| gw != own_gw) {
+            trace!(
+                "reporting to peer [msg: {:?}, dst: {}, metric: {:?}]",
+                message, destination, metric
+            );
+            output_writer
+                .write_subnet_distance(set_route)
                 .await
-                .wrap_err("write_own_route")?;
+                .wrap_err("output_writer.write_subnet_distance")?;
         }
     }
     Ok(())
-}
-
-async fn io_read_loop<Ctx, R>(mut ctx: Ctx, io: R, report_to: Address) -> Result<Never, AnyError>
-where
-    Ctx: ActorContext,
-    R: AsyncRead,
-{
-    use pdu::Header::*;
-    use read_loop_proto as rl;
-
-    let mut io = pin!(io);
-
-    loop {
-        let header = util::read_header(&mut io).await.wrap_err("read_header")?;
-        match header {
-            Hello(_unexpected_hello) => return Err(eyre::format_err!("unexpected hello")),
-
-            KeepAlive => {},
-
-            DeclareType(declare_type) => {
-                let pdu::DeclareType {
-                    message_type,
-                    type_name_len,
-                } = declare_type;
-                let mut buf = vec![0u8; type_name_len as usize];
-                io.read_exact(&mut buf[..]).await.wrap_err("read body")?;
-                let type_name = String::from_utf8(buf).wrap_err("non UTF-8 name")?;
-                info!(
-                    "type declared [f-key: {:?}; name: {}]",
-                    declare_type.message_type, type_name
-                );
-
-                let message = rl::DeclareType {
-                    foreign_type_key: message_type,
-                    name:             type_name.into(),
-                };
-                ctx.tell(report_to, message).await.wrap_err("ctx.tell")?;
-            },
-            SubnetDistance(subnet_distance) => {
-                let pdu::SubnetDistance {
-                    net_address,
-                    type_handle,
-                    metric,
-                } = subnet_distance;
-                info!(
-                    "foreign subnet [net: {}; f-key: {:?}; metric: {:?}]",
-                    net_address, type_handle, metric
-                );
-
-                let message = rl::SubnetDistance {
-                    net_address,
-                    type_handle,
-                    metric,
-                };
-                ctx.tell(report_to, message).await.wrap_err("ctx.tell")?;
-            },
-
-            TransmitMessage(transmit_message) => {
-                let pdu::TransmitMessage {
-                    dst_address,
-                    message_type,
-                    payload_size,
-                } = transmit_message;
-                let mut buf = vec![0u8; payload_size as usize].into_boxed_slice();
-                let _ = io
-                    .read_exact(&mut buf[..])
-                    .await
-                    .wrap_err("io.read_exact (read body)")?;
-
-                let message = rl::ReceivedMessage {
-                    dst_address,
-                    foreign_type_key: message_type,
-                    body: buf,
-                };
-                ctx.tell(report_to, message).await.wrap_err("ctx.tell")?;
-            },
-        }
-    }
-}
-
-async fn declare_outbound_types<W>(
-    io: W,
-    outbound: &[(nm::MessageName, p::LocalTypeKey)],
-) -> Result<(), AnyError>
-where
-    W: AsyncWrite + Unpin,
-{
-    let mut io = pin!(io);
-    for (type_name, message_type) in outbound {
-        let type_name = type_name.as_bytes();
-        let message_type = *message_type;
-        let header = pdu::DeclareType {
-            message_type,
-            type_name_len: type_name.len().try_into().wrap_err("type-name too long")?,
-        };
-        util::write_header(&mut io, header)
-            .await
-            .wrap_err("write_header")?;
-        io.write_all(type_name).await.wrap_err("write body")?;
-        io.flush().await.wrap_err("io.flush")?;
-    }
-    Ok(())
-}
-
-async fn announce_route_to_peer<W>(
-    mut io: W,
-    set_route: &SetRoute,
-    own_gw: Address,
-) -> Result<(), AnyError>
-where
-    W: AsyncWrite + Unpin,
-{
-    let SetRoute {
-        message,
-        destination,
-        via,
-        metric,
-    } = set_route;
-
-    if via.is_none_or(|gw| gw != own_gw) {
-        trace!(
-            "reporting to peer [msg: {:?}, dst: {}, metric: {:?}]",
-            message, destination, metric
-        );
-        let header = pdu::SubnetDistance {
-            net_address: *destination,
-            type_handle: *message,
-            metric:      *metric,
-        };
-        util::write_header(&mut io, header)
-            .await
-            .wrap_err("write_header")?;
-        io.flush().await.wrap_err("io.flush")?;
-    } else {
-        trace!(
-            "not reporting to peer the route going via own gw: {:?}",
-            (message, destination, metric)
-        );
-    }
-    Ok(())
-}
-
-mod read_loop_proto {
-    use std::sync::Arc;
-
-    use mm1_address::address::Address;
-    use mm1_address::subnet::NetAddress;
-    use mm1_proto::message;
-    use mm1_proto_network_management::protocols::ForeignTypeKey;
-
-    use crate::common::RouteMetric;
-
-    #[message(base_path = ::mm1_proto)]
-    pub(super) struct DeclareType {
-        pub(super) foreign_type_key: ForeignTypeKey,
-        pub(super) name:             Arc<str>,
-    }
-
-    #[message(base_path = ::mm1_proto)]
-    pub(super) struct SubnetDistance {
-        pub(super) net_address: NetAddress,
-        pub(super) type_handle: ForeignTypeKey,
-        pub(super) metric:      Option<RouteMetric>,
-    }
-
-    #[message(base_path = ::mm1_proto)]
-    pub(super) struct ReceivedMessage {
-        pub(super) dst_address:      Address,
-        pub(super) foreign_type_key: ForeignTypeKey,
-        pub(super) body:             Box<[u8]>,
-    }
-}
-
-mod util {
-    use std::pin::pin;
-
-    use eyre::Context;
-    use mm1_common::types::AnyError;
-    use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-
-    use super::pdu::Header;
-    use crate::actors::iostream_connection::pdu::{
-        ForeignTypeKey, HEADER_FRAME_SIZE, LocalTypeKey,
-    };
-
-    pub(crate) async fn read_header<R>(io: R) -> Result<Header<ForeignTypeKey>, AnyError>
-    where
-        R: Unpin + AsyncRead,
-    {
-        let mut io = pin!(io);
-        let mut buf = [0u8; HEADER_FRAME_SIZE];
-
-        io.read_exact(&mut buf).await.wrap_err("io.read_exact")?;
-        let (header, _): (Header<ForeignTypeKey>, _) =
-            bincode::serde::decode_from_slice(&buf, bincode::config::standard())
-                .wrap_err("bincode::serde::decode::<Header>")?;
-        Ok(header)
-    }
-
-    pub(crate) async fn write_header<W>(
-        io: W,
-        header: impl Into<Header<LocalTypeKey>>,
-    ) -> Result<(), AnyError>
-    where
-        W: AsyncWrite,
-    {
-        let mut io = pin!(io);
-        let mut buf = [0u8; HEADER_FRAME_SIZE];
-        let header = header.into();
-
-        bincode::serde::encode_into_slice(header, &mut buf[..], bincode::config::standard())
-            .wrap_err("bincode::serde::encode::<Header>")?;
-        io.write_all(&buf[..]).await.wrap_err("io.write_all")?;
-
-        Ok(())
-    }
 }

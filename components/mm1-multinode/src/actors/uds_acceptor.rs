@@ -24,7 +24,7 @@ pub async fn run<Ctx>(
     ctx: &mut Ctx,
     connection_sup: Address,
     bind_addr: Box<Path>,
-    protocol_name: nm::ProtocolName,
+    protocol_names: Vec<nm::ProtocolName>,
     options: nm::Options,
 ) -> Result<Never, AnyError>
 where
@@ -32,9 +32,13 @@ where
 {
     ctx.init_done(ctx.address()).await;
 
-    let protocol = wait_for_protocol(ctx, protocol_name)
-        .await
-        .wrap_err("wait_for_protocol")?;
+    let mut protocols = vec![];
+    for protocol_name in protocol_names {
+        let protocol = wait_for_protocol(ctx, protocol_name)
+            .await
+            .wrap_err("wait_for_protocol")?;
+        protocols.push(protocol);
+    }
     let uds_listener = UnixListener::bind(bind_addr).wrap_err("UnixListener::bind")?;
 
     event_loop(
@@ -42,7 +46,7 @@ where
         connection_sup,
         &uds_listener,
         Arc::new(options),
-        protocol,
+        protocols.into_boxed_slice().into(),
     )
     .await
 }
@@ -75,12 +79,11 @@ async fn event_loop<Ctx>(
     connection_sup: Address,
     uds_listener: &UnixListener,
     options: Arc<nm::Options>,
-    protocol: ProtocolResolved<Protocol>,
+    protocols: Arc<[ProtocolResolved<Protocol>]>,
 ) -> Result<Never, AnyError>
 where
     Ctx: ActorContext,
 {
-    let protocol = Arc::new(protocol);
     loop {
         let accepted = uds_listener.accept();
         let received = ctx.recv();
@@ -88,7 +91,7 @@ where
         tokio::select! {
             accept_result = accepted => {
                 let (uds_stream, peer_addr) = accept_result.wrap_err("uds_listener.accept")?;
-                handle_accepted(ctx, connection_sup, options.clone(), protocol.clone(), uds_stream, peer_addr).await.wrap_err("handle_accepted")?;
+                handle_accepted(ctx, connection_sup, options.clone(), protocols.clone(), uds_stream, peer_addr).await.wrap_err("handle_accepted")?;
             },
             recv_result = received => {
                 let envelope = recv_result.wrap_err("ctx.recv")?;
@@ -102,7 +105,7 @@ async fn handle_accepted<Ctx>(
     ctx: &mut Ctx,
     connection_sup: Address,
     options: Arc<nm::Options>,
-    protocol: Arc<ProtocolResolved<Protocol>>,
+    protocols: Arc<[ProtocolResolved<Protocol>]>,
     uds_stream: UnixStream,
     peer_addr: SocketAddr,
 ) -> Result<(), AnyError>
@@ -119,7 +122,7 @@ where
         .fork_ask::<_, uni_sup::StartResponse>(
             connection_sup,
             uni_sup::StartRequest {
-                args: (uds_stream, options, protocol),
+                args: (uds_stream, options, protocols),
             },
             CONNECTION_START_TIMEOUT,
         )

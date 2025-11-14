@@ -27,7 +27,7 @@ pub async fn run<Ctx>(
     ctx: &mut Ctx,
     connection_sup: Address,
     dst_addr: SocketAddr,
-    protocol_name: nm::ProtocolName,
+    protocol_names: Vec<nm::ProtocolName>,
     options: nm::Options,
 ) -> Result<Never, AnyError>
 where
@@ -39,9 +39,13 @@ where
         .await
         .wrap_err("OneshotTimer::create")?;
 
-    let protocol = wait_for_protocol(ctx, protocol_name)
-        .await
-        .wrap_err("wait_for_protocol")?;
+    let mut protocols = vec![];
+    for protocol_name in protocol_names {
+        let protocol = wait_for_protocol(ctx, protocol_name)
+            .await
+            .wrap_err("wait_for_protocol")?;
+        protocols.push(protocol);
+    }
 
     ctx.tell(ctx.address(), Connect)
         .await
@@ -52,7 +56,7 @@ where
         connection_sup,
         dst_addr,
         Arc::new(options),
-        protocol,
+        protocols.into_boxed_slice().into(),
     )
     .await
 }
@@ -63,12 +67,11 @@ async fn event_loop<Ctx>(
     connection_sup: Address,
     dst_addr: SocketAddr,
     options: Arc<nm::Options>,
-    protocol: ProtocolResolved<Protocol>,
+    protocols: Arc<[ProtocolResolved<Protocol>]>,
 ) -> Result<Never, AnyError>
 where
     Ctx: ActorContext,
 {
-    let protocol = Arc::new(protocol);
     loop {
         let envelope = ctx.recv().await.wrap_err("ctx.recv")?;
         dispatch!(match envelope {
@@ -79,7 +82,7 @@ where
                     connection_sup,
                     dst_addr,
                     options.clone(),
-                    protocol.clone()
+                    protocols.clone()
                 )
                 .await
                 .wrap_err("handle_connect")?,
@@ -110,7 +113,7 @@ async fn handle_connect<Ctx>(
     connection_sup: Address,
     dst_addr: SocketAddr,
     options: Arc<nm::Options>,
-    protocol: Arc<ProtocolResolved<Protocol>>,
+    protocols: Arc<[ProtocolResolved<Protocol>]>,
 ) -> Result<(), AnyError>
 where
     Ctx: ActorContext,
@@ -133,7 +136,7 @@ where
         .fork_ask::<_, uni_sup::StartResponse>(
             connection_sup,
             uni_sup::StartRequest {
-                args: (tcp_stream, options, protocol),
+                args: (tcp_stream, options, protocols),
             },
             CONNECTION_START_TIMEOUT,
         )

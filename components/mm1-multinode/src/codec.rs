@@ -54,12 +54,19 @@ impl Protocol {
         Known<T>: ErasedCodecApi,
         T: Message,
     {
+        let codec = Known::<T>::new();
+        let erased_codec: Arc<dyn ErasedCodecApi> = Arc::new(codec);
+
+        self.tmp_add_any_codec_really(erased_codec)
+    }
+}
+
+impl Protocol {
+    fn tmp_add_any_codec_really(&mut self, erased_codec: Arc<dyn ErasedCodecApi>) -> &mut Self {
         use std::collections::hash_map::Entry::*;
 
-        let codec = Known::<T>::new();
-
-        let type_id_opt = codec.tid();
-        let type_name = codec.name();
+        let type_id_opt = erased_codec.tid();
+        let type_name = erased_codec.name();
 
         let Vacant(by_type_name) = self.by_type_name.entry(type_name.clone()) else {
             return self
@@ -76,7 +83,7 @@ impl Protocol {
             None
         };
 
-        let key = self.codecs.insert(Arc::new(codec));
+        let key = self.codecs.insert(erased_codec);
 
         by_type_name.insert(key);
         if let Some(by_type_id) = by_type_id_opt {
@@ -85,14 +92,24 @@ impl Protocol {
 
         self
     }
-}
 
-impl Protocol {
-    pub fn outbound_types(&self) -> impl Iterator<Item = ErasedCodec> + use<'_> {
+    pub(crate) fn add_outbound_codec(&mut self, codec: ErasedCodec) -> Result<(), AnyError> {
+        let ErasedCodec(erased_codec) = codec;
+        self.tmp_add_any_codec_really(erased_codec);
+        Ok(())
+    }
+
+    pub(crate) fn add_inbound_codec(&mut self, codec: ErasedCodec) -> Result<(), AnyError> {
+        let ErasedCodec(erased_codec) = codec;
+        self.tmp_add_any_codec_really(erased_codec);
+        Ok(())
+    }
+
+    pub(crate) fn outbound_types(&self) -> impl Iterator<Item = ErasedCodec> + use<'_> {
         self.codecs.iter().map(|(_, c)| ErasedCodec(c.clone()))
     }
 
-    pub fn inbound_types(&self) -> impl Iterator<Item = ErasedCodec> + use<'_> {
+    pub(crate) fn inbound_types(&self) -> impl Iterator<Item = ErasedCodec> + use<'_> {
         self.codecs.iter().map(|(_, c)| ErasedCodec(c.clone()))
     }
 }

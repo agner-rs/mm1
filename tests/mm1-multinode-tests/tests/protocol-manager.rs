@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use eyre::Context;
 use futures::FutureExt;
-use insta::{assert_debug_snapshot, assert_yaml_snapshot};
+use insta::assert_yaml_snapshot;
 use mm1::ask::Ask;
 use mm1::common::error::AnyError;
 use mm1::core::context::Fork;
@@ -12,29 +12,6 @@ use mm1::runnable::local;
 use mm1_proto_network_management::protocols;
 use mm1_proto_well_known::MULTINODE_MANAGER;
 use tokio::sync::oneshot;
-
-mod proto {
-    use mm1::proto::message;
-
-    #[message]
-    pub struct Hello;
-
-    #[message]
-    pub struct Bye;
-}
-
-#[test]
-fn declare_protocol() {
-    let protocol = Protocol::new()
-        .with_type::<proto::Hello>()
-        .with_type::<proto::Bye>();
-
-    let types = protocol
-        .outbound_types()
-        .map(|c| c.name())
-        .collect::<Vec<_>>();
-    assert_debug_snapshot!(types);
-}
 
 #[test]
 fn mixed_test() {

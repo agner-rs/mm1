@@ -88,6 +88,10 @@ impl ProtocolRegistry {
         self.codec_by_type_id.get(&tid).copied()
     }
 
+    pub(super) fn message_name_by_key(&self, key: LocalTypeKey) -> nm::MessageName {
+        self.codecs[key].codec.name()
+    }
+
     pub(super) fn register_message(&mut self, codec: ErasedCodec) -> LocalTypeKey {
         let Self {
             codecs,
