@@ -21,6 +21,7 @@ mm1-proto-well-known.workspace = true
 dotenv = "0.15"
 eyre.workspace = true
 futures.workspace = true
+humantime.workspace = true
 insta = {workspace = true, features = ["yaml"]}
 serde = {workspace = true, features = ["derive"]}
 serde_json.workspace = true
