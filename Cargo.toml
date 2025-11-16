@@ -14,7 +14,7 @@ publish.workspace = true
 default = ["ask", "runtime", "sup", "timer", "multinode"]
 
 ask = ["dep:mm1-ask", "dep:mm1-proto-ask"]
-multinode = ["mm1-node/multinode", "dep:mm1-multinode"]
+multinode = ["mm1-node/multinode", "dep:mm1-multinode", "dep:mm1-proto-network-management", "dep:mm1-proto-well-known"]
 runtime = ["dep:mm1-node"]
 sup = ["dep:mm1-sup", "dep:mm1-proto-sup"]
 test-util = ["dep:mm1-test-rt"]
@@ -29,8 +29,10 @@ mm1-multinode = { workspace = true, optional = true }
 mm1-node = { workspace = true, optional = true }
 mm1-proto = { workspace = true }
 mm1-proto-ask = { workspace = true, optional = true }
+mm1-proto-network-management = {workspace = true, optional = true}
 mm1-proto-system = { workspace = true }
 mm1-proto-sup = { workspace = true, optional = true }
+mm1-proto-well-known = {workspace = true, optional = true}
 mm1-runnable = { workspace = true }
 mm1-sup = { workspace = true, optional = true }
 mm1-test-rt = { workspace = true, optional = true }
@@ -119,6 +121,7 @@ slotmap = "^1.0"
 smallvec = "^1.15"
 static_assertions = "^1.1.0"
 structopt = "^0.3"
+tempfile = "^3.23"
 test-case = "^3.3.1"
 thiserror = "^2.0"
 tokio = "^1.48.0"

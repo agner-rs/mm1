@@ -240,7 +240,14 @@ pub mod timer {
 
 #[cfg(feature = "multinode")]
 pub mod multinode {
+    pub mod proto {
+        pub use mm1_proto_network_management::protocols::{
+            RegisterProtocolRequest, RegisterProtocolResponse,
+        };
+    }
+
     pub use mm1_multinode::codec::Protocol;
+    pub use mm1_proto_well_known::MULTINODE_MANAGER;
 }
 
 // #[cfg(feature = "multinode")]

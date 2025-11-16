@@ -26,5 +26,6 @@ insta = {workspace = true, features = ["yaml"]}
 serde = {workspace = true, features = ["derive"]}
 serde_json.workspace = true
 structopt.workspace = true
+tempfile.workspace = true
 tokio = {workspace = true, features = ["rt", "macros", "rt-multi-thread"]}
 url.workspace = true
