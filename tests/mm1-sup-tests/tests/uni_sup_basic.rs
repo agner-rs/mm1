@@ -75,14 +75,11 @@ fn test_01() {
         let factory = ActorFactoryMut::new(|(reply_to, duration): (Address, Duration)| {
             local::boxed_from_fn((worker, (reply_to, duration)))
         });
-        let child = ChildSpec {
-            launcher:     factory,
-            child_type:   (),
-            init_type:    InitType::WithAck {
+        let child = ChildSpec::new(factory)
+            .with_init_type(InitType::WithAck {
                 start_timeout: Duration::from_secs(1),
-            },
-            stop_timeout: Duration::from_secs(1),
-        };
+            })
+            .with_stop_timeout(Duration::from_secs(1));
         let sup = UniformSup::new(child);
         let sup_runnable = local::boxed_from_fn((uniform_sup, (sup,)));
 
@@ -193,12 +190,9 @@ async fn test_02() {
 
     info!("SUP: {}", lease_a.address);
 
-    let child_spec = ChildSpec {
-        launcher:     Factory::default(),
-        child_type:   (),
-        init_type:    InitType::NoAck,
-        stop_timeout: Duration::from_secs(1),
-    };
+    let child_spec = ChildSpec::new(Factory::default())
+        .with_init_type(InitType::NoAck)
+        .with_stop_timeout(Duration::from_secs(1));
     let uniform_sup = UniformSup::new(child_spec);
     let rt = mm1::test::rt::TestRuntime::<Runnable<&'static str>>::new()
         .with_actor(

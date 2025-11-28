@@ -1,21 +1,20 @@
-// use mm1_address::address::Address;
-// use mm1_proto::message;
-// use mm1_proto_system::{StartErrorKind, StopErrorKind};
+use mm1_address::address::Address;
+use mm1_common::errors::error_of::ErrorOf;
+use mm1_common::impl_error_kind;
+use mm1_proto::message;
 
-// #[derive(Debug)]
-// #[message(base_path = ::mm1_proto)]
-// pub struct StartRequest<Key> {
-//     pub reply_to: Address,
-//     pub child_id: Key,
-// }
+#[derive(Debug)]
+#[message(base_path = ::mm1_proto)]
+pub struct GetChildRequest<Key> {
+    pub child_id: Key,
+}
 
-// pub type StartResponse = Result<(), StartErrorKind>;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[message(base_path = ::mm1_proto)]
+pub enum GetChildErrorKind {
+    UnknownChild,
+}
 
-// #[derive(Debug)]
-// #[message(base_path = ::mm1_proto)]
-// pub struct StopRequest<Key> {
-//     pub reply_to: Address,
-//     pub child_id: Key,
-// }
+pub type GetChildResponse = Result<Option<Address>, ErrorOf<GetChildErrorKind>>;
 
-// pub type StopResponse = Result<(), StopErrorKind>;
+impl_error_kind!(GetChildErrorKind);

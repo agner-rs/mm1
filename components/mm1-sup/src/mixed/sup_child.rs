@@ -8,6 +8,7 @@ use mm1_core::context::{
     Fork, Linking, Messaging, Quit, ShutdownErrorKind, Start, Stop, Tell, Watching,
 };
 use mm1_proto::{Message, message};
+use mm1_proto_sup::common as sup_common;
 use mm1_proto_system::StartErrorKind;
 
 use crate::common::child_spec::{ChildSpec, InitType};
@@ -57,12 +58,24 @@ pub(crate) async fn run<K, Runnable, Ctx>(
         init_type,
         child_type: _,
         stop_timeout: _,
+        announce_parent,
     } = child_spec;
     let runnable = factory;
 
     match do_start(ctx, runnable, init_type).await {
         Ok(address) => {
             log::info!("{}[{}] started: {}", sup_address, child_id, address);
+            if announce_parent {
+                log::debug!("{}[{}] announcing parent", sup_address, child_id);
+                ctx.tell(
+                    address,
+                    sup_common::SetParent {
+                        parent: sup_address,
+                    },
+                )
+                .await
+                .ok();
+            }
             send_report(ctx, sup_address, Started { child_id, address }).await;
         },
         Err(reason) => {

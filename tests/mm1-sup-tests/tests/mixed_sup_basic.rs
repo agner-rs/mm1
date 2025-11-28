@@ -43,32 +43,26 @@ where
     }))
     .with_child(
         "w1".to_string(),
-        ChildSpec {
-            launcher:     ActorFactoryMut::new(|()| local::boxed_from_fn(w1)),
-            child_type:   ChildType::Permanent,
-            init_type:    InitType::NoAck,
-            stop_timeout: Duration::from_secs(3),
-        },
+        ChildSpec::new(ActorFactoryMut::new(|()| local::boxed_from_fn(w1)))
+            .with_child_type(ChildType::Permanent)
+            .with_init_type(InitType::NoAck)
+            .with_stop_timeout(Duration::from_secs(3)),
     )
     .with_child(
         "w2".to_string(),
-        ChildSpec {
-            launcher:     ActorFactoryMut::new(|()| local::boxed_from_fn(w2)),
-            child_type:   ChildType::Permanent,
-            init_type:    InitType::WithAck {
+        ChildSpec::new(ActorFactoryMut::new(|()| local::boxed_from_fn(w2)))
+            .with_child_type(ChildType::Permanent)
+            .with_init_type(InitType::WithAck {
                 start_timeout: Duration::from_secs(1),
-            },
-            stop_timeout: Duration::from_secs(3),
-        },
+            })
+            .with_stop_timeout(Duration::from_secs(3)),
     )
     .with_child(
         "w3".to_string(),
-        ChildSpec {
-            launcher:     ActorFactoryMut::new(|()| local::boxed_from_fn(w3)),
-            child_type:   ChildType::Permanent,
-            init_type:    InitType::NoAck,
-            stop_timeout: Duration::from_secs(3),
-        },
+        ChildSpec::new(ActorFactoryMut::new(|()| local::boxed_from_fn(w3)))
+            .with_child_type(ChildType::Permanent)
+            .with_init_type(InitType::NoAck)
+            .with_stop_timeout(Duration::from_secs(3)),
     );
 
     mixed::mixed_sup(ctx, sup)

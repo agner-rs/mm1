@@ -84,6 +84,8 @@ pub mod address {
 
 pub mod common {
 
+    /// A helper to define an error-kind enum
+    pub use mm1_common::impl_error_kind;
     /// An empty type, i.e. no instance of that type can be produced.
     pub use mm1_common::types::Never;
 

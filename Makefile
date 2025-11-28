@@ -9,6 +9,8 @@ all:
 	$(MAKE) mm1-test-rt-tests
 	$(MAKE) mm1-timer-tests
 
+fmt:
+	cargo +nightly fmt
 
 mm1-ask-tests:
 	CARGO_TARGET_DIR=target/$@ cargo clean

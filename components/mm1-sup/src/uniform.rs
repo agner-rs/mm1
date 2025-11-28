@@ -13,6 +13,7 @@ use mm1_core::context::{
 use mm1_core::envelope::dispatch;
 use mm1_proto::message;
 use mm1_proto_ask::Request;
+use mm1_proto_sup::common as sup_common;
 use mm1_proto_sup::uniform::{self as unisup};
 use mm1_proto_system::{
     StartErrorKind, StopErrorKind, {self as system},
@@ -62,6 +63,7 @@ where
         child_type: (),
         init_type,
         stop_timeout,
+        announce_parent,
     } = child_spec;
 
     ctx.set_trap_exit(true).await;
@@ -85,8 +87,14 @@ where
                     .map_err(UniformSupFailure::fork)?
                     .run(move |mut ctx| {
                         async move {
-                            let result =
-                                do_start_child(&mut ctx, sup_address, init_type, runnable).await;
+                            let result = do_start_child(
+                                &mut ctx,
+                                sup_address,
+                                init_type,
+                                announce_parent,
+                                runnable,
+                            )
+                            .await;
                             ctx.reply(reply_to, result).await.ok();
                         }
                     })
@@ -167,6 +175,7 @@ async fn do_start_child<Runnable, Ctx>(
     ctx: &mut Ctx,
     sup_address: Address,
     init_type: InitType,
+    announce_parent: bool,
     runnable: Runnable,
 ) -> unisup::StartResponse
 where
@@ -189,6 +198,17 @@ where
         },
         Ok(child) => {
             debug!("child [address: {}]", child);
+            if announce_parent {
+                debug!("child [address: {}] announcing parent", child);
+                ctx.tell(
+                    child,
+                    sup_common::SetParent {
+                        parent: sup_address,
+                    },
+                )
+                .await
+                .ok();
+            }
             let _ = ctx.tell(sup_address, ChildStarted(child)).await;
             Ok(child)
         },

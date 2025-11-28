@@ -19,6 +19,8 @@ pub trait Decider {
     fn failed(&mut self, key: &Self::Key, at: tokio::time::Instant);
     fn quit(&mut self, normal_exit: bool);
 
+    fn address(&self, key: &Self::Key) -> Result<Option<Address>, Self::Error>;
+
     fn next_action(
         &mut self,
         at: tokio::time::Instant,

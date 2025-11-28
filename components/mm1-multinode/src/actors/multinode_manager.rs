@@ -343,14 +343,11 @@ where
             (multinode_manager, net_address),
         ))
     });
-    let child_spec = ChildSpec {
-        launcher,
-        child_type: (),
-        init_type: InitType::WithAck {
+    let child_spec = ChildSpec::new(launcher)
+        .with_init_type(InitType::WithAck {
             start_timeout: Duration::from_secs(5),
-        },
-        stop_timeout: Duration::from_secs(10),
-    };
+        })
+        .with_stop_timeout(Duration::from_secs(10));
     let sup_spec = UniformSup::new(child_spec);
     let sup_runnable = local::boxed_from_fn((mm1_sup::uniform::uniform_sup, (sup_spec,)));
     let subnet_ingress_sup = ctx
@@ -381,14 +378,11 @@ where
             ))
         },
     );
-    let child_spec = ChildSpec {
-        launcher,
-        child_type: (),
-        init_type: InitType::WithAck {
+    let child_spec = ChildSpec::new(launcher)
+        .with_init_type(InitType::WithAck {
             start_timeout: Duration::from_secs(5),
-        },
-        stop_timeout: Duration::from_secs(10),
-    };
+        })
+        .with_stop_timeout(Duration::from_secs(10));
     let sup_spec = UniformSup::new(child_spec);
     let sup_runnable = local::boxed_from_fn((mm1_sup::uniform::uniform_sup, (sup_spec,)));
     let connection_sup = ctx
@@ -418,14 +412,12 @@ where
             ))
         },
     );
-    let child_spec = ChildSpec {
-        launcher,
-        child_type: (),
-        init_type: InitType::WithAck {
+    let child_spec = ChildSpec::new(launcher)
+        .with_init_type(InitType::WithAck {
             start_timeout: Duration::from_secs(5),
-        },
-        stop_timeout: Duration::from_secs(10),
-    };
+        })
+        .with_stop_timeout(Duration::from_secs(10));
+
     let sup_spec = UniformSup::new(child_spec);
     let sup_runnable = local::boxed_from_fn((mm1_sup::uniform::uniform_sup, (sup_spec,)));
     let acceptor_sup = ctx
@@ -455,14 +447,11 @@ where
             ))
         },
     );
-    let child_spec = ChildSpec {
-        launcher,
-        child_type: (),
-        init_type: InitType::WithAck {
+    let child_spec = ChildSpec::new(launcher)
+        .with_init_type(InitType::WithAck {
             start_timeout: Duration::from_secs(5),
-        },
-        stop_timeout: Duration::from_secs(10),
-    };
+        })
+        .with_stop_timeout(Duration::from_secs(10));
     let sup_spec = UniformSup::new(child_spec);
     let sup_runnable = local::boxed_from_fn((mm1_sup::uniform::uniform_sup, (sup_spec,)));
     let connector_sup = ctx
@@ -492,14 +481,11 @@ where
             ))
         },
     );
-    let child_spec = ChildSpec {
-        launcher,
-        child_type: (),
-        init_type: InitType::WithAck {
+    let child_spec = ChildSpec::new(launcher)
+        .with_init_type(InitType::WithAck {
             start_timeout: Duration::from_secs(5),
-        },
-        stop_timeout: Duration::from_secs(10),
-    };
+        })
+        .with_stop_timeout(Duration::from_secs(10));
     let sup_spec = UniformSup::new(child_spec);
     let sup_runnable = local::boxed_from_fn((mm1_sup::uniform::uniform_sup, (sup_spec,)));
     let connector_sup = ctx
@@ -529,14 +515,11 @@ where
             ))
         },
     );
-    let child_spec = ChildSpec {
-        launcher,
-        child_type: (),
-        init_type: InitType::WithAck {
+    let child_spec = ChildSpec::new(launcher)
+        .with_init_type(InitType::WithAck {
             start_timeout: Duration::from_secs(5),
-        },
-        stop_timeout: Duration::from_secs(10),
-    };
+        })
+        .with_stop_timeout(Duration::from_secs(10));
     let sup_spec = UniformSup::new(child_spec);
     let sup_runnable = local::boxed_from_fn((mm1_sup::uniform::uniform_sup, (sup_spec,)));
     let acceptor_sup = ctx

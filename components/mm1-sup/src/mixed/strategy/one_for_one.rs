@@ -81,6 +81,18 @@ where
     type Error = DeciderError;
     type Key = K;
 
+    fn address(&self, key: &Self::Key) -> Result<Option<Address>, Self::Error> {
+        self.states
+            .iter()
+            .find_map(|(k, s)| {
+                (key == k).then_some(match s.status {
+                    Status::Running { address } | Status::Terminating { address } => Some(address),
+                    _ => None,
+                })
+            })
+            .ok_or(DeciderError::KeyNotFound)
+    }
+
     fn add(&mut self, key: Self::Key) -> Result<(), Self::Error> {
         if self.states.iter().any(|(k, _)| *k == key) {
             return Err(DeciderError::DuplicateKey)
