@@ -145,12 +145,17 @@ where
                     (false, true, _) => unreachable!(),
                     (true, true, normal_exit) =>
                         debug!(
-                            "a stopping child terminated [child: {}; normal_exit: {}]",
+                            "stopping child terminated [child: {}; normal_exit: {}]",
                             peer, normal_exit
                         ),
-                    (true, false, normal_exit) =>
+                    (true, false, true) =>
+                        debug!(
+                            "running child normally terminated [child: {}; normal_exit: {}]",
+                            peer, normal_exit
+                        ),
+                    (true, false, false) =>
                         warn!(
-                            "a child unexpectedly terminated [child: {}; normal_exit: {}]",
+                            "running child unexpectedly terminated [child: {}; normal_exit: {}]",
                             peer, normal_exit
                         ),
                     (false, false, true) => (),

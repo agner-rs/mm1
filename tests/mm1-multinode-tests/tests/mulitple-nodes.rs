@@ -12,7 +12,6 @@ use serde_json::json;
 use tempfile::TempDir;
 use tokio::sync::oneshot;
 
-
 #[test]
 fn two_nodes() {
     mm1_logger::init(&logger_config()).ok();
