@@ -931,6 +931,7 @@ name = "mm1-sup"
 version = "0.7.6"
 dependencies = [
  "either",
+ "eyre",
  "insta",
  "mm1-address",
  "mm1-ask",

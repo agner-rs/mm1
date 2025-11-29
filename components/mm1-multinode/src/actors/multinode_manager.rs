@@ -14,6 +14,7 @@ use mm1_common::log::{debug, error, info, trace, warn};
 use mm1_common::types::{AnyError, Never};
 use mm1_core::context::BindArgs;
 use mm1_core::envelope::dispatch;
+use mm1_core::tracing::WithTraceIdExt;
 use mm1_proto::message;
 use mm1_proto_ask::{Request, RequestHeader};
 use mm1_proto_network_management::protocols::GetLocalSubnetsRequest;
@@ -204,130 +205,159 @@ where
 {
     loop {
         let inbound = ctx.recv().await.wrap_err("ctx.recv")?;
-
+        let trace_id = inbound.header().trace_id();
         dispatch!(match inbound {
             Request::<p::RegisterLocalSubnetRequest> { header, payload } =>
                 handle_register_local_subnet(ctx, state, header, payload)
+                    .with_trace_id(trace_id)
                     .await
                     .wrap_err("handle_register_local_subnet")?,
             Request::<i::ConnectRequest<SocketAddr>> { header, payload } =>
                 handle_connect_tcp(ctx, state, header, payload,)
+                    .with_trace_id(trace_id)
                     .await
                     .wrap_err("handle_connect")?,
             Request::<i::ConnectRequest<Box<Path>>> { header, payload } =>
                 handle_connect_uds(ctx, state, header, payload,)
+                    .with_trace_id(trace_id)
                     .await
                     .wrap_err("handle_connect")?,
             Request::<i::BindRequest<SocketAddr>> { header, payload } =>
                 handle_bind_tcp(ctx, state, header, payload,)
+                    .with_trace_id(trace_id)
                     .await
                     .wrap_err("handle_bind")?,
             Request::<i::BindRequest<Box<Path>>> { header, payload } =>
                 handle_bind_uds(ctx, state, header, payload,)
+                    .with_trace_id(trace_id)
                     .await
                     .wrap_err("handle_bind")?,
             Request::<p::RegisterProtocolRequest::<Protocol>> { header, payload } => {
                 let () = handle_register_protocol(ctx, timer_api, state, header, payload)
+                    .with_trace_id(trace_id)
                     .await
                     .wrap_err("handle_register_protocol")?;
             },
             Request::<p::UnregisterProtocolRequest> { header, payload } => {
                 let () = handle_unregsiter_protocol(ctx, state, header, payload)
+                    .with_trace_id(trace_id)
                     .await
                     .wrap_err("handle_unregister_protocol")?;
             },
             Request::<p::RegisterOpaqueMessageRequest> { header, payload } => {
                 let () = handle_register_opaque_message(ctx, state, header, payload)
+                    .with_trace_id(trace_id)
                     .await
                     .wrap_err("handle_register_opaque_message")?;
             },
             Request::<p::GetMessageNameRequest> { header, payload } => {
                 let () = handle_get_message_name_request(ctx, state, header, payload)
+                    .with_trace_id(trace_id)
                     .await
                     .wrap_err("handle_get_message_name_request")?;
             },
             Request::<p::GetProtocolByNameRequest> { header, payload } => {
                 let () = handle_get_protocol_by_name(ctx, state, timer_api, header, payload)
+                    .with_trace_id(trace_id)
                     .await
                     .wrap_err("handle_get_protocol_by_name")?;
             },
             Request::<p::GetLocalSubnetsRequest> {
                 header,
                 payload: GetLocalSubnetsRequest,
-            } => {
-                ctx.reply(
-                    header,
-                    state
-                        .local_subnets
-                        .iter()
-                        .copied()
-                        .map(NetAddress::from)
-                        .collect::<Vec<_>>(),
-                )
-                .await
-                .ok();
-            },
+            } =>
+                trace_id
+                    .scope_async(async {
+                        ctx.reply(
+                            header,
+                            state
+                                .local_subnets
+                                .iter()
+                                .copied()
+                                .map(NetAddress::from)
+                                .collect::<Vec<_>>(),
+                        )
+                        .await
+                        .ok();
+                    })
+                    .await,
             Request::<_> {
                 header,
                 payload: p::ResolveTypeIdRequest { type_id },
-            } => {
-                let State {
-                    protocol_registry, ..
-                } = state;
-                let type_key_opt = protocol_registry.local_type_key_by_tid(type_id);
-                ctx.reply(header, p::ResolveTypeIdResponse { type_key_opt })
-                    .await
-                    .ok();
-            },
+            } =>
+                trace_id
+                    .scope_async(async {
+                        let State {
+                            protocol_registry, ..
+                        } = state;
+                        let type_key_opt = protocol_registry.local_type_key_by_tid(type_id);
+                        ctx.reply(header, p::ResolveTypeIdResponse { type_key_opt })
+                            .await
+                            .ok();
+                    })
+                    .await,
 
             WaitlistTimeoutElapsed { waitlist_key } => {
                 let () = handle_waitlist_timeout_elapsed(ctx, state, waitlist_key)
+                    .with_trace_id(trace_id)
                     .await
                     .wrap_err("handle_waitlist_timeout_elapsed")?;
             },
 
             Request::<SubscribeToRoutesRequest> { header, payload } => {
                 let () = handle_subscribe_to_routes(ctx, state, header, payload)
+                    .with_trace_id(trace_id)
                     .await
                     .wrap_err("handlke_subscribe_to_routes")?;
             },
 
             set_route @ SetRoute { .. } => {
                 let () = handle_set_route(ctx, state, set_route)
+                    .with_trace_id(trace_id)
                     .await
                     .wrap_err("handle_set_route")?;
             },
 
             down @ sys::Down {
                 watch_ref, peer, ..
-            } if state.route_subscribers.contains_key(watch_ref) => {
-                debug!("sys::Down: removing route-subscriber {}", peer);
-                state.route_subscribers.remove(&watch_ref);
-            },
+            } if state.route_subscribers.contains_key(watch_ref) =>
+                trace_id
+                    .scope_async(async {
+                        debug!("sys::Down: removing route-subscriber {}", peer);
+                        state.route_subscribers.remove(&watch_ref);
+                    })
+                    .await,
 
             down @ sys::Down {
                 watch_ref,
                 peer: gw,
                 ..
-            } if state.route_gws.contains_left(watch_ref) => {
-                debug!("sys::Down: removing route-gw {}", gw);
-                state.route_gws.remove_by_left(&watch_ref);
-                for (message, destination, _metric) in state.route_registry.all_routes_by_gw(gw) {
-                    trace!(
-                        "- sys::Down: removing route [msg: {:?}, dst: {}, via: {}]",
-                        message, destination, gw
-                    );
-                    let set_route = SetRoute {
-                        message,
-                        destination,
-                        via: Some(gw),
-                        metric: None,
-                    };
-                    let _ = ctx.tell(ctx.address(), set_route).await;
-                }
-            },
+            } if state.route_gws.contains_left(watch_ref) =>
+                trace_id
+                    .scope_async(async {
+                        {
+                            debug!("sys::Down: removing route-gw {}", gw);
+                            state.route_gws.remove_by_left(&watch_ref);
+                            for (message, destination, _metric) in
+                                state.route_registry.all_routes_by_gw(gw)
+                            {
+                                trace!(
+                                    "- sys::Down: removing route [msg: {:?}, dst: {}, via: {}]",
+                                    message, destination, gw
+                                );
+                                let set_route = SetRoute {
+                                    message,
+                                    destination,
+                                    via: Some(gw),
+                                    metric: None,
+                                };
+                                let _ = ctx.tell(ctx.address(), set_route).await;
+                            }
+                        }
+                    })
+                    .await,
 
-            unexpected @ _ => warn!("unexpected message: {:?}", unexpected),
+            unexpected @ _ => trace_id.scope_sync(|| warn!("unexpected message: {:?}", unexpected)),
         })
     }
 }

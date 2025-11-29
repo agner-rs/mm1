@@ -7,6 +7,7 @@ use mm1_address::address::Address;
 use mm1_common::log::{info, warn};
 use mm1_common::types::{AnyError, Never};
 use mm1_core::envelope::dispatch;
+use mm1_core::tracing::WithTraceIdExt;
 use mm1_proto::message;
 use mm1_proto_network_management::protocols::ProtocolResolved;
 use mm1_proto_network_management::{self as nm, protocols};
@@ -74,6 +75,7 @@ where
 {
     loop {
         let envelope = ctx.recv().await.wrap_err("ctx.recv")?;
+        let trace_id = envelope.header().trace_id();
         dispatch!(match envelope {
             Connect =>
                 handle_connect(
@@ -84,24 +86,32 @@ where
                     options.clone(),
                     protocols.clone()
                 )
+                .with_trace_id(trace_id)
                 .await
                 .wrap_err("handle_connect")?,
 
-            sys::Down { normal_exit, .. } if *normal_exit => {
-                info!("connection terminated normally [dst: {:?}]", dst_addr);
-                break Ok(ctx.quit_ok().await)
-            },
+            sys::Down { normal_exit, .. } if *normal_exit =>
+                break trace_id
+                    .scope_async(async {
+                        info!("connection terminated normally [dst: {:?}]", dst_addr);
+                        Ok(ctx.quit_ok().await)
+                    })
+                    .await,
             sys::Down { normal_exit, .. } => {
-                assert!(!normal_exit);
+                trace_id
+                    .scope_async(async {
+                        assert!(!normal_exit);
 
-                warn!(
-                    "connection terminated abnormally. Reconnecting in {:?} [dst: {:?}]",
-                    RECONNECT_INTERVAL, dst_addr
-                );
-                timer_api
-                    .schedule_once_after(RECONNECT_INTERVAL, Connect)
-                    .await
-                    .wrap_err("timer_api.schedule_once_after")?;
+                        warn!(
+                            "connection terminated abnormally. Reconnecting in {:?} [dst: {:?}]",
+                            RECONNECT_INTERVAL, dst_addr
+                        );
+                        timer_api
+                            .schedule_once_after(RECONNECT_INTERVAL, Connect)
+                            .await
+                            .wrap_err("timer_api.schedule_once_after")
+                    })
+                    .await?;
             },
         })
     }

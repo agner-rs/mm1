@@ -7,6 +7,7 @@ use mm1_address::address::Address;
 use mm1_common::log::{error, info};
 use mm1_common::types::{AnyError, Never};
 use mm1_core::envelope::{Envelope, dispatch};
+use mm1_core::tracing::{TraceId, WithTraceIdExt};
 use mm1_proto_network_management::protocols::ProtocolResolved;
 use mm1_proto_network_management::{self as nm, protocols};
 use mm1_proto_sup::uniform as uni_sup;
@@ -93,11 +94,13 @@ where
         tokio::select! {
             accept_result = accepted => {
                 let (tcp_stream, peer_addr) = accept_result.wrap_err("tcp_listener.accept")?;
-                handle_accepted(ctx, connection_sup, options.clone(), protocols.clone(), tcp_stream, peer_addr).await.wrap_err("handle_accepted")?;
+                let trace_id = TraceId::random();
+                handle_accepted(ctx, connection_sup, options.clone(), protocols.clone(), tcp_stream, peer_addr).with_trace_id(trace_id).await.wrap_err("handle_accepted")?;
             },
             recv_result = received => {
                 let envelope = recv_result.wrap_err("ctx.recv")?;
-                handle_envelope(ctx, envelope).await.wrap_err("handle_envelope")?;
+                let trace_id = envelope.header().trace_id();
+                handle_envelope(ctx, envelope).with_trace_id(trace_id).await.wrap_err("handle_envelope")?;
             }
         }
     }

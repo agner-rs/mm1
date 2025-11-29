@@ -206,8 +206,6 @@ pub mod sup {
         /// Blanket trait for contexts suitable for running a
         /// uniform-supervisor.
         pub use mm1_sup::uniform::UniformSupContext;
-        /// Uniform supervisor's failure type.
-        pub use mm1_sup::uniform::UniformSupFailure;
         /// The behaviour function of the uniform supervisor actor.
         pub use mm1_sup::uniform::uniform_sup;
     }

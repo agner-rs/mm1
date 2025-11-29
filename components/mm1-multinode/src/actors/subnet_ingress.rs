@@ -9,6 +9,7 @@ use mm1_common::log::{debug, error, trace, warn};
 use mm1_common::types::{AnyError, Never};
 use mm1_core::context::BindArgs;
 use mm1_core::envelope::{Envelope, dispatch};
+use mm1_core::tracing::WithTraceIdExt;
 use mm1_proto_network_management::protocols as p;
 
 use crate::actors::context::ActorContext;
@@ -91,11 +92,14 @@ where
         tokio::select! {
             recv_result = worker_inbound => {
                 let envelope = recv_result.wrap_err("worker_ctx.recv")?;
-                let () = process_worker_inbound(net_address, route_registry, envelope).wrap_err("process_worker_inbound")?;
+                let trace_id = envelope.header().trace_id();
+                trace_id.scope_sync(||
+                    process_worker_inbound(net_address, route_registry, envelope).wrap_err("process_worker_inbound"))?;
             },
             recv_result = subnet_inbound => {
                 let envelope = recv_result.wrap_err("subnet_ctx.recv")?;
-                let () = process_subnet_inbound(ctx, multinode_manager, &mut tid_cache, route_registry, envelope).await.wrap_err("process_subnet_inbound")?;
+                let trace_id = envelope.header().trace_id();
+                let () = process_subnet_inbound(ctx, multinode_manager, &mut tid_cache, route_registry, envelope).with_trace_id(trace_id).await.wrap_err("process_subnet_inbound")?;
             }
         }
     }

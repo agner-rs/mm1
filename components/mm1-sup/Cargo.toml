@@ -21,6 +21,7 @@ mm1-proto-system.workspace = true
 mm1-runnable.workspace = true
 
 either.workspace = true
+eyre.workspace = true
 parking_lot.workspace = true
 serde = {workspace = true, features = ["derive"]}
 thiserror.workspace = true

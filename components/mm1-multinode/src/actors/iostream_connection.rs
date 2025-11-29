@@ -10,6 +10,7 @@ use mm1_address::address_range::AddressRange;
 use mm1_common::log::{debug, info, trace, warn};
 use mm1_common::types::{AnyError, Never};
 use mm1_core::envelope::{Envelope, EnvelopeHeader, dispatch};
+use mm1_core::tracing::WithTraceIdExt;
 use mm1_proto::message;
 use mm1_proto_network_management as nm;
 use mm1_proto_network_management::protocols as p;
@@ -172,6 +173,7 @@ where
         tokio::select! {
             recv_result = to_connection => {
                 let inbound = recv_result.wrap_err("ctx.recv")?;
+                let trace_id = inbound.header().trace_id();
                 let () = handle_connection_actor_message(
                     ctx,
                     output_writer,
@@ -184,13 +186,13 @@ where
                     &mut type_key_map,
                     local_subnets,
                     inbound,
-                )
+                ).with_trace_id(trace_id)
                 .await.wrap_err("handle_inbound")?;
             },
             recv_result = to_gw => {
                 let to_forward = recv_result.wrap_err("ctx.recv")?;
-
-                let () = handle_forward_actor_message(ctx, output_writer, to_forward).await.wrap_err("handle_forward")?;
+                let trace_id = to_forward.header().trace_id();
+                let () = handle_forward_actor_message(ctx, output_writer, to_forward).with_trace_id(trace_id).await.wrap_err("handle_forward")?;
             }
         }
     }
