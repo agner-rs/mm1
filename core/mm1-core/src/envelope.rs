@@ -7,6 +7,7 @@ pub use mm1_proc_macros::dispatch;
 use mm1_proto::Message;
 
 use crate::message::AnyMessage;
+use crate::tracing::TraceId;
 
 static ENVELOPE_SEQ_NO: AtomicU64 = AtomicU64::new(0);
 
@@ -18,11 +19,9 @@ pub struct EnvelopeHeader {
     pub ttl: usize,
 
     #[allow(dead_code)]
-    no:             u64,
+    no:       u64,
     #[allow(dead_code)]
-    trace_id:       Option<u64>,
-    #[allow(dead_code)]
-    correlation_id: Option<u64>,
+    trace_id: TraceId,
 }
 
 pub struct Envelope<M = AnyMessage> {
@@ -36,13 +35,22 @@ impl EnvelopeHeader {
             to,
             no: ENVELOPE_SEQ_NO.fetch_add(1, Ordering::Relaxed),
             ttl: DEFAULT_TTL,
-            trace_id: None,
-            correlation_id: None,
+            trace_id: TraceId::current(),
         }
     }
 
     pub fn with_ttl(self, ttl: usize) -> Self {
         Self { ttl, ..self }
+    }
+
+    pub fn with_trace_id(self, trace_id: TraceId) -> Self {
+        Self { trace_id, ..self }
+    }
+}
+
+impl EnvelopeHeader {
+    pub fn trace_id(&self) -> TraceId {
+        self.trace_id
     }
 }
 

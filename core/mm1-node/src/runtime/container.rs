@@ -11,6 +11,7 @@ use mm1_address::subnet::NetAddress;
 use mm1_common::futures::catch_panic::CatchPanicExt;
 use mm1_common::types::AnyError;
 use mm1_core::envelope::{Envelope, EnvelopeHeader};
+use mm1_core::tracing::{TraceId, WithTraceIdExt};
 use mm1_proto_system::{self as system};
 use mm1_runnable::local::{ActorRun, BoxedRunnable};
 use tokio::sync::mpsc;
@@ -28,6 +29,7 @@ pub(crate) struct ContainerArgs {
     pub(crate) ack_to:    Option<Address>,
     pub(crate) link_to:   Vec<Address>,
     pub(crate) actor_key: ActorKey,
+    pub(crate) trace_id:  TraceId,
 
     pub(crate) subnet_lease: AddressLease,
     pub(crate) rt_api:       RtApi,
@@ -79,6 +81,7 @@ pub(crate) struct Container {
     ack_to:    Option<Address>,
     link_to:   Vec<Address>,
     actor_key: ActorKey,
+    trace_id:  TraceId,
 
     actor_node:    Arc<ActorNode<SysMsg, Envelope>>,
     actor_address: Address,
@@ -110,6 +113,7 @@ impl Container {
             ack_to,
             link_to,
             actor_key,
+            trace_id,
 
             subnet_lease,
             rt_api,
@@ -139,6 +143,7 @@ impl Container {
         let container = Self {
             ack_to,
             link_to,
+            trace_id,
             actor_key,
             actor_node,
             actor_address,
@@ -172,6 +177,7 @@ impl Container {
         let Self {
             ack_to,
             link_to,
+            trace_id,
             actor_key,
             actor_subnet,
             actor_address,
@@ -254,7 +260,10 @@ impl Container {
 
         let exit_reason = {
             let mut spawned_jobs = FuturesUnordered::new();
-            let running = runnable.run(&mut context).catch_panic();
+            let running = runnable
+                .run(&mut context)
+                .with_trace_id(trace_id)
+                .catch_panic();
             let mut running = pin!(running.fuse());
             let mut call_rx = pin!(call_rx.fuse());
 
@@ -263,6 +272,7 @@ impl Container {
                 let call_next = call_rx.next();
 
                 let spawn_jobs_non_empty = !spawned_jobs.is_empty();
+                // XXX: These can panic too, can't they?
                 let spawn_job_next = spawned_jobs.next();
 
                 let selected = tokio::select! {

@@ -2,6 +2,7 @@ use std::mem;
 
 use mm1_address::address::Address;
 use mm1_address::subnet::NetAddress;
+use mm1_core::tracing::TraceId;
 pub use mm1_proto_network_management::protocols::{ForeignTypeKey, LocalTypeKey};
 use serde::{Deserialize, Serialize};
 
@@ -50,6 +51,7 @@ pub(crate) struct DeclareType<TypeKey> {
 pub(crate) struct TransmitMessage<TypeKey> {
     pub(crate) dst_address:  Address,
     pub(crate) message_type: TypeKey,
+    pub(crate) trace_id:     TraceId,
     pub(crate) payload_size: u16,
 }
 
@@ -63,7 +65,7 @@ mod tests {
     #[test_case(SubnetDistance { net_address: "<a:1>/64".parse().unwrap(), type_handle: 222, metric: Some(1) }.into())]
     #[test_case(SubnetDistance { net_address: "<a:1>/64".parse().unwrap(), type_handle: 222, metric: None }.into())]
     #[test_case(DeclareType { message_type: u64::MAX, type_name_len: 222, }.into())]
-    #[test_case(TransmitMessage { dst_address: "<a:1>".parse().unwrap(), message_type: 222, payload_size: 55555, }.into())]
+    #[test_case(TransmitMessage { dst_address: "<a:1>".parse().unwrap(), trace_id: Default::default(), message_type: 222, payload_size: 55555, }.into())]
     fn encoded_header_fits_into_header_frame(input: Header<u64>) {
         let mut buf = [128u8; HEADER_FRAME_SIZE];
         bincode::serde::encode_into_slice(input, buf.as_mut(), bincode::config::standard())

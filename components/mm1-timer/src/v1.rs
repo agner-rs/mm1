@@ -10,6 +10,7 @@ use mm1_common::types::AnyError;
 use mm1_core::context::{Fork, ForkErrorKind, Messaging, Now, RecvErrorKind};
 use mm1_core::envelope::{Envelope, EnvelopeHeader, dispatch};
 use mm1_core::message::AnyMessage;
+use mm1_core::tracing::TraceId;
 use mm1_proto_ask::Request;
 use slotmap::SlotMap;
 use tokio::time::Instant;
@@ -189,7 +190,8 @@ where
                     }
                     let (_, key) = state.ordered.pop_first().expect("just checked");
                     let Entry { at: _, message } = state.entries.remove(key).expect("should exist");
-                    let header = EnvelopeHeader::to_address(receiver_addr);
+                    let header =
+                        EnvelopeHeader::to_address(receiver_addr).with_trace_id(TraceId::random());
                     let envelope = Envelope::new(header, message);
                     ctx.send(envelope).await?;
                 }

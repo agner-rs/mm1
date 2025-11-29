@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use mm1_address::address::Address;
 use mm1_common::types::AnyError;
+use mm1_core::tracing::TraceId;
 use mm1_runnable::local::{self, BoxedRunnable};
 use tokio::runtime::{Handle, Runtime};
 use tokio::sync::mpsc;
@@ -126,7 +127,7 @@ async fn run_inner(
         ack_to: None,
         link_to: Default::default(),
         actor_key,
-
+        trace_id: TraceId::random(),
         subnet_lease,
         rt_api: rt_api.clone(),
         rt_config: Arc::new(config),

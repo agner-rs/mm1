@@ -311,6 +311,7 @@ where
 
         rl::ReceivedMessage {
             dst_address,
+            trace_id,
             foreign_type_key,
             body,
         } => {
@@ -323,7 +324,7 @@ where
                     .get(&local_type_key)
                     .ok_or_else(|| eyre::format_err!("no codec for l-key: {:?}", local_type_key))?;
                 let any_message = codec.decode(&body).wrap_err("codec.decode")?;
-                let header = EnvelopeHeader::to_address(dst_address);
+                let header = EnvelopeHeader::to_address(dst_address).with_trace_id(trace_id);
                 let to_deliver = Envelope::new(header, any_message);
 
                 trace!("delivering [dst: {}]", dst_address);
@@ -337,7 +338,9 @@ where
                     local_type_key,
                     body,
                 };
-                ctx.tell(dst_address, forward).await.ok();
+                let header = EnvelopeHeader::to_address(dst_address).with_trace_id(trace_id);
+                let envelope = Envelope::new(header, forward).into_erased();
+                ctx.send(envelope).await.ok();
             }
         },
 

@@ -15,6 +15,7 @@ use mm1_core::context::{
     RecvErrorKind, SendErrorKind, Start, Stop, Watching,
 };
 use mm1_core::envelope::{Envelope, EnvelopeHeader, dispatch};
+use mm1_core::tracing::{TraceId, WithTraceIdExt};
 use mm1_proto_system::{InitAck, SpawnErrorKind, StartErrorKind, WatchRef};
 use mm1_runnable::local::BoxedRunnable;
 use tokio::sync::{mpsc, oneshot};
@@ -107,7 +108,10 @@ impl Fork for ActorContext {
         Fut: Future + Send + 'static,
     {
         let call = self.call.clone();
-        let fut = fun(self).map(|_| ()).boxed();
+        let fut = fun(self)
+            .map(|_| ())
+            .with_trace_id(TraceId::current())
+            .boxed();
         call.invoke(SysCall::Spawn(fut)).await;
     }
 }
@@ -377,6 +381,7 @@ async fn do_spawn(
             // FIXME: can we make it IntoIterator too?
             link_to: link_to.into_iter().collect(),
             actor_key,
+            trace_id: TraceId::current(),
 
             subnet_lease,
             rt_api,

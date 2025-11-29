@@ -155,6 +155,7 @@ where
         let header = pdu::TransmitMessage {
             // FIXME: other Header information is erased here
             dst_address: envelope_header.to,
+            trace_id: envelope_header.trace_id(),
             message_type,
             payload_size,
         };
@@ -202,6 +203,7 @@ where
         let header = pdu::TransmitMessage {
             // FIXME: other Header information is erased here
             dst_address: envelope_header.to,
+            trace_id: envelope_header.trace_id(),
             message_type,
             payload_size,
         };
