@@ -3,6 +3,8 @@ use std::fmt;
 use mm1_address::address::Address;
 use mm1_proto::message;
 
+use crate::mixed::ChildType;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[message(base_path = ::mm1_proto)]
 pub enum DeciderErrorKind {}
@@ -11,7 +13,7 @@ pub trait Decider {
     type Key;
     type Error: fmt::Display;
 
-    fn add(&mut self, key: Self::Key) -> Result<(), Self::Error>;
+    fn add(&mut self, key: Self::Key, child_type: ChildType) -> Result<(), Self::Error>;
     fn rm(&mut self, key: &Self::Key) -> Result<(), Self::Error>;
 
     fn started(&mut self, key: &Self::Key, addr: Address, at: tokio::time::Instant);

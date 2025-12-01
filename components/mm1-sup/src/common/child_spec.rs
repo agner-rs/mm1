@@ -1,18 +1,12 @@
 use std::time::Duration;
 
 #[derive(Debug)]
-pub struct ChildSpec<F, T = ChildType> {
+pub struct ChildSpec<F, T> {
     pub launcher:        F,
     pub child_type:      T,
     pub init_type:       InitType,
     pub stop_timeout:    Duration,
     pub announce_parent: bool,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum ChildType {
-    Permanent,
-    Temporary,
 }
 
 #[derive(Debug, Clone, Copy)]

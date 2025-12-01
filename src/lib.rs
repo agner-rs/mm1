@@ -185,7 +185,7 @@ pub mod sup {
 
         /// A recipe for a child-actor.
         pub use mm1_sup::common::child_spec::ChildSpec;
-        pub use mm1_sup::common::child_spec::{ChildType, InitType};
+        pub use mm1_sup::common::child_spec::InitType;
         pub use mm1_sup::common::factory::ActorFactory;
         /// Multiple-use actor factory.
         pub use mm1_sup::common::factory::ActorFactoryMut;
@@ -206,6 +206,8 @@ pub mod sup {
         /// Blanket trait for contexts suitable for running a
         /// uniform-supervisor.
         pub use mm1_sup::uniform::UniformSupContext;
+        /// types of a child of a uniform-supervisor.
+        pub use mm1_sup::uniform::child_type;
         /// The behaviour function of the uniform supervisor actor.
         pub use mm1_sup::uniform::uniform_sup;
     }
@@ -214,6 +216,8 @@ pub mod sup {
         //! Mixed supervisor — the actor, that supervises the children of
         //! different types.
 
+        /// Type of the child: `Permanent` | `Temporary`.
+        pub use mm1_sup::mixed::ChildType;
         /// The recipe for a supervisor.
         pub use mm1_sup::mixed::MixedSup;
         /// Blanket trait for contexts suitable for running a mixed-supervisor.

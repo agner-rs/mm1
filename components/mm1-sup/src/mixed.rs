@@ -38,6 +38,13 @@ impl<Ctx, Runnable> MixedSupContext<Runnable> for Ctx where
 {
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum ChildType {
+    Permanent,
+    Transient,
+    Temporary,
+}
+
 pub struct MixedSup<RS, C> {
     restart_strategy: RS,
     children:         C,

@@ -11,7 +11,7 @@ pub struct RestartIntensity {
     pub within:       Duration,
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct RestartStats(Vec<tokio::time::Instant>);
 
 impl RestartIntensity {

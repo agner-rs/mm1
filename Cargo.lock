@@ -930,6 +930,7 @@ dependencies = [
 name = "mm1-sup"
 version = "0.7.7"
 dependencies = [
+ "derive_more",
  "either",
  "eyre",
  "insta",
@@ -945,6 +946,7 @@ dependencies = [
  "mm1-runnable",
  "parking_lot",
  "serde",
+ "slotmap",
  "test-case",
  "thiserror",
  "tokio",

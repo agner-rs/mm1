@@ -11,7 +11,9 @@ use mm1_proto::{Message, message};
 use mm1_proto_sup::common as sup_common;
 use mm1_proto_system::StartErrorKind;
 
-use crate::common::child_spec::{ChildSpec, InitType};
+use crate::common::child_spec::InitType;
+use crate::mixed::ChildType;
+type ChildSpec<F> = crate::common::child_spec::ChildSpec<F, ChildType>;
 
 #[message(base_path = ::mm1_proto)]
 pub(crate) struct Started<K> {

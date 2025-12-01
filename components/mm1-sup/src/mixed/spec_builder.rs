@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use crate::common::child_spec::ChildSpec;
 use crate::common::factory::ActorFactory;
-use crate::mixed::{ErasedActorFactory, MixedSup};
+use crate::mixed::{ChildType, ErasedActorFactory, MixedSup};
+type ChildSpec<F> = crate::common::child_spec::ChildSpec<F, ChildType>;
 
 pub trait Append<K, F> {
     type Out;

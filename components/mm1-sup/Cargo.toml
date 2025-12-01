@@ -20,10 +20,12 @@ mm1-proto-sup.workspace = true
 mm1-proto-system.workspace = true
 mm1-runnable.workspace = true
 
+derive_more = {workspace = true, features = ["debug"]}
 either.workspace = true
 eyre.workspace = true
 parking_lot.workspace = true
 serde = {workspace = true, features = ["derive"]}
+slotmap = {workspace = true, features = ["serde"]}
 thiserror.workspace = true
 tokio = {workspace = true, features = ["time"]}
 

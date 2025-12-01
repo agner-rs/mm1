@@ -4,9 +4,9 @@ use mm1::common::log;
 use mm1::core::context::{Fork, InitDone, Linking, Messaging, Now, Quit, Start, Stop, Watching};
 use mm1::runnable::local;
 use mm1::runtime::{Local, Rt};
-use mm1::sup::common::{ActorFactoryMut, ChildSpec, ChildType, InitType, RestartIntensity};
+use mm1::sup::common::{ActorFactoryMut, ChildSpec, InitType, RestartIntensity};
 use mm1::sup::mixed::strategy::OneForOne;
-use mm1::sup::mixed::{self, MixedSup};
+use mm1::sup::mixed::{self, ChildType, MixedSup};
 use tokio::time::Instant;
 
 fn logger_config() -> mm1_logger::LoggingConfig {

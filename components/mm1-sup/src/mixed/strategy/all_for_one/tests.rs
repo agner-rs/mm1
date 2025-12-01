@@ -6,7 +6,7 @@ use test_case::test_case;
 use super::*;
 
 enum Action<K = usize> {
-    Add(K),
+    Add(K, ChildType),
     Rm(K),
     Decide,
     Started(K, Address),
@@ -24,7 +24,7 @@ use Action::*;
 #[test_case(
     Default::default(),
     [
-        Add("one"),
+        Add("one", ChildType::Permanent),
         Rm("one"),
         Decide,
     ]
@@ -33,7 +33,7 @@ use Action::*;
 #[test_case(
     Default::default(),
     [
-        Add("one"),
+        Add("one", ChildType::Permanent),
         Decide,
         Started("one", Address::from_u64(1)),
         Rm("one"),
@@ -46,8 +46,8 @@ use Action::*;
 #[test_case(
     Default::default(),
     [
-        Add("one"),
-        Add("two"),
+        Add("one", ChildType::Permanent),
+        Add("two", ChildType::Permanent),
         Decide,
         Started("one", Address::from_u64(1)),
         Decide,
@@ -59,7 +59,7 @@ use Action::*;
 #[test_case(
     Default::default(),
     [
-        Add("one"),
+        Add("one", ChildType::Permanent),
         Decide,
         Started("one", Address::from_u64(1)),
         Decide,
@@ -71,9 +71,9 @@ use Action::*;
 #[test_case(
     Default::default(),
     [
-        Add("one"),
-        Add("two"),
-        Add("three"),
+        Add("one", ChildType::Permanent),
+        Add("two", ChildType::Permanent),
+        Add("three", ChildType::Permanent),
         Decide,
         Started("one", Address::from_u64(1)),
         Started("two", Address::from_u64(2)),
@@ -90,7 +90,7 @@ use Action::*;
 #[test_case(
     RestartIntensity { max_restarts: 1, within: Duration::from_secs(30) },
     [
-        Add("one"),
+        Add("one", ChildType::Permanent),
         Decide,
         Started("one", Address::from_u64(1)),
         Decide,
@@ -104,9 +104,9 @@ use Action::*;
 #[test_case(
     RestartIntensity { max_restarts: 1, within: Duration::from_secs(30) },
     [
-        Add("one"),
-        Add("two"),
-        Add("three"),
+        Add("one", ChildType::Permanent),
+        Add("two", ChildType::Permanent),
+        Add("three", ChildType::Permanent),
         Decide,
         Started("one", Address::from_u64(1)),
         Started("two", Address::from_u64(2)),
@@ -132,9 +132,9 @@ use Action::*;
 #[test_case(
     RestartIntensity { max_restarts: 1, within: Duration::from_secs(30) },
     [
-        Add("one"),
-        Add("two"),
-        Add("three"),
+        Add("one", ChildType::Permanent),
+        Add("two", ChildType::Permanent),
+        Add("three", ChildType::Permanent),
         Decide,
         Started("one", Address::from_u64(1)),
         Started("two", Address::from_u64(2)),
@@ -165,7 +165,7 @@ use Action::*;
 #[test_case(
     RestartIntensity { max_restarts: 1, within: Duration::from_secs(30) },
     [
-        Add("one"),
+        Add("one", ChildType::Permanent),
         Decide,
         Started("one", Address::from_u64(1)),
         Decide,
@@ -207,7 +207,7 @@ where
                 decider.exited(addr, normal_exit, tokio::time::Instant::now());
                 Ok(())
             },
-            Add(key) => decider.add(key),
+            Add(key, ty) => decider.add(key, ty),
             Rm(key) => decider.rm(&key),
             Decide => {
                 let mut noop_counter = 0;
@@ -242,7 +242,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Add(k) => write!(f, "ADD     [{k}]"),
+            Self::Add(k, ty) => write!(f, "ADD     [{k}|{ty:?}]"),
             Self::Rm(k) => write!(f, "RM      [{k}]"),
             Self::Decide => write!(f, "DECIDE"),
             Self::Started(k, a) => write!(f, "STARTED [{k}] / {a}"),

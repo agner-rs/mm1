@@ -13,10 +13,12 @@ use mm1_proto_ask::Request;
 use mm1_proto_sup::mixed as m_sup;
 use mm1_proto_system::Exited;
 
-use crate::common::child_spec::ChildSpec;
 use crate::mixed::decider::{Action, Decider};
 use crate::mixed::strategy::RestartStrategy;
-use crate::mixed::{ErasedActorFactory, MixedSup, MixedSupContext, spec_builder, sup_child};
+use crate::mixed::{
+    ChildType, ErasedActorFactory, MixedSup, MixedSupContext, spec_builder, sup_child,
+};
+type ChildSpec<F> = crate::common::child_spec::ChildSpec<F, ChildType>;
 
 pub async fn mixed_sup<Runnable, Ctx, RS, CS, K>(
     ctx: &mut Ctx,
@@ -188,8 +190,10 @@ where
     let mut flat = vec![];
     children.collect_into(&mut flat);
 
-    for (k, _) in flat.iter() {
-        decider.add(k.clone()).map_err(MixedSupError::decider)?;
+    for (k, spec) in flat.iter() {
+        decider
+            .add(k.clone(), spec.child_type)
+            .map_err(MixedSupError::decider)?;
     }
 
     let children_map = flat.into_iter().collect();

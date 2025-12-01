@@ -25,7 +25,7 @@ use mm1_proto_well_known::MULTINODE_MANAGER;
 use mm1_runnable::local;
 use mm1_sup::common::child_spec::{ChildSpec, InitType};
 use mm1_sup::common::factory::ActorFactoryMut;
-use mm1_sup::uniform::UniformSup;
+use mm1_sup::uniform::{UniformSup, child_type};
 use mm1_timer::v1::{OneshotKey, OneshotTimer};
 use slotmap::SlotMap;
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -374,6 +374,7 @@ where
         ))
     });
     let child_spec = ChildSpec::new(launcher)
+        .with_child_type(child_type::Temporary)
         .with_init_type(InitType::WithAck {
             start_timeout: Duration::from_secs(5),
         })
@@ -409,6 +410,7 @@ where
         },
     );
     let child_spec = ChildSpec::new(launcher)
+        .with_child_type(child_type::Temporary)
         .with_init_type(InitType::WithAck {
             start_timeout: Duration::from_secs(5),
         })
@@ -443,6 +445,7 @@ where
         },
     );
     let child_spec = ChildSpec::new(launcher)
+        .with_child_type(child_type::Temporary)
         .with_init_type(InitType::WithAck {
             start_timeout: Duration::from_secs(5),
         })
@@ -478,6 +481,7 @@ where
         },
     );
     let child_spec = ChildSpec::new(launcher)
+        .with_child_type(child_type::Temporary)
         .with_init_type(InitType::WithAck {
             start_timeout: Duration::from_secs(5),
         })
@@ -512,6 +516,7 @@ where
         },
     );
     let child_spec = ChildSpec::new(launcher)
+        .with_child_type(child_type::Temporary)
         .with_init_type(InitType::WithAck {
             start_timeout: Duration::from_secs(5),
         })
@@ -546,6 +551,7 @@ where
         },
     );
     let child_spec = ChildSpec::new(launcher)
+        .with_child_type(child_type::Temporary)
         .with_init_type(InitType::WithAck {
             start_timeout: Duration::from_secs(5),
         })

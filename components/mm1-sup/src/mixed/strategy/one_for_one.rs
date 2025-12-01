@@ -6,6 +6,7 @@ use mm1_address::address::Address;
 use mm1_common::log;
 
 use crate::common::restart_intensity::{RestartIntensity, RestartStats};
+use crate::mixed::ChildType;
 use crate::mixed::decider::{Action, Decider};
 use crate::mixed::strategy::{DeciderError, OneForOne, RestartStrategy};
 
@@ -19,8 +20,9 @@ pub struct OneForOneDecider<K> {
 
 #[derive(Debug)]
 struct State {
-    status: Status,
-    target: Target,
+    child_type: ChildType,
+    status:     Status,
+    target:     Target,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -93,13 +95,14 @@ where
             .ok_or(DeciderError::KeyNotFound)
     }
 
-    fn add(&mut self, key: Self::Key) -> Result<(), Self::Error> {
+    fn add(&mut self, key: Self::Key, child_type: ChildType) -> Result<(), Self::Error> {
         if self.states.iter().any(|(k, _)| *k == key) {
             return Err(DeciderError::DuplicateKey)
         }
         self.states.push((
             key,
             State {
+                child_type,
                 status: Status::Stopped,
                 target: Target::Running,
             },
@@ -165,7 +168,12 @@ where
             return;
         };
 
-        match (state.status, normal_exit) {
+        let is_acceptable = match state.child_type {
+            ChildType::Permanent => false,
+            ChildType::Transient => normal_exit,
+            ChildType::Temporary => true,
+        };
+        match (state.status, is_acceptable) {
             (Status::Terminating { address }, _) | (Status::Running { address }, true) => {
                 assert_eq!(address, reported_addr);
                 state.status = Status::Stopped;

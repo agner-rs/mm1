@@ -13,7 +13,7 @@ use mm1::proto::sup::uniform;
 use mm1::runnable::local;
 use mm1::runtime::{Local, Rt};
 use mm1::sup::common::{ActorFactory, ActorFactoryMut, ChildSpec, InitType};
-use mm1::sup::uniform::{UniformSup, uniform_sup};
+use mm1::sup::uniform::{UniformSup, child_type, uniform_sup};
 use mm1::test::rt::event::EventResolve;
 use mm1::test::rt::{TaskKey, query};
 use tokio::time;
@@ -76,6 +76,7 @@ fn test_01() {
             local::boxed_from_fn((worker, (reply_to, duration)))
         });
         let child = ChildSpec::new(factory)
+            .with_child_type(child_type::Temporary)
             .with_init_type(InitType::WithAck {
                 start_timeout: Duration::from_secs(1),
             })
@@ -191,6 +192,7 @@ async fn test_02() {
     info!("SUP: {}", lease_a.address);
 
     let child_spec = ChildSpec::new(Factory::default())
+        .with_child_type(child_type::Temporary)
         .with_init_type(InitType::NoAck)
         .with_stop_timeout(Duration::from_secs(1));
     let uniform_sup = UniformSup::new(child_spec);
