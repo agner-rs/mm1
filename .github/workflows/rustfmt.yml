@@ -1,0 +1,39 @@
+name: Rust (fmt)
+
+on:
+  push:
+    branches: [ "main", "dev", "*/dev" ]
+  pull_request:
+    branches: [ "*" ]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to run the workflow on"
+        required: true
+        default: main
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-all-crates: true
+          cache-workspace-crates: true
+          cache-on-failure: true
+
+      - name: Run Clippy
+        run: cargo +nightly fmt --all -- --check

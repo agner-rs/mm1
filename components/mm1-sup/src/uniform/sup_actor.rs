@@ -176,7 +176,11 @@ async fn handle_child_started<Ctx, D>(
 where
     Ctx: Linking,
 {
-    let ChildEntry { status, data: _ } = &mut children.primary[key];
+    let Children {
+        primary,
+        by_address,
+    } = children;
+    let ChildEntry { status, data: _ } = &mut primary[key];
     if !matches!(*status, ChildStatus::Starting) {
         return Err(eyre::format_err!(
             "unexpected child-status when received child-started: {:?}",
@@ -184,6 +188,8 @@ where
         ))
     }
     ctx.link(address).await;
+    let should_be_none = by_address.insert(address, key);
+    assert!(should_be_none.is_none());
     *status = ChildStatus::Started(address);
 
     debug!(
