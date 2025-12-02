@@ -6,6 +6,7 @@ use futures::Stream;
 use mm1_address::address::Address;
 use mm1_common::types::AnyError;
 use mm1_core::envelope::Envelope;
+use mm1_core::tracing::TraceId;
 use mm1_proto_system::WatchRef;
 use tokio::sync::{mpsc, oneshot};
 
@@ -39,9 +40,10 @@ pub(crate) enum SysCall {
 }
 
 pub(crate) struct Request {
-    pub(crate) call:   SysCall,
+    pub(crate) trace_id: TraceId,
+    pub(crate) call:     SysCall,
     #[allow(dead_code)]
-    pub(crate) ack_tx: oneshot::Sender<std::convert::Infallible>,
+    pub(crate) ack_tx:   oneshot::Sender<std::convert::Infallible>,
 }
 
 #[derive(Debug, Clone)]
@@ -55,7 +57,11 @@ impl Tx {
     pub(crate) async fn invoke(&self, call: SysCall) {
         let (ack_tx, ack_rx) = oneshot::channel();
         self.0
-            .send(Request { call, ack_tx })
+            .send(Request {
+                trace_id: TraceId::current(),
+                call,
+                ack_tx,
+            })
             .await
             .expect("call: tx.send failed");
         let _ = ack_rx.await;
@@ -63,10 +69,13 @@ impl Tx {
 }
 
 impl Stream for Rx {
-    type Item = SysCall;
+    type Item = (TraceId, SysCall);
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        Poll::Ready(ready!(self.project().0.poll_recv(cx)).map(|Request { call, .. }| call))
+        Poll::Ready(
+            ready!(self.project().0.poll_recv(cx))
+                .map(|Request { trace_id, call, .. }| (trace_id, call)),
+        )
     }
 }
 

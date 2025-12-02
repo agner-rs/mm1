@@ -6,6 +6,7 @@ use mm1_address::pool::{Lease, Pool as SubnetPool};
 use mm1_address::subnet::{NetAddress, NetMask};
 use mm1_core::context::SendErrorKind;
 use mm1_core::envelope::Envelope;
+use mm1_core::tracing::TraceId;
 use tokio::runtime::Handle;
 use tracing::trace;
 
@@ -24,7 +25,7 @@ pub(crate) struct RequestAddressError(#[source] mm1_address::pool::LeaseError);
 #[derive(Debug)]
 struct Inner {
     subnet_pool: SubnetPool,
-    registry:    Registry<SysMsg, Envelope>,
+    registry:    Registry<(TraceId, SysMsg), Envelope>,
     default_rt:  Handle,
     named_rts:   HashMap<String, Handle>,
 }
@@ -46,7 +47,7 @@ impl RtApi {
         Self { inner }
     }
 
-    pub(crate) fn registry(&self) -> &Registry<SysMsg, Envelope> {
+    pub(crate) fn registry(&self) -> &Registry<(TraceId, SysMsg), Envelope> {
         &self.inner.registry
     }
 
@@ -57,7 +58,7 @@ impl RtApi {
             .registry
             .lookup(to)
             .ok_or(SendErrorKind::NotFound)?
-            .sys_send(sys_msg)
+            .sys_send((TraceId::current(), sys_msg))
             .map_err(|_| SendErrorKind::Closed)
     }
 

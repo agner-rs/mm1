@@ -1,4 +1,5 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::ops::ControlFlow;
 use std::pin::pin;
 use std::sync::Arc;
 
@@ -83,15 +84,15 @@ pub(crate) struct Container {
     actor_key: ActorKey,
     trace_id:  TraceId,
 
-    actor_node:    Arc<ActorNode<SysMsg, Envelope>>,
+    actor_node:    Arc<ActorNode<(TraceId, SysMsg), Envelope>>,
     actor_address: Address,
     actor_subnet:  NetAddress,
 
-    rx_system:   mpsc::UnboundedReceiver<SysMsg>,
+    rx_system:   mpsc::UnboundedReceiver<(TraceId, SysMsg)>,
     rx_priority: mpsc::UnboundedReceiver<Envelope>,
     rx_regular:  mpsc::UnboundedReceiver<MessageWithPermit<Envelope>>,
 
-    tx_system_weak:   mpsc::WeakUnboundedSender<SysMsg>,
+    tx_system_weak:   mpsc::WeakUnboundedSender<(TraceId, SysMsg)>,
     tx_priority_weak: mpsc::WeakUnboundedSender<Envelope>,
     tx_regular_weak:  mpsc::WeakUnboundedSender<MessageWithPermit<Envelope>>,
 
@@ -217,11 +218,12 @@ impl Container {
                     }),
                 );
                 if sys_send_result.is_err() {
-                    let _ = tx_system.send(SysMsg::Link(SysLink::Exit {
+                    let sys_msg = SysMsg::Link(SysLink::Exit {
                         sender:   peer,
                         receiver: actor_address,
                         reason:   ExitReason::LinkDown,
-                    }));
+                    });
+                    let _ = tx_system.send((TraceId::current(), sys_msg));
                 }
             }
         }
@@ -280,357 +282,222 @@ impl Container {
 
                     call = call_next =>
                         Either::Right(
-                        call
-                            .ok_or(ContainerError::EndOfCallRx)
-                            .inspect(|call| trace!("call::{}", call))
-                            .inspect_err(|err| trace!("err: {}", err))?)
-                        ,
+                            call
+                                .ok_or(ContainerError::EndOfCallRx)
+                                .inspect(|(trace_id, call)| trace!("call::{} [{}]", call, trace_id))
+                                .inspect_err(|err| trace!("err: {}", err))?),
 
                     sys_msg = sys_msg_recv =>
-
                         Either::Left(
-                        sys_msg
-                            .ok_or(ContainerError::EndOfSysMsgRx)
-                            .inspect(|sys_msg| trace!("inbound sys-msg::{}", sys_msg))
-                            .inspect_err(|err| trace!("err: {}", err))?),
+                            sys_msg
+                                .ok_or(ContainerError::EndOfSysMsgRx)
+                                .inspect(|(trace_id, sys_msg)| trace!("inbound sys-msg::{} [{}]", sys_msg, trace_id))
+                                .inspect_err(|err| trace!("err: {}", err))?),
 
                     output = running.as_mut() => {
                         let panic = output.expect_err("have we produced an instance of `std::convert::Infallible`?");
                         trace!("panic: {}", panic);
-                        Either::Right(SysCall::Exit(Err(Panic(panic).into())))
+                        Either::Right(
+                            (
+                                TraceId::current(),
+                                SysCall::Exit(Err(Panic(panic).into()))
+                            )
+                        )
                     },
 
                     _ = spawn_job_next, if spawn_jobs_non_empty => continue,
                 };
 
-                match (trap_exit, selected) {
-                    (_, Either::Right(SysCall::Exit(exit_reason))) => {
-                        break exit_reason;
-                    },
-                    (_, Either::Left(SysMsg::Kill)) => {
-                        break Err(Killed.into());
-                    },
+                let (trace_id, selected) = match selected {
+                    Either::Left((trace_id, sys_msg)) => (trace_id, Either::Left(sys_msg)),
+                    Either::Right((trace_id, sys_call)) => (trace_id, Either::Right(sys_call)),
+                };
 
-                    (_, Either::Right(SysCall::TrapExit(set_into))) => {
-                        trap_exit = set_into;
-                    },
+                let cf = trace_id.scope_sync(|| {
+                    match (trap_exit, selected) {
+                        (_, Either::Right(SysCall::Exit(exit_reason))) => {
+                            return ControlFlow::Break(exit_reason)
+                        },
+                        (_, Either::Left(SysMsg::Kill)) => {
+                            return ControlFlow::Break(Err(Killed.into()))
+                        },
 
-                    (_, Either::Right(SysCall::Spawn(job))) => {
-                        spawned_jobs.push(job);
-                    },
+                        (_, Either::Right(SysCall::TrapExit(set_into))) => {
+                            trap_exit = set_into;
+                        },
 
-                    (_, Either::Right(SysCall::ForkAdded(fork_address, tx_priority_weak))) => {
-                        assert!(
-                            job_entries
-                                .insert(
-                                    fork_address,
-                                    JobEntry {
-                                        linked_to: Default::default(),
-                                        watched_by: Default::default(),
-                                        watches: Default::default(),
-                                        tx_priority_weak,
-                                    }
-                                )
-                                .is_none()
-                        );
-                    },
+                        (_, Either::Right(SysCall::Spawn(job))) => {
+                            spawned_jobs.push(job);
+                        },
 
-                    (_, Either::Left(SysMsg::ForkDone(fork_address))) => {
-                        let JobEntry {
-                            linked_to,
-                            watched_by,
-                            ..
-                        } = job_entries
-                            .remove(&fork_address.address)
-                            .expect("unknown fork");
-                        for peer in linked_to {
-                            let _ = rt_api.sys_send(
-                                peer,
-                                SysMsg::Link(SysLink::Disconnect {
-                                    sender:   fork_address.address,
-                                    receiver: peer,
-                                }),
+                        (_, Either::Right(SysCall::ForkAdded(fork_address, tx_priority_weak))) => {
+                            assert!(
+                                job_entries
+                                    .insert(
+                                        fork_address,
+                                        JobEntry {
+                                            linked_to: Default::default(),
+                                            watched_by: Default::default(),
+                                            watches: Default::default(),
+                                            tx_priority_weak,
+                                        }
+                                    )
+                                    .is_none()
                             );
-                        }
-                        for peer in watched_by.into_iter().map(|(peer, _)| peer).filter_map({
-                            let mut prev = None;
-                            move |this| {
-                                prev.replace(this)
-                                    .is_none_or(|prev| prev != this)
-                                    .then_some(this)
+                        },
+
+                        (_, Either::Left(SysMsg::ForkDone(fork_address))) => {
+                            let JobEntry {
+                                linked_to,
+                                watched_by,
+                                ..
+                            } = job_entries
+                                .remove(&fork_address.address)
+                                .expect("unknown fork");
+                            for peer in linked_to {
+                                let _ = rt_api.sys_send(
+                                    peer,
+                                    SysMsg::Link(SysLink::Disconnect {
+                                        sender:   fork_address.address,
+                                        receiver: peer,
+                                    }),
+                                );
                             }
-                        }) {
-                            let msg = sys_watch_down_message(true, fork_address.address, peer);
-                            let _ = rt_api.sys_send(peer, msg);
-                        }
-                    },
+                            for peer in watched_by.into_iter().map(|(peer, _)| peer).filter_map({
+                                let mut prev = None;
+                                move |this| {
+                                    prev.replace(this)
+                                        .is_none_or(|prev| prev != this)
+                                        .then_some(this)
+                                }
+                            }) {
+                                let msg = sys_watch_down_message(true, fork_address.address, peer);
+                                let _ = rt_api.sys_send(peer, msg);
+                            }
+                        },
 
-                    (_, Either::Right(SysCall::Link { sender, receiver })) => {
-                        let job_entry = job_entries
-                            .get_mut(&sender)
-                            .expect("no job entry for this caller");
-                        // for a newly linked peer
-                        if job_entry.linked_to.insert(receiver) {
-                            // send a SysLink:::Connect system-message
-                            let sys_send_result = rt_api.sys_send(
-                                receiver,
-                                SysMsg::Link(SysLink::Connect { sender, receiver }),
-                            );
-                            // if sending a message has failed — treat it as peer's failure
-                            if sys_send_result.is_err() {
-                                let _ = tx_system_weak
-                                    .upgrade()
-                                    .expect("come on! it's our own tx_system!")
-                                    .send(SysMsg::Link(SysLink::Exit {
+                        (_, Either::Right(SysCall::Link { sender, receiver })) => {
+                            let job_entry = job_entries
+                                .get_mut(&sender)
+                                .expect("no job entry for this caller");
+                            // for a newly linked peer
+                            if job_entry.linked_to.insert(receiver) {
+                                // send a SysLink:::Connect system-message
+                                let sys_send_result = rt_api.sys_send(
+                                    receiver,
+                                    SysMsg::Link(SysLink::Connect { sender, receiver }),
+                                );
+                                // if sending a message has failed — treat it as peer's failure
+                                if sys_send_result.is_err() {
+                                    let sys_msg = SysMsg::Link(SysLink::Exit {
                                         sender:   receiver,
                                         receiver: sender,
                                         reason:   ExitReason::LinkDown,
-                                    }));
+                                    });
+                                    let _ = tx_system_weak
+                                        .upgrade()
+                                        .expect("come on! it's our own tx_system!")
+                                        .send((TraceId::current(), sys_msg));
+                                }
                             }
-                        }
-                    },
+                        },
 
-                    (_, Either::Left(SysMsg::Link(SysLink::Connect { sender, receiver }))) => {
-                        if let Some(job_entry) = job_entries.get_mut(&receiver) {
-                            let _ = job_entry.linked_to.insert(sender);
-                        } else {
-                            let _ = rt_api.sys_send(
-                                sender,
-                                SysMsg::Link(SysLink::Exit {
-                                    sender:   receiver,
-                                    receiver: sender,
-                                    reason:   ExitReason::LinkDown,
-                                }),
-                            );
-                        }
-                    },
-
-                    (_, Either::Right(SysCall::Unlink { sender, receiver })) => {
-                        let job_entry = job_entries
-                            .get_mut(&sender)
-                            .expect("no job entry for this caller");
-
-                        // for a peer that we've previously linked to
-                        if job_entry.linked_to.remove(&receiver) {
-                            let _sys_send_result = rt_api.sys_send(
-                                receiver,
-                                SysMsg::Link(SysLink::Disconnect { sender, receiver }),
-                            );
-                        }
-                    },
-
-                    (
-                        false,
-                        Either::Left(SysMsg::Link(SysLink::Exit {
-                            sender,
-                            receiver,
-                            reason: ExitReason::Normal,
-                        })),
-                    )
-                    | (_, Either::Left(SysMsg::Link(SysLink::Disconnect { sender, receiver }))) => {
-                        if let Some(job_entry) = job_entries.get_mut(&receiver) {
-                            let _ = job_entry.linked_to.remove(&sender);
-                        }
-                    },
-
-                    (
-                        false,
-                        Either::Left(SysMsg::Link(SysLink::Exit {
-                            sender,
-                            receiver,
-                            reason: ExitReason::LinkDown,
-                        })),
-                    ) => {
-                        if job_entries
-                            .get_mut(&receiver)
-                            .is_some_and(|job_entry| job_entry.linked_to.remove(&sender))
-                        {
-                            break Err(Collateral(sender).into());
-                        }
-                    },
-
-                    (
-                        false,
-                        Either::Left(SysMsg::Link(SysLink::Exit {
-                            sender,
-                            receiver,
-                            reason: ExitReason::Terminate,
-                        })),
-                    ) => {
-                        if job_entries.contains_key(&receiver) {
-                            break Err(Terminated(sender).into());
-                        }
-                    },
-
-                    (
-                        true,
-                        Either::Left(SysMsg::Link(SysLink::Exit {
-                            sender,
-                            receiver,
-                            reason,
-                        })),
-                    ) => {
-                        if let Some(job_entry) = job_entries.get_mut(&receiver) {
-                            let should_handle = match reason {
-                                ExitReason::Terminate => true,
-                                ExitReason::LinkDown | ExitReason::Normal => {
-                                    job_entry.linked_to.remove(&sender)
-                                },
-                            };
-
-                            if should_handle
-                                && let Some(tx_priority) = job_entry.tx_priority_weak.upgrade()
-                            {
-                                let message = system::Exited {
-                                    peer:        sender,
-                                    normal_exit: matches!(reason, ExitReason::Normal),
-                                };
-                                let envelope =
-                                    Envelope::new(EnvelopeHeader::to_address(receiver), message)
-                                        .into_erased();
-                                let _ = tx_priority.send(envelope);
-                            }
-                        }
-                    },
-
-                    (
-                        _,
-                        Either::Right(SysCall::Watch {
-                            sender,
-                            receiver,
-                            reply_tx,
-                        }),
-                    ) => {
-                        let job_entry = job_entries
-                            .get_mut(&sender)
-                            .expect("no job entry for this caller");
-
-                        let watch_ref = loop {
-                            use std::collections::hash_map::Entry as HMEntry;
-
-                            let candidate = next_watch_ref;
-                            next_watch_ref = next_watch_ref.wrapping_add(1);
-                            let watch_ref = system::WatchRef::from_u64(candidate);
-
-                            if let HMEntry::Vacant(vacant) = taken_watch_refs.entry(watch_ref) {
-                                vacant.insert(receiver);
-                                break watch_ref
-                            }
-                        };
-
-                        job_entry.watches.insert((receiver, watch_ref));
-
-                        trace!("{} requests watch of {}", sender, receiver);
-                        let sys_send_result = rt_api.sys_send(
-                            receiver,
-                            SysMsg::Watch(SysWatch::Watch {
-                                sender,
-                                receiver,
-                                watch_ref,
-                            }),
-                        );
-
-                        // if sending a message has failed — treat it as peer's failure
-                        if sys_send_result.is_err() {
-                            let _ = tx_system_weak
-                                .upgrade()
-                                .expect("come on! it's our own tx_system!")
-                                .send(SysMsg::Watch(SysWatch::Down {
-                                    sender:   receiver,
-                                    receiver: sender,
-                                    reason:   ExitReason::LinkDown,
-                                }));
-                        }
-
-                        let _ = reply_tx.send(watch_ref);
-                    },
-
-                    (_, Either::Right(SysCall::Unwatch { sender, watch_ref })) => {
-                        let job_entry = job_entries
-                            .get_mut(&sender)
-                            .expect("no job entry for this caller");
-
-                        if let Some(receiver) = taken_watch_refs.remove(&watch_ref) {
-                            job_entry.watches.remove(&(receiver, watch_ref));
-
-                            let _ = rt_api.sys_send(
-                                receiver,
-                                SysMsg::Watch(SysWatch::Unwatch {
+                        (_, Either::Left(SysMsg::Link(SysLink::Connect { sender, receiver }))) => {
+                            if let Some(job_entry) = job_entries.get_mut(&receiver) {
+                                let _ = job_entry.linked_to.insert(sender);
+                            } else {
+                                let _ = rt_api.sys_send(
                                     sender,
-                                    receiver,
-                                    watch_ref,
-                                }),
-                            );
-                        }
-                    },
-
-                    (
-                        _,
-                        Either::Left(SysMsg::Watch(SysWatch::Watch {
-                            sender,
-                            receiver,
-                            watch_ref,
-                        })),
-                    ) => {
-                        if let Some(job_entry) = job_entries.get_mut(&receiver) {
-                            trace!("{} is now watched by {}", receiver, sender);
-                            job_entry.watched_by.insert((sender, watch_ref));
-                        } else {
-                            trace!(
-                                "{} is now watched by {}; sending Down immediately",
-                                receiver, sender
-                            );
-                            let _ = rt_api.sys_send(
-                                sender,
-                                SysMsg::Watch(SysWatch::Down {
-                                    sender:   receiver,
-                                    receiver: sender,
-                                    reason:   ExitReason::LinkDown,
-                                }),
-                            );
-                        }
-                    },
-
-                    (
-                        _,
-                        Either::Left(SysMsg::Watch(SysWatch::Unwatch {
-                            sender,
-                            receiver,
-                            watch_ref,
-                        })),
-                    ) => {
-                        if let Some(job_entry) = job_entries.get_mut(&receiver) {
-                            job_entry.watched_by.remove(&(sender, watch_ref));
-                        }
-                    },
-
-                    (
-                        _,
-                        Either::Left(SysMsg::Watch(SysWatch::Down {
-                            sender,
-                            receiver,
-                            reason,
-                        })),
-                    ) => {
-                        if let Some(job_entry) = job_entries.get_mut(&receiver) {
-                            let range =
-                                (sender, system::WatchRef::MIN)..=(sender, system::WatchRef::MAX);
-                            while let Some(to_remove) =
-                                job_entry.watched_by.range(range.clone()).next().copied()
-                            {
-                                job_entry.watched_by.remove(&to_remove);
+                                    SysMsg::Link(SysLink::Exit {
+                                        sender:   receiver,
+                                        receiver: sender,
+                                        reason:   ExitReason::LinkDown,
+                                    }),
+                                );
                             }
-                            while let Some(to_report) =
-                                job_entry.watches.range(range.clone()).next().copied()
-                            {
-                                job_entry.watches.remove(&to_report);
-                                let (peer, watch_ref) = to_report;
-                                taken_watch_refs.remove(&watch_ref);
+                        },
 
-                                if let Some(tx_priority) = job_entry.tx_priority_weak.upgrade() {
-                                    let message = system::Down {
-                                        peer,
-                                        watch_ref,
+                        (_, Either::Right(SysCall::Unlink { sender, receiver })) => {
+                            let job_entry = job_entries
+                                .get_mut(&sender)
+                                .expect("no job entry for this caller");
+
+                            // for a peer that we've previously linked to
+                            if job_entry.linked_to.remove(&receiver) {
+                                let _sys_send_result = rt_api.sys_send(
+                                    receiver,
+                                    SysMsg::Link(SysLink::Disconnect { sender, receiver }),
+                                );
+                            }
+                        },
+
+                        (
+                            false,
+                            Either::Left(SysMsg::Link(SysLink::Exit {
+                                sender,
+                                receiver,
+                                reason: ExitReason::Normal,
+                            })),
+                        )
+                        | (
+                            _,
+                            Either::Left(SysMsg::Link(SysLink::Disconnect { sender, receiver })),
+                        ) => {
+                            if let Some(job_entry) = job_entries.get_mut(&receiver) {
+                                let _ = job_entry.linked_to.remove(&sender);
+                            }
+                        },
+
+                        (
+                            false,
+                            Either::Left(SysMsg::Link(SysLink::Exit {
+                                sender,
+                                receiver,
+                                reason: ExitReason::LinkDown,
+                            })),
+                        ) => {
+                            if job_entries
+                                .get_mut(&receiver)
+                                .is_some_and(|job_entry| job_entry.linked_to.remove(&sender))
+                            {
+                                return ControlFlow::Break(Err(Collateral(sender).into()))
+                            }
+                        },
+
+                        (
+                            false,
+                            Either::Left(SysMsg::Link(SysLink::Exit {
+                                sender,
+                                receiver,
+                                reason: ExitReason::Terminate,
+                            })),
+                        ) => {
+                            if job_entries.contains_key(&receiver) {
+                                return ControlFlow::Break(Err(Terminated(sender).into()))
+                            }
+                        },
+
+                        (
+                            true,
+                            Either::Left(SysMsg::Link(SysLink::Exit {
+                                sender,
+                                receiver,
+                                reason,
+                            })),
+                        ) => {
+                            if let Some(job_entry) = job_entries.get_mut(&receiver) {
+                                let should_handle = match reason {
+                                    ExitReason::Terminate => true,
+                                    ExitReason::LinkDown | ExitReason::Normal => {
+                                        job_entry.linked_to.remove(&sender)
+                                    },
+                                };
+
+                                if should_handle
+                                    && let Some(tx_priority) = job_entry.tx_priority_weak.upgrade()
+                                {
+                                    let message = system::Exited {
+                                        peer:        sender,
                                         normal_exit: matches!(reason, ExitReason::Normal),
                                     };
                                     let envelope = Envelope::new(
@@ -641,8 +508,165 @@ impl Container {
                                     let _ = tx_priority.send(envelope);
                                 }
                             }
-                        }
-                    },
+                        },
+
+                        (
+                            _,
+                            Either::Right(SysCall::Watch {
+                                sender,
+                                receiver,
+                                reply_tx,
+                            }),
+                        ) => {
+                            let job_entry = job_entries
+                                .get_mut(&sender)
+                                .expect("no job entry for this caller");
+
+                            let watch_ref = loop {
+                                use std::collections::hash_map::Entry as HMEntry;
+
+                                let candidate = next_watch_ref;
+                                next_watch_ref = next_watch_ref.wrapping_add(1);
+                                let watch_ref = system::WatchRef::from_u64(candidate);
+
+                                if let HMEntry::Vacant(vacant) = taken_watch_refs.entry(watch_ref) {
+                                    vacant.insert(receiver);
+                                    break watch_ref
+                                }
+                            };
+
+                            job_entry.watches.insert((receiver, watch_ref));
+
+                            trace!("{} requests watch of {}", sender, receiver);
+                            let sys_send_result = rt_api.sys_send(
+                                receiver,
+                                SysMsg::Watch(SysWatch::Watch {
+                                    sender,
+                                    receiver,
+                                    watch_ref,
+                                }),
+                            );
+
+                            // if sending a message has failed — treat it as peer's failure
+                            if sys_send_result.is_err() {
+                                let sys_msg = SysMsg::Watch(SysWatch::Down {
+                                    sender:   receiver,
+                                    receiver: sender,
+                                    reason:   ExitReason::LinkDown,
+                                });
+                                let _ = tx_system_weak
+                                    .upgrade()
+                                    .expect("come on! it's our own tx_system!")
+                                    .send((TraceId::current(), sys_msg));
+                            }
+
+                            let _ = reply_tx.send(watch_ref);
+                        },
+
+                        (_, Either::Right(SysCall::Unwatch { sender, watch_ref })) => {
+                            let job_entry = job_entries
+                                .get_mut(&sender)
+                                .expect("no job entry for this caller");
+
+                            if let Some(receiver) = taken_watch_refs.remove(&watch_ref) {
+                                job_entry.watches.remove(&(receiver, watch_ref));
+
+                                let _ = rt_api.sys_send(
+                                    receiver,
+                                    SysMsg::Watch(SysWatch::Unwatch {
+                                        sender,
+                                        receiver,
+                                        watch_ref,
+                                    }),
+                                );
+                            }
+                        },
+
+                        (
+                            _,
+                            Either::Left(SysMsg::Watch(SysWatch::Watch {
+                                sender,
+                                receiver,
+                                watch_ref,
+                            })),
+                        ) => {
+                            if let Some(job_entry) = job_entries.get_mut(&receiver) {
+                                trace!("{} is now watched by {}", receiver, sender);
+                                job_entry.watched_by.insert((sender, watch_ref));
+                            } else {
+                                trace!(
+                                    "{} is now watched by {}; sending Down immediately",
+                                    receiver, sender
+                                );
+                                let _ = rt_api.sys_send(
+                                    sender,
+                                    SysMsg::Watch(SysWatch::Down {
+                                        sender:   receiver,
+                                        receiver: sender,
+                                        reason:   ExitReason::LinkDown,
+                                    }),
+                                );
+                            }
+                        },
+
+                        (
+                            _,
+                            Either::Left(SysMsg::Watch(SysWatch::Unwatch {
+                                sender,
+                                receiver,
+                                watch_ref,
+                            })),
+                        ) => {
+                            if let Some(job_entry) = job_entries.get_mut(&receiver) {
+                                job_entry.watched_by.remove(&(sender, watch_ref));
+                            }
+                        },
+
+                        (
+                            _,
+                            Either::Left(SysMsg::Watch(SysWatch::Down {
+                                sender,
+                                receiver,
+                                reason,
+                            })),
+                        ) => {
+                            if let Some(job_entry) = job_entries.get_mut(&receiver) {
+                                let range = (sender, system::WatchRef::MIN)
+                                    ..=(sender, system::WatchRef::MAX);
+                                while let Some(to_remove) =
+                                    job_entry.watched_by.range(range.clone()).next().copied()
+                                {
+                                    job_entry.watched_by.remove(&to_remove);
+                                }
+                                while let Some(to_report) =
+                                    job_entry.watches.range(range.clone()).next().copied()
+                                {
+                                    job_entry.watches.remove(&to_report);
+                                    let (peer, watch_ref) = to_report;
+                                    taken_watch_refs.remove(&watch_ref);
+
+                                    if let Some(tx_priority) = job_entry.tx_priority_weak.upgrade()
+                                    {
+                                        let message = system::Down {
+                                            peer,
+                                            watch_ref,
+                                            normal_exit: matches!(reason, ExitReason::Normal),
+                                        };
+                                        let envelope = Envelope::new(
+                                            EnvelopeHeader::to_address(receiver),
+                                            message,
+                                        )
+                                        .into_erased();
+                                        let _ = tx_priority.send(envelope);
+                                    }
+                                }
+                            }
+                        },
+                    }
+                    ControlFlow::Continue(())
+                });
+                if let ControlFlow::Break(with) = cf {
+                    break with
                 }
             }
         };
@@ -655,57 +679,64 @@ impl Container {
         trace!("processing the remaining sys-msgs");
 
         rx_system.close();
-        while let Some(sys_msg) = rx_system.recv().await {
-            trace!("sys-msg: {}", sys_msg);
-
-            match sys_msg {
-                SysMsg::Kill => (),
-                SysMsg::ForkDone(fork_address) => {
-                    let JobEntry {
-                        linked_to,
-                        watched_by,
-                        ..
-                    } = job_entries
-                        .remove(&fork_address.address)
-                        .expect("unknown fork");
-                    for peer in linked_to {
-                        let msg =
-                            sys_link_exit_message(exit_reason.is_ok(), fork_address.address, peer);
-                        let _ = rt_api.sys_send(peer, msg);
-                    }
-                    for peer in watched_by.into_iter().map(|(peer, _)| peer).filter_map({
-                        let mut prev = None;
-                        move |this| {
-                            prev.replace(this)
-                                .is_none_or(|prev| prev != this)
-                                .then_some(this)
-                            // if prev.replace(this) == Some(this) {
-                            //     None
-                            // } else {
-                            //     Some(this)
-                            // }
+        while let Some((trace_id, sys_msg)) = rx_system.recv().await {
+            trace_id.scope_sync(|| {
+                trace!("sys-msg: {}", sys_msg);
+                match sys_msg {
+                    SysMsg::Kill => (),
+                    SysMsg::ForkDone(fork_address) => {
+                        let JobEntry {
+                            linked_to,
+                            watched_by,
+                            ..
+                        } = job_entries
+                            .remove(&fork_address.address)
+                            .expect("unknown fork");
+                        for peer in linked_to {
+                            let msg = sys_link_exit_message(
+                                exit_reason.is_ok(),
+                                fork_address.address,
+                                peer,
+                            );
+                            let _ = rt_api.sys_send(peer, msg);
                         }
-                    }) {
-                        let msg =
-                            sys_watch_down_message(exit_reason.is_ok(), fork_address.address, peer);
-                        let _ = rt_api.sys_send(peer, msg);
-                    }
-                },
-                SysMsg::Link(SysLink::Disconnect { .. }) => (),
-                SysMsg::Link(SysLink::Exit { .. }) => (),
-                SysMsg::Link(SysLink::Connect { sender, receiver }) => {
-                    let msg = sys_link_exit_message(exit_reason.is_ok(), receiver, sender);
-                    let _ = rt_api.sys_send(sender, msg);
-                },
-                SysMsg::Watch(SysWatch::Unwatch { .. }) => (),
-                SysMsg::Watch(SysWatch::Down { .. }) => (),
-                SysMsg::Watch(SysWatch::Watch {
-                    sender, receiver, ..
-                }) => {
-                    let msg = sys_watch_down_message(exit_reason.is_ok(), receiver, sender);
-                    let _ = rt_api.sys_send(sender, msg);
-                },
-            }
+                        for peer in watched_by.into_iter().map(|(peer, _)| peer).filter_map({
+                            let mut prev = None;
+                            move |this| {
+                                prev.replace(this)
+                                    .is_none_or(|prev| prev != this)
+                                    .then_some(this)
+                                // if prev.replace(this) == Some(this) {
+                                //     None
+                                // } else {
+                                //     Some(this)
+                                // }
+                            }
+                        }) {
+                            let msg = sys_watch_down_message(
+                                exit_reason.is_ok(),
+                                fork_address.address,
+                                peer,
+                            );
+                            let _ = rt_api.sys_send(peer, msg);
+                        }
+                    },
+                    SysMsg::Link(SysLink::Disconnect { .. }) => (),
+                    SysMsg::Link(SysLink::Exit { .. }) => (),
+                    SysMsg::Link(SysLink::Connect { sender, receiver }) => {
+                        let msg = sys_link_exit_message(exit_reason.is_ok(), receiver, sender);
+                        let _ = rt_api.sys_send(sender, msg);
+                    },
+                    SysMsg::Watch(SysWatch::Unwatch { .. }) => (),
+                    SysMsg::Watch(SysWatch::Down { .. }) => (),
+                    SysMsg::Watch(SysWatch::Watch {
+                        sender, receiver, ..
+                    }) => {
+                        let msg = sys_watch_down_message(exit_reason.is_ok(), receiver, sender);
+                        let _ = rt_api.sys_send(sender, msg);
+                    },
+                }
+            });
         }
         let job_entry = job_entries
             .remove(&actor_address)
