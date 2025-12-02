@@ -161,10 +161,12 @@ where
                     if address == reported_addr)
             .then_some(s)
         }) else {
-            log::warn!(
-                "reporrted exit, address not found [addr: {}]",
-                reported_addr
+            log::info!(
+                "termination requested [by-addr: {}; normal-exit: {}]",
+                reported_addr,
+                normal_exit
             );
+            self.status = SupStatus::Stopping { normal_exit: true };
             return;
         };
 
