@@ -176,6 +176,23 @@ pub mod ask {
     }
 }
 
+#[cfg(feature = "server")]
+pub mod server {
+    //! Server — a standard way to implement a long-living actor that handles
+    //! inbound messages.
+
+    /// create a new server builder
+    pub use mm1_server::new;
+    pub mod behaviour {
+        /// Handle inbound messages.
+        pub use mm1_server::OnMessage;
+        /// Handle inbound requests (see `mm1::ask`).
+        pub use mm1_server::OnRequest;
+        /// Result of handling a message/request.
+        pub use mm1_server::Outcome;
+    }
+}
+
 #[cfg(feature = "sup")]
 pub mod sup {
     //! Supervisors — the actors that manage other actors.

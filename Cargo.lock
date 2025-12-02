@@ -363,6 +363,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ghost"
+version = "0.1.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1323e4e10ffd5d48a21ea37f8d4e3b15dd841121d1301a86122fa0984bedf0a"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.104",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.15.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -620,6 +631,7 @@ dependencies = [
  "mm1-proto-system",
  "mm1-proto-well-known",
  "mm1-runnable",
+ "mm1-server",
  "mm1-sup",
  "mm1-test-rt",
  "mm1-timer",
@@ -924,6 +936,20 @@ version = "0.7.9"
 dependencies = [
  "mm1-common",
  "mm1-core",
+]
+
+[[package]]
+name = "mm1-server"
+version = "0.7.9"
+dependencies = [
+ "eyre",
+ "futures",
+ "ghost",
+ "mm1-ask",
+ "mm1-common",
+ "mm1-core",
+ "mm1-proto",
+ "mm1-proto-ask",
 ]
 
 [[package]]
