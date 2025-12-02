@@ -301,6 +301,9 @@ where
     } = children;
 
     let Some(key) = by_address.remove(&peer) else {
+        reap_started_children(ctx, child_spec, children)
+            .await
+            .wrap_err("reap children")?;
         ctx.quit_err(UnknownPeerExited(peer)).await;
         unreachable!()
     };
@@ -437,6 +440,38 @@ where
     ctx.shutdown(child_address, stop_timeout)
         .await
         .map_err(|e| e.map_kind(|_| StopErrorKind::InternalError))
+}
+
+async fn reap_started_children<Ctx, F, C, D>(
+    ctx: &mut Ctx,
+    child_spec: &ChildSpec<F, C>,
+    children: &mut Children<D>,
+) -> Result<(), AnyError>
+where
+    Ctx: UniformSupContext<F::Runnable>,
+    F: ActorFactory,
+{
+    let sup_address = ctx.address();
+    let ChildSpec { stop_timeout, .. } = child_spec;
+    let Children {
+        primary,
+        by_address,
+    } = children;
+
+    for (child_key, ChildEntry { status, data: _ }) in primary.drain() {
+        let ChildStatus::Started(child_address) = status else {
+            continue;
+        };
+
+        let should_be_child_key = by_address.remove(&child_address);
+        assert_eq!(should_be_child_key, Some(child_key));
+
+        do_stop_child(ctx, sup_address, *stop_timeout, child_address)
+            .await
+            .wrap_err("do_stop_child")?;
+    }
+
+    Ok(())
 }
 
 #[derive(Debug)]
