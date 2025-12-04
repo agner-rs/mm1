@@ -1,9 +1,8 @@
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use metrics::{Counter, Histogram};
-use tokio::time::Instant;
 
 #[macro_export]
 macro_rules! make_metrics {
