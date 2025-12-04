@@ -3,6 +3,18 @@
 version = 4
 
 [[package]]
+name = "ahash"
+version = "0.8.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a15f179cd60c4584b8a8c596927aadc462e27f2ca70c04e0071964a73ba7a75"
+dependencies = [
+ "cfg-if",
+ "once_cell",
+ "version_check",
+ "zerocopy",
+]
+
+[[package]]
 name = "ansi_term"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -603,6 +615,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a282da65faaf38286cf3be983213fcf1d2e2a58700e808f83f4ea9a4804bc0"
 
 [[package]]
+name = "metrics"
+version = "0.24.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d5312e9ba3771cfa961b585728215e3d972c950a3eed9252aa093d6301277e8"
+dependencies = [
+ "ahash",
+ "portable-atomic",
+]
+
+[[package]]
 name = "mio"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -675,7 +697,9 @@ dependencies = [
 name = "mm1-common"
 version = "0.7.10"
 dependencies = [
+ "derive_more",
  "eyre",
+ "metrics",
  "mm1-proto",
  "pin-project",
  "serde",
@@ -743,6 +767,7 @@ dependencies = [
  "mm1-proto-system",
  "mm1-proto-well-known",
  "mm1-runnable",
+ "mm1-server",
  "mm1-sup",
  "mm1-timer",
  "rmp-serde",
@@ -945,11 +970,13 @@ dependencies = [
  "eyre",
  "futures",
  "ghost",
+ "metrics",
  "mm1-ask",
  "mm1-common",
  "mm1-core",
  "mm1-proto",
  "mm1-proto-ask",
+ "tracing",
 ]
 
 [[package]]
@@ -1217,6 +1244,12 @@ name = "pin-utils"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
+
+[[package]]
+name = "portable-atomic"
+version = "1.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f84267b20a16ea918e43c6a88433c2d54fa145c92a811b5b047ccbe153674483"
 
 [[package]]
 name = "potential_utf"

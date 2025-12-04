@@ -20,3 +20,5 @@ mm1-proto-ask.workspace = true
 ghost.workspace = true
 eyre.workspace = true
 futures.workspace = true
+metrics.workspace = true
+tracing.workspace = true

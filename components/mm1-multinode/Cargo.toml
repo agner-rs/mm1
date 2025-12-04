@@ -24,6 +24,7 @@ mm1-common = { workspace = true, features = ["logging"] }
 mm1-core.workspace = true
 mm1-proto.workspace = true
 mm1-runnable.workspace = true
+mm1-server.workspace = true
 mm1-sup.workspace = true
 mm1-timer.workspace = true
 

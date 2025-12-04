@@ -7,11 +7,14 @@ use eyre::Context;
 use futures::FutureExt;
 use futures::future::BoxFuture;
 use mm1_ask::Reply;
-use mm1_common::log::error;
+use mm1_common::log::{Instrument, error};
+use mm1_common::make_metrics;
+use mm1_common::metrics::MeasuredFutureExt;
 use mm1_common::types::AnyError;
 use mm1_core::envelope::Envelope;
 use mm1_proto::Message;
-use mm1_proto_ask::{Request, Response};
+use mm1_proto_ask::{Request, RequestHeader, Response};
+use tracing::Level;
 
 use crate::behaviour::{OnMessage, OnRequest, Outcome};
 
@@ -117,6 +120,16 @@ where
             };
             Ok(c)
         }
+        .measured(make_metrics!("mm1_server_on_message",
+            "beh" => std::any::type_name::<B>(),
+            "msg" => std::any::type_name::<M>(),
+        ))
+        .instrument(tracing::span!(
+            Level::TRACE,
+            "mm1_server_on_message",
+            beh = std::any::type_name::<B>(),
+            msg = std::any::type_name::<M>(),
+        ))
         .boxed()
     }
 }
@@ -141,28 +154,46 @@ where
                 .expect("should not have dispatched here");
             let (
                 Request {
-                    header: reply_to,
+                    header: request_header,
                     payload: request,
                 },
                 _empty_envelope,
             ) = envelope.take();
-            let outcome = behaviour.on_request(ctx, request).await.wrap_err_with(|| {
-                format!(
-                    "{} as OnRequest<{}>",
-                    std::any::type_name::<B>(),
-                    std::any::type_name::<Rq>()
-                )
-            })?;
+            let RequestHeader { id, reply_to } = request_header;
+            let outcome = behaviour
+                .on_request(ctx, RequestHeader { id, reply_to }, request)
+                .await
+                .wrap_err_with(|| {
+                    format!(
+                        "{} as OnRequest<{}>",
+                        std::any::type_name::<B>(),
+                        std::any::type_name::<Rq>()
+                    )
+                })?;
             let c = match outcome {
                 Outcome::Break => ControlFlow::Break(()),
                 Outcome::NoReply => ControlFlow::Continue(()),
                 Outcome::Reply(reply_with) => {
-                    ctx.reply(reply_to, reply_with).await.ok();
+                    ctx.reply(RequestHeader { id, reply_to }, reply_with)
+                        .await
+                        .ok();
                     ControlFlow::Continue(())
                 },
             };
             Ok(c)
         }
+        .measured(make_metrics!("mm1_server_on_request",
+            "beh" => std::any::type_name::<B>(),
+            "req" => std::any::type_name::<Rq>(),
+            "resp" => std::any::type_name::<Rs>(),
+        ))
+        .instrument(tracing::span!(
+            Level::TRACE,
+            "mm1_server_on_request",
+            beh = std::any::type_name::<B>(),
+            req = std::any::type_name::<Rq>(),
+            resp = std::any::type_name::<Rs>(),
+        ))
         .boxed()
     }
 }

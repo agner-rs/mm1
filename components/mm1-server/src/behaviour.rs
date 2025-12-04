@@ -1,5 +1,6 @@
 use futures::never::Never;
 use mm1_common::types::AnyError;
+use mm1_proto_ask::RequestHeader;
 
 pub enum Outcome<Rs = Never> {
     Reply(Rs),
@@ -21,6 +22,7 @@ pub trait OnRequest<Ctx, Rq>: Send {
     fn on_request(
         &mut self,
         ctx: &mut Ctx,
+        reply_to: RequestHeader,
         request: Rq,
     ) -> impl Future<Output = Result<Outcome<Self::Rs>, AnyError>> + Send;
 }

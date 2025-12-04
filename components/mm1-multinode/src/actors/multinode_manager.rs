@@ -10,19 +10,17 @@ use mm1_address::address::Address;
 use mm1_address::address_range::AddressRange;
 use mm1_address::subnet::NetAddress;
 use mm1_common::errors::error_of::ErrorOf;
-use mm1_common::log::{debug, error, info, trace, warn};
+use mm1_common::log::{debug, error, info, trace};
 use mm1_common::types::{AnyError, Never};
 use mm1_core::context::BindArgs;
-use mm1_core::envelope::dispatch;
-use mm1_core::tracing::WithTraceIdExt;
 use mm1_proto::message;
-use mm1_proto_ask::{Request, RequestHeader};
-use mm1_proto_network_management::protocols::GetLocalSubnetsRequest;
+use mm1_proto_ask::RequestHeader;
 use mm1_proto_network_management::{iface as i, protocols as p};
 use mm1_proto_sup::uniform as uni_sup;
 use mm1_proto_system::WatchRef;
 use mm1_proto_well_known::MULTINODE_MANAGER;
 use mm1_runnable::local;
+use mm1_server::{OnMessage, OnRequest, Outcome};
 use mm1_sup::common::child_spec::{ChildSpec, InitType};
 use mm1_sup::common::factory::ActorFactoryMut;
 use mm1_sup::uniform::{UniformSup, child_type};
@@ -46,7 +44,7 @@ pub async fn run<Ctx>(ctx: &mut Ctx) -> Result<Never, AnyError>
 where
     Ctx: ActorContext,
 {
-    let mut timer_api = OneshotTimer::create(ctx)
+    let timer_api = OneshotTimer::create(ctx)
         .await
         .wrap_err("OneshotTimer::create")?;
 
@@ -94,9 +92,9 @@ where
     ctx.init_done(ctx.address()).await;
     info!("MULTINODE_MANAGER started");
 
-    event_loop(
-        ctx,
-        &mut State {
+    mm1_server::new::<Ctx>()
+        .behaviour(MultinodeManager {
+            timer_api,
             local_subnets: Default::default(),
             route_subscribers: Default::default(),
             route_gws: Default::default(),
@@ -113,29 +111,28 @@ where
             tcp_connectors: Default::default(),
             uds_acceptors: Default::default(),
             uds_connectors: Default::default(),
-        },
-        &mut timer_api,
-    )
-    .await
-}
+        })
+        .req::<p::RegisterLocalSubnetRequest>()
+        .req::<i::ConnectRequest<SocketAddr>>()
+        .req::<i::ConnectRequest<Box<Path>>>()
+        .req::<i::BindRequest<SocketAddr>>()
+        .req::<i::BindRequest<Box<Path>>>()
+        .req::<p::RegisterProtocolRequest<Protocol>>()
+        .req::<p::UnregisterProtocolRequest>()
+        .req::<p::RegisterOpaqueMessageRequest>()
+        .req::<p::GetMessageNameRequest>()
+        .req::<p::GetProtocolByNameRequest>()
+        .req::<p::GetLocalSubnetsRequest>()
+        .req::<p::ResolveTypeIdRequest>()
+        .msg::<WaitlistTimeoutElapsed>()
+        .req::<SubscribeToRoutesRequest>()
+        .msg::<SetRoute>()
+        .msg::<sys::Down>()
+        .run(ctx)
+        .await
+        .wrap_err("server::run")?;
 
-struct State {
-    local_subnets:          BTreeSet<AddressRange>,
-    route_registry:         RouteRegistry,
-    route_subscribers:      HashMap<sys::WatchRef, Address>,
-    route_gws:              BiMap<WatchRef, Address>,
-    protocol_registry:      ProtocolRegistry,
-    protocol_waitlist:      Waitlist,
-    tcp_connector_sup:      Address,
-    tcp_acceptor_sup:       Address,
-    uds_connector_sup:      Address,
-    uds_acceptor_sup:       Address,
-    subnet_ingress_sup:     Address,
-    subnet_ingress_workers: BTreeMap<AddressRange, Address>,
-    tcp_acceptors:          Ifaces<TcpAcceptorKey, SocketAddr>,
-    uds_acceptors:          Ifaces<UdsAcceptorKey, Box<Path>>,
-    tcp_connectors:         Ifaces<TcpConnectorKey, SocketAddr>,
-    uds_connectors:         Ifaces<UdsConnectorKey, Box<Path>>,
+    Err(eyre::format_err!("multinode-manager exiting"))
 }
 
 struct Ifaces<K, A>
@@ -195,170 +192,806 @@ struct WaitlistTimeoutElapsed {
     waitlist_key: WaitlistKey,
 }
 
-async fn event_loop<Ctx>(
-    ctx: &mut Ctx,
-    state: &mut State,
-    timer_api: &mut OneshotTimer<Ctx>,
-) -> Result<Never, AnyError>
-where
-    Ctx: ActorContext,
+struct MultinodeManager<Ctx> {
+    timer_api:              OneshotTimer<Ctx>,
+    local_subnets:          BTreeSet<AddressRange>,
+    route_registry:         RouteRegistry,
+    route_subscribers:      HashMap<sys::WatchRef, Address>,
+    route_gws:              BiMap<WatchRef, Address>,
+    protocol_registry:      ProtocolRegistry,
+    protocol_waitlist:      Waitlist,
+    tcp_connector_sup:      Address,
+    tcp_acceptor_sup:       Address,
+    uds_connector_sup:      Address,
+    uds_acceptor_sup:       Address,
+    subnet_ingress_sup:     Address,
+    subnet_ingress_workers: BTreeMap<AddressRange, Address>,
+    tcp_acceptors:          Ifaces<TcpAcceptorKey, SocketAddr>,
+    uds_acceptors:          Ifaces<UdsAcceptorKey, Box<Path>>,
+    tcp_connectors:         Ifaces<TcpConnectorKey, SocketAddr>,
+    uds_connectors:         Ifaces<UdsConnectorKey, Box<Path>>,
+}
+
+impl<Ctx: ActorContext> OnRequest<Ctx, p::RegisterLocalSubnetRequest> for MultinodeManager<Ctx> {
+    type Rs = p::RegisterLocalSubnetResponse;
+
+    async fn on_request(
+        &mut self,
+        _ctx: &mut Ctx,
+        _reply_to: RequestHeader,
+        request: p::RegisterLocalSubnetRequest,
+    ) -> Result<mm1_server::Outcome<Self::Rs>, AnyError> {
+        let p::RegisterLocalSubnetRequest { net } = request;
+        let Self { local_subnets, .. } = self;
+
+        local_subnets.insert(net.into());
+        info!("registered local subnet: {}", net,);
+
+        Ok(Outcome::Reply(Ok(())))
+    }
+}
+
+impl<Ctx: ActorContext> OnRequest<Ctx, i::ConnectRequest<SocketAddr>> for MultinodeManager<Ctx> {
+    type Rs = i::ConnectResponse;
+
+    async fn on_request(
+        &mut self,
+        ctx: &mut Ctx,
+        _reply_to: RequestHeader,
+        request: i::ConnectRequest<SocketAddr>,
+    ) -> Result<Outcome<Self::Rs>, AnyError> {
+        use std::collections::hash_map::Entry::*;
+
+        let i::ConnectRequest {
+            dst_address: iface_address,
+            protocol_names,
+            options,
+        } = request;
+
+        let Self {
+            tcp_connector_sup: connector_sup,
+            tcp_connectors: connectors,
+            ..
+        } = self;
+        let Ifaces {
+            entries,
+            by_iface_addr,
+        } = connectors;
+
+        let reply_with: i::ConnectResponse = 'reply: {
+            let Vacant(by_dst_addr) = by_iface_addr.entry(iface_address) else {
+                break 'reply Err(ErrorOf::new(
+                    i::ConnectErrorKind::DuplicateDstAddr,
+                    "address already being connected to",
+                ))
+            };
+
+            let actor_address = ctx
+                .fork_ask::<_, uni_sup::StartResponse>(
+                    *connector_sup,
+                    uni_sup::StartRequest {
+                        args: (iface_address, protocol_names, options),
+                    },
+                    CONNECTOR_START_TIMEOUT,
+                )
+                .await
+                .wrap_err("ctx.fork_ask")?
+                .wrap_err("uni_sup::Start")?;
+            let connector_key = entries.insert(IfaceEntry {
+                iface_address,
+                actor_address,
+            });
+
+            by_dst_addr.insert(connector_key);
+
+            Ok(())
+        };
+
+        Ok(Outcome::Reply(reply_with))
+    }
+}
+
+impl<Ctx: ActorContext> OnRequest<Ctx, i::ConnectRequest<Box<Path>>> for MultinodeManager<Ctx> {
+    type Rs = i::ConnectResponse;
+
+    async fn on_request(
+        &mut self,
+        ctx: &mut Ctx,
+        _reply_to: RequestHeader,
+        request: i::ConnectRequest<Box<Path>>,
+    ) -> Result<Outcome<Self::Rs>, AnyError> {
+        use std::collections::hash_map::Entry::*;
+
+        let i::ConnectRequest {
+            dst_address: iface_address,
+            protocol_names,
+            options,
+        } = request;
+
+        let Self {
+            uds_connector_sup: connector_sup,
+            uds_connectors: connectors,
+            ..
+        } = self;
+        let Ifaces {
+            entries,
+            by_iface_addr,
+        } = connectors;
+
+        let reply_with: i::ConnectResponse = 'reply: {
+            let Vacant(by_dst_addr) = by_iface_addr.entry(iface_address.clone()) else {
+                break 'reply Err(ErrorOf::new(
+                    i::ConnectErrorKind::DuplicateDstAddr,
+                    "address already being connected to",
+                ))
+            };
+
+            let actor_address = ctx
+                .fork_ask::<_, uni_sup::StartResponse>(
+                    *connector_sup,
+                    uni_sup::StartRequest {
+                        args: (iface_address.clone(), protocol_names, options),
+                    },
+                    CONNECTOR_START_TIMEOUT,
+                )
+                .await
+                .wrap_err("ctx.fork_ask")?
+                .wrap_err("uni_sup::Start")?;
+            let connector_key = entries.insert(IfaceEntry {
+                iface_address,
+                actor_address,
+            });
+
+            by_dst_addr.insert(connector_key);
+
+            Ok(())
+        };
+
+        Ok(Outcome::Reply(reply_with))
+    }
+}
+
+impl<Ctx: ActorContext> OnRequest<Ctx, i::BindRequest<SocketAddr>> for MultinodeManager<Ctx> {
+    type Rs = i::BindResponse;
+
+    async fn on_request(
+        &mut self,
+        ctx: &mut Ctx,
+        _reply_to: RequestHeader,
+        request: i::BindRequest<SocketAddr>,
+    ) -> Result<Outcome<Self::Rs>, AnyError> {
+        use std::collections::hash_map::Entry::*;
+
+        let i::BindRequest {
+            bind_address: iface_address,
+            protocol_names,
+            options,
+        } = request;
+
+        let Self {
+            tcp_acceptor_sup: acceptor_sup,
+            tcp_acceptors: acceptors,
+            ..
+        } = self;
+        let Ifaces {
+            entries,
+            by_iface_addr,
+        } = acceptors;
+
+        let reply_with: i::BindResponse = 'reply: {
+            let Vacant(by_bind_addr) = by_iface_addr.entry(iface_address) else {
+                break 'reply Err(ErrorOf::new(
+                    i::BindErrorKind::DuplicateBindAddr,
+                    "address already bound",
+                ))
+            };
+
+            let actor_address = ctx
+                .fork_ask::<_, uni_sup::StartResponse>(
+                    *acceptor_sup,
+                    uni_sup::StartRequest {
+                        args: (iface_address, protocol_names, options),
+                    },
+                    ACCEPTOR_START_TIMEOUT,
+                )
+                .await
+                .wrap_err("ctx.fork_ask")?
+                .wrap_err("uni_sup::Start")?;
+
+            let acceptor_key = entries.insert(IfaceEntry {
+                iface_address,
+                actor_address,
+            });
+
+            by_bind_addr.insert(acceptor_key);
+
+            Ok(())
+        };
+
+        Ok(Outcome::Reply(reply_with))
+    }
+}
+
+impl<Ctx: ActorContext> OnRequest<Ctx, i::BindRequest<Box<Path>>> for MultinodeManager<Ctx> {
+    type Rs = i::BindResponse;
+
+    async fn on_request(
+        &mut self,
+        ctx: &mut Ctx,
+        _reply_to: RequestHeader,
+        request: i::BindRequest<Box<Path>>,
+    ) -> Result<Outcome<Self::Rs>, AnyError> {
+        use std::collections::hash_map::Entry::*;
+
+        let i::BindRequest {
+            bind_address: iface_address,
+            protocol_names,
+            options,
+        } = request;
+
+        let Self {
+            uds_acceptor_sup: acceptor_sup,
+            uds_acceptors: acceptors,
+            ..
+        } = self;
+        let Ifaces {
+            entries,
+            by_iface_addr,
+        } = acceptors;
+
+        let reply_with: i::BindResponse = 'reply: {
+            let Vacant(by_bind_addr) = by_iface_addr.entry(iface_address.clone()) else {
+                break 'reply Err(ErrorOf::new(
+                    i::BindErrorKind::DuplicateBindAddr,
+                    "address already bound",
+                ))
+            };
+
+            let actor_address = ctx
+                .fork_ask::<_, uni_sup::StartResponse>(
+                    *acceptor_sup,
+                    uni_sup::StartRequest {
+                        args: (iface_address.clone(), protocol_names, options),
+                    },
+                    ACCEPTOR_START_TIMEOUT,
+                )
+                .await
+                .wrap_err("ctx.fork_ask")?
+                .wrap_err("uni_sup::Start")?;
+
+            let acceptor_key = entries.insert(IfaceEntry {
+                iface_address,
+                actor_address,
+            });
+
+            by_bind_addr.insert(acceptor_key);
+
+            Ok(())
+        };
+
+        Ok(Outcome::Reply(reply_with))
+    }
+}
+
+impl<Ctx: ActorContext> OnRequest<Ctx, p::RegisterProtocolRequest<Protocol>>
+    for MultinodeManager<Ctx>
 {
-    loop {
-        let inbound = ctx.recv().await.wrap_err("ctx.recv")?;
-        let trace_id = inbound.header().trace_id();
-        dispatch!(match inbound {
-            Request::<p::RegisterLocalSubnetRequest> { header, payload } =>
-                handle_register_local_subnet(ctx, state, header, payload)
-                    .with_trace_id(trace_id)
-                    .await
-                    .wrap_err("handle_register_local_subnet")?,
-            Request::<i::ConnectRequest<SocketAddr>> { header, payload } =>
-                handle_connect_tcp(ctx, state, header, payload,)
-                    .with_trace_id(trace_id)
-                    .await
-                    .wrap_err("handle_connect")?,
-            Request::<i::ConnectRequest<Box<Path>>> { header, payload } =>
-                handle_connect_uds(ctx, state, header, payload,)
-                    .with_trace_id(trace_id)
-                    .await
-                    .wrap_err("handle_connect")?,
-            Request::<i::BindRequest<SocketAddr>> { header, payload } =>
-                handle_bind_tcp(ctx, state, header, payload,)
-                    .with_trace_id(trace_id)
-                    .await
-                    .wrap_err("handle_bind")?,
-            Request::<i::BindRequest<Box<Path>>> { header, payload } =>
-                handle_bind_uds(ctx, state, header, payload,)
-                    .with_trace_id(trace_id)
-                    .await
-                    .wrap_err("handle_bind")?,
-            Request::<p::RegisterProtocolRequest::<Protocol>> { header, payload } => {
-                let () = handle_register_protocol(ctx, timer_api, state, header, payload)
-                    .with_trace_id(trace_id)
-                    .await
-                    .wrap_err("handle_register_protocol")?;
-            },
-            Request::<p::UnregisterProtocolRequest> { header, payload } => {
-                let () = handle_unregsiter_protocol(ctx, state, header, payload)
-                    .with_trace_id(trace_id)
-                    .await
-                    .wrap_err("handle_unregister_protocol")?;
-            },
-            Request::<p::RegisterOpaqueMessageRequest> { header, payload } => {
-                let () = handle_register_opaque_message(ctx, state, header, payload)
-                    .with_trace_id(trace_id)
-                    .await
-                    .wrap_err("handle_register_opaque_message")?;
-            },
-            Request::<p::GetMessageNameRequest> { header, payload } => {
-                let () = handle_get_message_name_request(ctx, state, header, payload)
-                    .with_trace_id(trace_id)
-                    .await
-                    .wrap_err("handle_get_message_name_request")?;
-            },
-            Request::<p::GetProtocolByNameRequest> { header, payload } => {
-                let () = handle_get_protocol_by_name(ctx, state, timer_api, header, payload)
-                    .with_trace_id(trace_id)
-                    .await
-                    .wrap_err("handle_get_protocol_by_name")?;
-            },
-            Request::<p::GetLocalSubnetsRequest> {
-                header,
-                payload: GetLocalSubnetsRequest,
-            } =>
-                trace_id
-                    .scope_async(async {
-                        ctx.reply(
-                            header,
-                            state
-                                .local_subnets
-                                .iter()
-                                .copied()
-                                .map(NetAddress::from)
-                                .collect::<Vec<_>>(),
-                        )
-                        .await
-                        .ok();
-                    })
-                    .await,
-            Request::<_> {
-                header,
-                payload: p::ResolveTypeIdRequest { type_id },
-            } =>
-                trace_id
-                    .scope_async(async {
-                        let State {
-                            protocol_registry, ..
-                        } = state;
-                        let type_key_opt = protocol_registry.local_type_key_by_tid(type_id);
-                        ctx.reply(header, p::ResolveTypeIdResponse { type_key_opt })
-                            .await
-                            .ok();
-                    })
-                    .await,
+    type Rs = p::RegisterProtocolResponse;
 
-            WaitlistTimeoutElapsed { waitlist_key } => {
-                let () = handle_waitlist_timeout_elapsed(ctx, state, waitlist_key)
-                    .with_trace_id(trace_id)
-                    .await
-                    .wrap_err("handle_waitlist_timeout_elapsed")?;
+    async fn on_request(
+        &mut self,
+        ctx: &mut Ctx,
+        reply_to: RequestHeader,
+        request: p::RegisterProtocolRequest<Protocol>,
+    ) -> Result<Outcome<Self::Rs>, AnyError> {
+        let p::RegisterProtocolRequest { name, protocol } = request;
+        let mut waitlist_hits = vec![];
+
+        let Self {
+            timer_api,
+            local_subnets,
+            protocol_registry,
+            protocol_waitlist,
+            ..
+        } = self;
+
+        let protocol = Arc::new(protocol);
+
+        let mut process_request = || -> p::RegisterProtocolResponse {
+            trace!("registering protocol {:?}", name);
+
+            protocol_registry.register_protocol(name.clone(), protocol.clone())?;
+            debug!("protocol registered: {:?}", name);
+
+            {
+                let Waitlist {
+                    entries,
+                    by_protocol,
+                } = protocol_waitlist;
+
+                while let Some((_, waitlist_key)) = by_protocol
+                    .range((name.clone(), None)..)
+                    .skip_while(|(_, k)| k.is_none())
+                    .take_while(|(n, _)| n == &name)
+                    .next()
+                {
+                    let waitlist_key = waitlist_key.expect("None should have been filtered out");
+                    let WaitlistEntry {
+                        protocol: protocol_name,
+                        reply_to,
+                        timer_key,
+                    } = entries.remove(waitlist_key).expect("should be present");
+
+                    let timer_key = timer_key.expect("a None should not have been saved");
+                    waitlist_hits.push((timer_key, reply_to, protocol.clone()));
+
+                    by_protocol.remove(&(protocol_name, Some(waitlist_key)));
+                }
+            }
+
+            Ok(())
+        };
+
+        let reply_with = process_request();
+
+        for inbound_codec in protocol.inbound_types() {
+            let local_type_key = protocol_registry.register_message(inbound_codec);
+            for local_subnet in local_subnets.iter().copied().map(NetAddress::from) {
+                ctx.tell(
+                    ctx.address(),
+                    SetRoute {
+                        message:     local_type_key,
+                        destination: local_subnet,
+                        via:         None,
+                        metric:      Some(0),
+                    },
+                )
+                .await
+                .wrap_err("ctx.tell (when sending SetRoute to self)")?;
+            }
+        }
+
+        ctx.reply(reply_to, reply_with).await.ok();
+
+        let outbound: Vec<_> = protocol
+            .outbound_types()
+            .map(|c| (c.name(), protocol_registry.register_message(c)))
+            .collect();
+        let inbound: Vec<_> = protocol
+            .inbound_types()
+            .map(|c| (c.name(), protocol_registry.register_message(c)))
+            .collect();
+
+        for (timer_key, reply_to, protocol) in waitlist_hits {
+            type Ret = p::GetProtocolByNameResponse<Protocol>;
+
+            timer_api
+                .cancel(timer_key)
+                .await
+                .wrap_err("timer_api.cancel")?;
+
+            let outbound = outbound.clone();
+            let inbound = inbound.clone();
+            ctx.reply(
+                reply_to,
+                Ret::Ok(p::ProtocolResolved {
+                    protocol,
+                    outbound,
+                    inbound,
+                }),
+            )
+            .await
+            .ok();
+        }
+
+        Ok(Outcome::NoReply)
+    }
+}
+
+impl<Ctx: ActorContext> OnRequest<Ctx, p::UnregisterProtocolRequest> for MultinodeManager<Ctx> {
+    type Rs = p::UnregisterProtocolResponse;
+
+    async fn on_request(
+        &mut self,
+        _ctx: &mut Ctx,
+        _reply_to: RequestHeader,
+        request: p::UnregisterProtocolRequest,
+    ) -> Result<Outcome<Self::Rs>, AnyError> {
+        let p::UnregisterProtocolRequest { name } = request;
+        let process_request = || -> p::UnregisterProtocolResponse {
+            trace!("unregistering protocol {:?}", name);
+
+            let Self {
+                protocol_registry, ..
+            } = self;
+
+            protocol_registry.unregister_protocol(name)
+        };
+
+        let reply_with = process_request();
+        Ok(Outcome::Reply(reply_with))
+    }
+}
+
+impl<Ctx: ActorContext> OnRequest<Ctx, p::RegisterOpaqueMessageRequest> for MultinodeManager<Ctx> {
+    type Rs = p::RegisterOpaqueMessageResponse;
+
+    async fn on_request(
+        &mut self,
+        _ctx: &mut Ctx,
+        _reply_to: RequestHeader,
+        request: p::RegisterOpaqueMessageRequest,
+    ) -> Result<Outcome<Self::Rs>, AnyError> {
+        let p::RegisterOpaqueMessageRequest { name } = request;
+        let Self {
+            protocol_registry, ..
+        } = self;
+        let key = protocol_registry.register_message(codec::Opaque(name).into());
+        let response = p::RegisterOpaqueMessageResponse { key };
+        Ok(Outcome::Reply(response))
+    }
+}
+
+impl<Ctx: ActorContext> OnRequest<Ctx, p::GetMessageNameRequest> for MultinodeManager<Ctx> {
+    type Rs = p::GetMessageNameResponse;
+
+    async fn on_request(
+        &mut self,
+        _ctx: &mut Ctx,
+        _reply_to: RequestHeader,
+        request: p::GetMessageNameRequest,
+    ) -> Result<Outcome<Self::Rs>, AnyError> {
+        let p::GetMessageNameRequest { key } = request;
+        let Self {
+            protocol_registry, ..
+        } = self;
+        let name = protocol_registry.message_name_by_key(key);
+        let response = p::GetMessageNameResponse { name };
+        Ok(Outcome::Reply(response))
+    }
+}
+
+impl<Ctx: ActorContext> OnRequest<Ctx, p::GetProtocolByNameRequest> for MultinodeManager<Ctx> {
+    type Rs = p::GetProtocolByNameResponse<Protocol>;
+
+    async fn on_request(
+        &mut self,
+        _ctx: &mut Ctx,
+        reply_to: RequestHeader,
+        request: p::GetProtocolByNameRequest,
+    ) -> Result<Outcome<Self::Rs>, AnyError> {
+        let p::GetProtocolByNameRequest {
+            name,
+            timeout: timeout_opt,
+        } = request;
+        let Self {
+            timer_api,
+            protocol_registry,
+            protocol_waitlist,
+            ..
+        } = self;
+
+        let outcome = match (protocol_registry.protocol_by_name(&name), timeout_opt) {
+            (Some(protocol), _) => {
+                let outbound = protocol
+                    .outbound_types()
+                    .map(|c| (c.name(), protocol_registry.register_message(c)))
+                    .collect();
+                let inbound = protocol
+                    .inbound_types()
+                    .map(|c| (c.name(), protocol_registry.register_message(c)))
+                    .collect();
+
+                Outcome::Reply(Ok(p::ProtocolResolved {
+                    protocol,
+                    outbound,
+                    inbound,
+                }))
             },
-
-            Request::<SubscribeToRoutesRequest> { header, payload } => {
-                let () = handle_subscribe_to_routes(ctx, state, header, payload)
-                    .with_trace_id(trace_id)
-                    .await
-                    .wrap_err("handlke_subscribe_to_routes")?;
+            (None, None) => {
+                Outcome::Reply(Err(ErrorOf::new(
+                    p::GetProtocolByNameErrorKind::NoProtocol,
+                    "no such protocol",
+                )))
             },
-
-            set_route @ SetRoute { .. } => {
-                let () = handle_set_route(ctx, state, set_route)
-                    .with_trace_id(trace_id)
+            (None, Some(timeout)) => {
+                let Waitlist {
+                    entries,
+                    by_protocol,
+                } = protocol_waitlist;
+                let waitlist_entry = WaitlistEntry {
+                    protocol: name.clone(),
+                    reply_to,
+                    timer_key: None,
+                };
+                let waitlist_key = entries.insert(waitlist_entry);
+                let timer_key = timer_api
+                    .schedule_once_after(timeout, WaitlistTimeoutElapsed { waitlist_key })
                     .await
-                    .wrap_err("handle_set_route")?;
+                    .wrap_err("timer_api.schedule_once")?;
+                entries[waitlist_key].timer_key = Some(timer_key);
+                let new_key = by_protocol.insert((name, Some(waitlist_key)));
+                assert!(new_key);
+                Outcome::NoReply
             },
+        };
 
-            down @ sys::Down {
-                watch_ref, peer, ..
-            } if state.route_subscribers.contains_key(watch_ref) =>
-                trace_id
-                    .scope_async(async {
-                        debug!("sys::Down: removing route-subscriber {}", peer);
-                        state.route_subscribers.remove(&watch_ref);
-                    })
-                    .await,
+        Ok(outcome)
+    }
+}
 
-            down @ sys::Down {
-                watch_ref,
-                peer: gw,
-                ..
-            } if state.route_gws.contains_left(watch_ref) =>
-                trace_id
-                    .scope_async(async {
-                        {
-                            debug!("sys::Down: removing route-gw {}", gw);
-                            state.route_gws.remove_by_left(&watch_ref);
-                            for (message, destination, _metric) in
-                                state.route_registry.all_routes_by_gw(gw)
-                            {
-                                trace!(
-                                    "- sys::Down: removing route [msg: {:?}, dst: {}, via: {}]",
-                                    message, destination, gw
-                                );
-                                let set_route = SetRoute {
-                                    message,
-                                    destination,
-                                    via: Some(gw),
-                                    metric: None,
-                                };
-                                let _ = ctx.tell(ctx.address(), set_route).await;
-                            }
-                        }
-                    })
-                    .await,
+impl<Ctx: ActorContext> OnRequest<Ctx, p::GetLocalSubnetsRequest> for MultinodeManager<Ctx> {
+    type Rs = p::GetLocalSubnetsResponse;
 
-            unexpected @ _ => trace_id.scope_sync(|| warn!("unexpected message: {:?}", unexpected)),
-        })
+    async fn on_request(
+        &mut self,
+        _ctx: &mut Ctx,
+        _reply_to: RequestHeader,
+        request: p::GetLocalSubnetsRequest,
+    ) -> Result<Outcome<Self::Rs>, AnyError> {
+        let p::GetLocalSubnetsRequest = request;
+        Ok(Outcome::Reply(
+            self.local_subnets
+                .iter()
+                .copied()
+                .map(NetAddress::from)
+                .collect::<Vec<_>>(),
+        ))
+    }
+}
+
+impl<Ctx: ActorContext> OnRequest<Ctx, p::ResolveTypeIdRequest> for MultinodeManager<Ctx> {
+    type Rs = p::ResolveTypeIdResponse;
+
+    async fn on_request(
+        &mut self,
+        _ctx: &mut Ctx,
+        _reply_to: RequestHeader,
+        request: p::ResolveTypeIdRequest,
+    ) -> Result<Outcome<Self::Rs>, AnyError> {
+        let p::ResolveTypeIdRequest { type_id } = request;
+        let Self {
+            protocol_registry, ..
+        } = self;
+        let type_key_opt = protocol_registry.local_type_key_by_tid(type_id);
+        Ok(Outcome::Reply(p::ResolveTypeIdResponse { type_key_opt }))
+    }
+}
+
+impl<Ctx: ActorContext> OnMessage<Ctx, WaitlistTimeoutElapsed> for MultinodeManager<Ctx> {
+    async fn on_message(
+        &mut self,
+        ctx: &mut Ctx,
+        message: WaitlistTimeoutElapsed,
+    ) -> Result<Outcome, AnyError> {
+        type Ret = p::GetProtocolByNameResponse<Protocol>;
+        let WaitlistTimeoutElapsed { waitlist_key } = message;
+        let Self {
+            protocol_registry,
+            protocol_waitlist,
+            ..
+        } = self;
+        let Waitlist {
+            entries,
+            by_protocol,
+        } = protocol_waitlist;
+
+        let Some(WaitlistEntry {
+            protocol, reply_to, ..
+        }) = entries.remove(waitlist_key)
+        else {
+            return Ok(Outcome::NoReply)
+        };
+        assert!(protocol_registry.protocol_by_name(&protocol).is_none());
+        let existing_key = by_protocol.remove(&(protocol, Some(waitlist_key)));
+        assert!(existing_key);
+
+        ctx.reply(
+            reply_to,
+            Ret::Err(ErrorOf::new(
+                p::GetProtocolByNameErrorKind::NoProtocol,
+                "timed out waiting for protocol",
+            )),
+        )
+        .await
+        .ok();
+
+        Ok(Outcome::NoReply)
+    }
+}
+
+impl<Ctx: ActorContext> OnRequest<Ctx, SubscribeToRoutesRequest> for MultinodeManager<Ctx> {
+    type Rs = SubscribeToRoutesResponse;
+
+    async fn on_request(
+        &mut self,
+        ctx: &mut Ctx,
+        _reply_to: RequestHeader,
+        request: SubscribeToRoutesRequest,
+    ) -> Result<Outcome<Self::Rs>, AnyError> {
+        let Self {
+            route_registry,
+            route_subscribers,
+            ..
+        } = self;
+        let SubscribeToRoutesRequest { deliver_to } = request;
+
+        let routes = route_registry
+            .all_routes()
+            .map(Into::into)
+            .collect::<Vec<_>>();
+
+        let watch_ref = ctx.watch(deliver_to).await;
+        route_subscribers.insert(watch_ref, deliver_to);
+
+        trace!(
+            "subscribed {} to the route-updates; sending {} routes",
+            deliver_to,
+            routes.len()
+        );
+
+        let response = SubscribeToRoutesResponse { routes };
+
+        Ok(Outcome::Reply(response))
+    }
+}
+
+impl<Ctx: ActorContext> OnMessage<Ctx, SetRoute> for MultinodeManager<Ctx> {
+    async fn on_message(
+        &mut self,
+        ctx: &mut Ctx,
+        set_route: SetRoute,
+    ) -> Result<Outcome, AnyError> {
+        use std::collections::btree_map::Entry::*;
+
+        let Self {
+            route_registry,
+            route_subscribers,
+            route_gws,
+            local_subnets,
+            subnet_ingress_sup,
+            subnet_ingress_workers,
+            ..
+        } = self;
+        let SetRoute {
+            message,
+            destination,
+            via,
+            metric: new_metric,
+        } = set_route.clone();
+
+        let contains_net_before = route_registry.contains_net(destination);
+
+        let Ok(old_metric) = route_registry
+            .set_route(message, destination, via, new_metric)
+            .inspect_err(|reason| error!("error setting route: {}", reason))
+        else {
+            return Ok(Outcome::NoReply)
+        };
+        let contains_net_after = route_registry.contains_net(destination);
+
+        match (
+            local_subnets.contains(&destination.into()),
+            contains_net_before,
+            contains_net_after,
+        ) {
+            (false, true, false) => {
+                debug!("stopping subnet_ingress [destination: {}]", destination);
+
+                let Occupied(subnet_ingress_entry) =
+                    subnet_ingress_workers.entry(destination.into())
+                else {
+                    panic!("subnet_ingress is not present: {}", destination);
+                };
+                let subnet_ingress_worker = *subnet_ingress_entry.get();
+                let () = ctx
+                    .fork_ask::<_, uni_sup::StopResponse>(
+                        *subnet_ingress_sup,
+                        uni_sup::StopRequest {
+                            child: subnet_ingress_worker,
+                        },
+                        Duration::from_secs(10),
+                    )
+                    .await
+                    .wrap_err("ctx.fork_ask")?
+                    .wrap_err("uni_sup::StopResponse")?;
+                subnet_ingress_entry.remove();
+
+                info!(
+                    "subnet_ingress stopped [destination: {}; worker: {}]",
+                    destination, subnet_ingress_worker
+                );
+            },
+            (false, false, true) => {
+                debug!("starting subnet_ingress [destination: {}]", destination);
+                let Vacant(subnet_ingress_entry) = subnet_ingress_workers.entry(destination.into())
+                else {
+                    panic!("duplicate subnet_ingress worker: {}", destination)
+                };
+                let subnet_ingress_worker = ctx
+                    .fork_ask::<_, uni_sup::StartResponse>(
+                        *subnet_ingress_sup,
+                        uni_sup::StartRequest {
+                            args: (destination,),
+                        },
+                        Duration::from_secs(1),
+                    )
+                    .await
+                    .wrap_err("ctx.fork_ask")?
+                    .wrap_err("uni_sup::StartResponse")?;
+                subnet_ingress_entry.insert(subnet_ingress_worker);
+
+                info!(
+                    "subnet_ingress started [destination: {}; worker: {}]",
+                    destination, subnet_ingress_worker
+                );
+            },
+            (false, ..) => {},
+            (true, ..) => {},
+        }
+
+        debug!(
+            "route updated [msg: {:?}; dst: {} gw: {}; metric: {:?} -> {:?}]",
+            message,
+            destination,
+            via.map(|n| n.to_string()).unwrap_or_default(),
+            old_metric,
+            new_metric
+        );
+
+        if let Some(gw) = via
+            && !route_gws.contains_right(&gw)
+        {
+            debug!("watching after gw {}", gw);
+            let watch_ref = ctx.watch(gw).await;
+            route_gws.insert(watch_ref, gw);
+        }
+
+        for subscriber in route_subscribers.values().copied() {
+            trace!("announcing route update to {}", subscriber);
+            let _ = ctx.tell(subscriber, set_route.clone()).await;
+        }
+
+        Ok(Outcome::NoReply)
+    }
+}
+
+impl<Ctx: ActorContext> OnMessage<Ctx, sys::Down> for MultinodeManager<Ctx> {
+    async fn on_message(&mut self, ctx: &mut Ctx, message: sys::Down) -> Result<Outcome, AnyError> {
+        let sys::Down {
+            watch_ref, peer, ..
+        } = message;
+        let Self {
+            route_gws,
+            route_registry,
+            route_subscribers,
+            ..
+        } = self;
+
+        if route_subscribers.contains_key(&watch_ref) {
+            debug!("sys::Down: removing route-subscriber {}", peer);
+            route_subscribers.remove(&watch_ref);
+        }
+
+        if route_gws.contains_left(&watch_ref) {
+            let gw = peer;
+            debug!("sys::Down: removing route-gw {}", gw);
+            route_gws.remove_by_left(&watch_ref);
+            for (message, destination, _metric) in route_registry.all_routes_by_gw(gw) {
+                trace!(
+                    "- sys::Down: removing route [msg: {:?}, dst: {}, via: {}]",
+                    message, destination, gw
+                );
+                let set_route = SetRoute {
+                    message,
+                    destination,
+                    via: Some(gw),
+                    metric: None,
+                };
+                let _ = ctx.tell(ctx.address(), set_route).await;
+            }
+        }
+        Ok(Outcome::NoReply)
     }
 }
 
@@ -564,728 +1197,4 @@ where
         .wrap_err("ctx.start")?;
 
     Ok(acceptor_sup)
-}
-
-async fn handle_register_opaque_message<Ctx>(
-    ctx: &mut Ctx,
-    state: &mut State,
-    reply_to: RequestHeader,
-    payload: p::RegisterOpaqueMessageRequest,
-) -> Result<(), AnyError>
-where
-    Ctx: ActorContext,
-{
-    let p::RegisterOpaqueMessageRequest { name } = payload;
-    let State {
-        protocol_registry, ..
-    } = state;
-    let key = protocol_registry.register_message(codec::Opaque(name).into());
-    let response = p::RegisterOpaqueMessageResponse { key };
-    ctx.reply(reply_to, response).await.ok();
-
-    Ok(())
-}
-
-async fn handle_get_message_name_request<Ctx>(
-    ctx: &mut Ctx,
-    state: &mut State,
-    reply_to: RequestHeader,
-    payload: p::GetMessageNameRequest,
-) -> Result<(), AnyError>
-where
-    Ctx: ActorContext,
-{
-    let p::GetMessageNameRequest { key } = payload;
-    let State {
-        protocol_registry, ..
-    } = state;
-    let name = protocol_registry.message_name_by_key(key);
-    let response = p::GetMessageNameResponse { name };
-    ctx.reply(reply_to, response).await.ok();
-
-    Ok(())
-}
-
-async fn handle_register_local_subnet<Ctx>(
-    ctx: &mut Ctx,
-    state: &mut State,
-    reply_to: RequestHeader,
-    register_local_subnet: p::RegisterLocalSubnetRequest,
-) -> Result<(), AnyError>
-where
-    Ctx: ActorContext,
-{
-    type Ret = p::RegisterLocalSubnetResponse;
-
-    let State { local_subnets, .. } = state;
-
-    let p::RegisterLocalSubnetRequest { net } = register_local_subnet;
-
-    local_subnets.insert(net.into());
-
-    info!("registered local subnet: {}", net,);
-    ctx.reply(reply_to, Ret::Ok(())).await.ok();
-    Ok(())
-}
-
-async fn handle_connect_tcp<Ctx>(
-    ctx: &mut Ctx,
-    state: &mut State,
-    reply_to: RequestHeader,
-    connect: i::ConnectRequest<SocketAddr>,
-) -> Result<(), AnyError>
-where
-    Ctx: ActorContext,
-{
-    use std::collections::hash_map::Entry::*;
-
-    let i::ConnectRequest {
-        dst_address: iface_address,
-        protocol_names,
-        options,
-    } = connect;
-
-    let State {
-        tcp_connector_sup: connector_sup,
-        tcp_connectors: connectors,
-        ..
-    } = state;
-    let Ifaces {
-        entries,
-        by_iface_addr,
-    } = connectors;
-
-    let reply_with: i::ConnectResponse = 'reply: {
-        let Vacant(by_dst_addr) = by_iface_addr.entry(iface_address) else {
-            break 'reply Err(ErrorOf::new(
-                i::ConnectErrorKind::DuplicateDstAddr,
-                "address already being connected to",
-            ))
-        };
-
-        let actor_address = ctx
-            .fork_ask::<_, uni_sup::StartResponse>(
-                *connector_sup,
-                uni_sup::StartRequest {
-                    args: (iface_address, protocol_names, options),
-                },
-                CONNECTOR_START_TIMEOUT,
-            )
-            .await
-            .wrap_err("ctx.fork_ask")?
-            .wrap_err("uni_sup::Start")?;
-        let connector_key = entries.insert(IfaceEntry {
-            iface_address,
-            actor_address,
-        });
-
-        by_dst_addr.insert(connector_key);
-
-        Ok(())
-    };
-
-    ctx.reply(reply_to, reply_with).await.ok();
-
-    Ok(())
-}
-
-async fn handle_connect_uds<Ctx>(
-    ctx: &mut Ctx,
-    state: &mut State,
-    reply_to: RequestHeader,
-    connect: i::ConnectRequest<Box<Path>>,
-) -> Result<(), AnyError>
-where
-    Ctx: ActorContext,
-{
-    use std::collections::hash_map::Entry::*;
-
-    let i::ConnectRequest {
-        dst_address: iface_address,
-        protocol_names,
-        options,
-    } = connect;
-
-    let State {
-        uds_connector_sup: connector_sup,
-        uds_connectors: connectors,
-        ..
-    } = state;
-    let Ifaces {
-        entries,
-        by_iface_addr,
-    } = connectors;
-
-    let reply_with: i::ConnectResponse = 'reply: {
-        let Vacant(by_dst_addr) = by_iface_addr.entry(iface_address.clone()) else {
-            break 'reply Err(ErrorOf::new(
-                i::ConnectErrorKind::DuplicateDstAddr,
-                "address already being connected to",
-            ))
-        };
-
-        let actor_address = ctx
-            .fork_ask::<_, uni_sup::StartResponse>(
-                *connector_sup,
-                uni_sup::StartRequest {
-                    args: (iface_address.clone(), protocol_names, options),
-                },
-                CONNECTOR_START_TIMEOUT,
-            )
-            .await
-            .wrap_err("ctx.fork_ask")?
-            .wrap_err("uni_sup::Start")?;
-        let connector_key = entries.insert(IfaceEntry {
-            iface_address,
-            actor_address,
-        });
-
-        by_dst_addr.insert(connector_key);
-
-        Ok(())
-    };
-
-    ctx.reply(reply_to, reply_with).await.ok();
-
-    Ok(())
-}
-
-async fn handle_bind_tcp<Ctx>(
-    ctx: &mut Ctx,
-    state: &mut State,
-    reply_to: RequestHeader,
-    bind: i::BindRequest<SocketAddr>,
-) -> Result<(), AnyError>
-where
-    Ctx: ActorContext,
-{
-    use std::collections::hash_map::Entry::*;
-
-    let i::BindRequest {
-        bind_address: iface_address,
-        protocol_names,
-        options,
-    } = bind;
-
-    let State {
-        tcp_acceptor_sup: acceptor_sup,
-        tcp_acceptors: acceptors,
-        ..
-    } = state;
-    let Ifaces {
-        entries,
-        by_iface_addr,
-    } = acceptors;
-
-    let reply_with: i::BindResponse = 'reply: {
-        let Vacant(by_bind_addr) = by_iface_addr.entry(iface_address) else {
-            break 'reply Err(ErrorOf::new(
-                i::BindErrorKind::DuplicateBindAddr,
-                "address already bound",
-            ))
-        };
-
-        let actor_address = ctx
-            .fork_ask::<_, uni_sup::StartResponse>(
-                *acceptor_sup,
-                uni_sup::StartRequest {
-                    args: (iface_address, protocol_names, options),
-                },
-                ACCEPTOR_START_TIMEOUT,
-            )
-            .await
-            .wrap_err("ctx.fork_ask")?
-            .wrap_err("uni_sup::Start")?;
-
-        let acceptor_key = entries.insert(IfaceEntry {
-            iface_address,
-            actor_address,
-        });
-
-        by_bind_addr.insert(acceptor_key);
-
-        Ok(())
-    };
-
-    ctx.reply(reply_to, reply_with).await.ok();
-
-    Ok(())
-}
-
-async fn handle_bind_uds<Ctx>(
-    ctx: &mut Ctx,
-    state: &mut State,
-    reply_to: RequestHeader,
-    bind: i::BindRequest<Box<Path>>,
-) -> Result<(), AnyError>
-where
-    Ctx: ActorContext,
-{
-    use std::collections::hash_map::Entry::*;
-
-    let i::BindRequest {
-        bind_address: iface_address,
-        protocol_names,
-        options,
-    } = bind;
-
-    let State {
-        uds_acceptor_sup: acceptor_sup,
-        uds_acceptors: acceptors,
-        ..
-    } = state;
-    let Ifaces {
-        entries,
-        by_iface_addr,
-    } = acceptors;
-
-    let reply_with: i::BindResponse = 'reply: {
-        let Vacant(by_bind_addr) = by_iface_addr.entry(iface_address.clone()) else {
-            break 'reply Err(ErrorOf::new(
-                i::BindErrorKind::DuplicateBindAddr,
-                "address already bound",
-            ))
-        };
-
-        let actor_address = ctx
-            .fork_ask::<_, uni_sup::StartResponse>(
-                *acceptor_sup,
-                uni_sup::StartRequest {
-                    args: (iface_address.clone(), protocol_names, options),
-                },
-                ACCEPTOR_START_TIMEOUT,
-            )
-            .await
-            .wrap_err("ctx.fork_ask")?
-            .wrap_err("uni_sup::Start")?;
-
-        let acceptor_key = entries.insert(IfaceEntry {
-            iface_address,
-            actor_address,
-        });
-
-        by_bind_addr.insert(acceptor_key);
-
-        Ok(())
-    };
-
-    ctx.reply(reply_to, reply_with).await.ok();
-
-    Ok(())
-}
-
-async fn handle_register_protocol<Ctx>(
-    ctx: &mut Ctx,
-    timer_api: &mut OneshotTimer<Ctx>,
-    state: &mut State,
-    reply_to: RequestHeader,
-    request: p::RegisterProtocolRequest<Protocol>,
-) -> Result<(), AnyError>
-where
-    Ctx: ActorContext,
-{
-    let p::RegisterProtocolRequest { name, protocol } = request;
-    let mut waitlist_hits = vec![];
-
-    let State {
-        local_subnets,
-        protocol_registry,
-        protocol_waitlist,
-        ..
-    } = state;
-
-    let protocol = Arc::new(protocol);
-
-    let mut process_request = || -> p::RegisterProtocolResponse {
-        trace!("registering protocol {:?}", name);
-
-        protocol_registry.register_protocol(name.clone(), protocol.clone())?;
-        debug!("protocol registered: {:?}", name);
-
-        {
-            let Waitlist {
-                entries,
-                by_protocol,
-            } = protocol_waitlist;
-
-            while let Some((_, waitlist_key)) = by_protocol
-                .range((name.clone(), None)..)
-                .skip_while(|(_, k)| k.is_none())
-                .take_while(|(n, _)| n == &name)
-                .next()
-            {
-                let waitlist_key = waitlist_key.expect("None should have been filtered out");
-                let WaitlistEntry {
-                    protocol: protocol_name,
-                    reply_to,
-                    timer_key,
-                } = entries.remove(waitlist_key).expect("should be present");
-
-                let timer_key = timer_key.expect("a None should not have been saved");
-                waitlist_hits.push((timer_key, reply_to, protocol.clone()));
-
-                by_protocol.remove(&(protocol_name, Some(waitlist_key)));
-            }
-        }
-
-        Ok(())
-    };
-
-    let reply_with = process_request();
-
-    for inbound_codec in protocol.inbound_types() {
-        let local_type_key = protocol_registry.register_message(inbound_codec);
-        for local_subnet in local_subnets.iter().copied().map(NetAddress::from) {
-            ctx.tell(
-                ctx.address(),
-                SetRoute {
-                    message:     local_type_key,
-                    destination: local_subnet,
-                    via:         None,
-                    metric:      Some(0),
-                },
-            )
-            .await
-            .wrap_err("ctx.tell (when sending SetRoute to self)")?;
-        }
-    }
-
-    ctx.reply(reply_to, reply_with).await.ok();
-
-    let outbound: Vec<_> = protocol
-        .outbound_types()
-        .map(|c| (c.name(), protocol_registry.register_message(c)))
-        .collect();
-    let inbound: Vec<_> = protocol
-        .inbound_types()
-        .map(|c| (c.name(), protocol_registry.register_message(c)))
-        .collect();
-
-    for (timer_key, reply_to, protocol) in waitlist_hits {
-        type Ret = p::GetProtocolByNameResponse<Protocol>;
-
-        timer_api
-            .cancel(timer_key)
-            .await
-            .wrap_err("timer_api.cancel")?;
-
-        let outbound = outbound.clone();
-        let inbound = inbound.clone();
-        ctx.reply(
-            reply_to,
-            Ret::Ok(p::ProtocolResolved {
-                protocol,
-                outbound,
-                inbound,
-            }),
-        )
-        .await
-        .ok();
-    }
-
-    Ok(())
-}
-
-async fn handle_waitlist_timeout_elapsed<Ctx>(
-    ctx: &mut Ctx,
-    state: &mut State,
-    waitlist_key: WaitlistKey,
-) -> Result<(), AnyError>
-where
-    Ctx: ActorContext,
-{
-    type Ret = p::GetProtocolByNameResponse<Protocol>;
-    let State {
-        protocol_registry,
-        protocol_waitlist,
-        ..
-    } = state;
-    let Waitlist {
-        entries,
-        by_protocol,
-    } = protocol_waitlist;
-
-    let Some(WaitlistEntry {
-        protocol, reply_to, ..
-    }) = entries.remove(waitlist_key)
-    else {
-        return Ok(())
-    };
-    assert!(protocol_registry.protocol_by_name(&protocol).is_none());
-    let existing_key = by_protocol.remove(&(protocol, Some(waitlist_key)));
-    assert!(existing_key);
-
-    ctx.reply(
-        reply_to,
-        Ret::Err(ErrorOf::new(
-            p::GetProtocolByNameErrorKind::NoProtocol,
-            "timed out waiting for protocol",
-        )),
-    )
-    .await
-    .ok();
-
-    Ok(())
-}
-
-async fn handle_unregsiter_protocol<Ctx>(
-    ctx: &mut Ctx,
-    state: &mut State,
-    reply_to: RequestHeader,
-    request: p::UnregisterProtocolRequest,
-) -> Result<(), AnyError>
-where
-    Ctx: ActorContext,
-{
-    let p::UnregisterProtocolRequest { name } = request;
-    let process_request = || -> p::UnregisterProtocolResponse {
-        trace!("unregistering protocol {:?}", name);
-
-        let State {
-            protocol_registry, ..
-        } = state;
-
-        protocol_registry.unregister_protocol(name)
-    };
-
-    let reply_with = process_request();
-    ctx.reply(reply_to, reply_with).await.ok();
-
-    Ok(())
-}
-
-async fn handle_get_protocol_by_name<Ctx>(
-    ctx: &mut Ctx,
-    state: &mut State,
-    timer_api: &mut OneshotTimer<Ctx>,
-    reply_to: RequestHeader,
-    request: p::GetProtocolByNameRequest,
-) -> Result<(), AnyError>
-where
-    Ctx: ActorContext,
-{
-    type Ret = p::GetProtocolByNameResponse<Protocol>;
-
-    let p::GetProtocolByNameRequest {
-        name,
-        timeout: timeout_opt,
-    } = request;
-    let State {
-        protocol_registry,
-        protocol_waitlist,
-        ..
-    } = state;
-
-    match (protocol_registry.protocol_by_name(&name), timeout_opt) {
-        (Some(protocol), _) => {
-            let outbound = protocol
-                .outbound_types()
-                .map(|c| (c.name(), protocol_registry.register_message(c)))
-                .collect();
-            let inbound = protocol
-                .inbound_types()
-                .map(|c| (c.name(), protocol_registry.register_message(c)))
-                .collect();
-
-            ctx.reply(
-                reply_to,
-                Ret::Ok(p::ProtocolResolved {
-                    protocol,
-                    outbound,
-                    inbound,
-                }),
-            )
-            .await
-            .ok();
-        },
-        (None, None) => {
-            ctx.reply(
-                reply_to,
-                Ret::Err(ErrorOf::new(
-                    p::GetProtocolByNameErrorKind::NoProtocol,
-                    "no such protocol",
-                )),
-            )
-            .await
-            .ok();
-        },
-        (None, Some(timeout)) => {
-            let Waitlist {
-                entries,
-                by_protocol,
-            } = protocol_waitlist;
-            let waitlist_entry = WaitlistEntry {
-                protocol: name.clone(),
-                reply_to,
-                timer_key: None,
-            };
-            let waitlist_key = entries.insert(waitlist_entry);
-            let timer_key = timer_api
-                .schedule_once_after(timeout, WaitlistTimeoutElapsed { waitlist_key })
-                .await
-                .wrap_err("timer_api.schedule_once")?;
-            entries[waitlist_key].timer_key = Some(timer_key);
-            let new_key = by_protocol.insert((name, Some(waitlist_key)));
-            assert!(new_key);
-        },
-    }
-
-    Ok(())
-}
-
-async fn handle_subscribe_to_routes<Ctx>(
-    ctx: &mut Ctx,
-    state: &mut State,
-    reply_to: RequestHeader,
-    request: SubscribeToRoutesRequest,
-) -> Result<(), AnyError>
-where
-    Ctx: ActorContext,
-{
-    let State {
-        route_registry,
-        route_subscribers,
-        ..
-    } = state;
-    let SubscribeToRoutesRequest { deliver_to } = request;
-
-    let routes = route_registry
-        .all_routes()
-        .map(Into::into)
-        .collect::<Vec<_>>();
-
-    trace!(
-        "subscribed {} to the route-updates; sending {} routes",
-        deliver_to,
-        routes.len()
-    );
-
-    let response = SubscribeToRoutesResponse { routes };
-
-    ctx.reply(reply_to, response).await.ok();
-
-    let watch_ref = ctx.watch(deliver_to).await;
-    route_subscribers.insert(watch_ref, deliver_to);
-
-    Ok(())
-}
-
-async fn handle_set_route<Ctx>(
-    ctx: &mut Ctx,
-    state: &mut State,
-    set_route: SetRoute,
-) -> Result<(), AnyError>
-where
-    Ctx: ActorContext,
-{
-    use std::collections::btree_map::Entry::*;
-
-    let State {
-        route_registry,
-        route_subscribers,
-        route_gws,
-        local_subnets,
-        subnet_ingress_sup,
-        subnet_ingress_workers,
-        ..
-    } = state;
-    let SetRoute {
-        message,
-        destination,
-        via,
-        metric: new_metric,
-    } = set_route.clone();
-
-    let contains_net_before = route_registry.contains_net(destination);
-
-    let Ok(old_metric) = route_registry
-        .set_route(message, destination, via, new_metric)
-        .inspect_err(|reason| error!("error setting route: {}", reason))
-    else {
-        return Ok(())
-    };
-    let contains_net_after = route_registry.contains_net(destination);
-
-    match (
-        local_subnets.contains(&destination.into()),
-        contains_net_before,
-        contains_net_after,
-    ) {
-        (false, true, false) => {
-            debug!("stopping subnet_ingress [destination: {}]", destination);
-
-            let Occupied(subnet_ingress_entry) = subnet_ingress_workers.entry(destination.into())
-            else {
-                panic!("subnet_ingress is not present: {}", destination);
-            };
-            let subnet_ingress_worker = *subnet_ingress_entry.get();
-            let () = ctx
-                .fork_ask::<_, uni_sup::StopResponse>(
-                    *subnet_ingress_sup,
-                    uni_sup::StopRequest {
-                        child: subnet_ingress_worker,
-                    },
-                    Duration::from_secs(10),
-                )
-                .await
-                .wrap_err("ctx.fork_ask")?
-                .wrap_err("uni_sup::StopResponse")?;
-            subnet_ingress_entry.remove();
-
-            info!(
-                "subnet_ingress stopped [destination: {}; worker: {}]",
-                destination, subnet_ingress_worker
-            );
-        },
-        (false, false, true) => {
-            debug!("starting subnet_ingress [destination: {}]", destination);
-            let Vacant(subnet_ingress_entry) = subnet_ingress_workers.entry(destination.into())
-            else {
-                panic!("duplicate subnet_ingress worker: {}", destination)
-            };
-            let subnet_ingress_worker = ctx
-                .fork_ask::<_, uni_sup::StartResponse>(
-                    *subnet_ingress_sup,
-                    uni_sup::StartRequest {
-                        args: (destination,),
-                    },
-                    Duration::from_secs(1),
-                )
-                .await
-                .wrap_err("ctx.fork_ask")?
-                .wrap_err("uni_sup::StartResponse")?;
-            subnet_ingress_entry.insert(subnet_ingress_worker);
-
-            info!(
-                "subnet_ingress started [destination: {}; worker: {}]",
-                destination, subnet_ingress_worker
-            );
-        },
-        (false, ..) => {},
-        (true, ..) => {},
-    }
-
-    debug!(
-        "route updated [msg: {:?}; dst: {} gw: {}; metric: {:?} -> {:?}]",
-        message,
-        destination,
-        via.map(|n| n.to_string()).unwrap_or_default(),
-        old_metric,
-        new_metric
-    );
-
-    if let Some(gw) = via
-        && !route_gws.contains_right(&gw)
-    {
-        debug!("watching after gw {}", gw);
-        let watch_ref = ctx.watch(gw).await;
-        route_gws.insert(watch_ref, gw);
-    }
-
-    for subscriber in route_subscribers.values().copied() {
-        trace!("announcing route update to {}", subscriber);
-        let _ = ctx.tell(subscriber, set_route.clone()).await;
-    }
-
-    Ok(())
 }

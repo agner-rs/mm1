@@ -5,15 +5,14 @@ use std::time::Duration;
 use eyre::Context;
 use mm1_address::address::Address;
 use mm1_common::log::{info, warn};
-use mm1_common::types::{AnyError, Never};
-use mm1_core::envelope::dispatch;
-use mm1_core::tracing::WithTraceIdExt;
+use mm1_common::types::AnyError;
 use mm1_proto::message;
 use mm1_proto_network_management::protocols::ProtocolResolved;
 use mm1_proto_network_management::{self as nm, protocols};
 use mm1_proto_sup::uniform as uni_sup;
 use mm1_proto_system as sys;
 use mm1_proto_well_known::MULTINODE_MANAGER;
+use mm1_server::{OnMessage, Outcome};
 use mm1_timer::v1::OneshotTimer;
 use tokio::net::UnixStream;
 
@@ -30,13 +29,13 @@ pub async fn run<Ctx>(
     dst_addr: Box<Path>,
     protocol_names: Vec<nm::ProtocolName>,
     options: nm::Options,
-) -> Result<Never, AnyError>
+) -> Result<(), AnyError>
 where
     Ctx: ActorContext,
 {
     ctx.init_done(ctx.address()).await;
 
-    let mut timer_api = OneshotTimer::create(ctx)
+    let timer_api = OneshotTimer::create(ctx)
         .await
         .wrap_err("OneshotTimer::create")?;
 
@@ -51,112 +50,112 @@ where
     ctx.tell(ctx.address(), Connect)
         .await
         .wrap_err("ctx.tell")?;
-    event_loop(
-        ctx,
-        &mut timer_api,
-        connection_sup,
-        &dst_addr,
-        Arc::new(options),
-        protocols.into_boxed_slice().into(),
-    )
-    .await
+
+    mm1_server::new::<Ctx>()
+        .behaviour(UdsConnector {
+            timer_api,
+            connection_sup,
+            dst_addr,
+            options: Arc::new(options),
+            protocols: protocols.into_boxed_slice().into(),
+        })
+        .msg::<Connect>()
+        .msg::<sys::Down>()
+        .run(ctx)
+        .await
+        .wrap_err("server::run")?;
+
+    Ok(())
 }
 
-async fn event_loop<Ctx>(
-    ctx: &mut Ctx,
-    timer_api: &mut OneshotTimer<Ctx>,
+struct UdsConnector<Ctx> {
+    timer_api:      OneshotTimer<Ctx>,
     connection_sup: Address,
-    dst_addr: &Path,
-    options: Arc<nm::Options>,
-    protocols: Arc<[ProtocolResolved<Protocol>]>,
-) -> Result<Never, AnyError>
+    dst_addr:       Box<Path>,
+    options:        Arc<nm::Options>,
+    protocols:      Arc<[ProtocolResolved<Protocol>]>,
+}
+
+impl<Ctx> OnMessage<Ctx, Connect> for UdsConnector<Ctx>
 where
     Ctx: ActorContext,
 {
-    loop {
-        let envelope = ctx.recv().await.wrap_err("ctx.recv")?;
-        let trace_id = envelope.header().trace_id();
-        dispatch!(match envelope {
-            Connect =>
-                handle_connect(
-                    ctx,
-                    timer_api,
-                    connection_sup,
-                    dst_addr,
-                    options.clone(),
-                    protocols.clone()
-                )
-                .with_trace_id(trace_id)
-                .await
-                .wrap_err("handle_connect")?,
+    async fn on_message(&mut self, ctx: &mut Ctx, message: Connect) -> Result<Outcome, AnyError> {
+        let Connect = message;
+        let Self {
+            timer_api,
+            connection_sup,
+            dst_addr,
+            options,
+            protocols,
+        } = self;
+        let options = options.clone();
+        let protocols = protocols.clone();
 
-            sys::Down { normal_exit, .. } if *normal_exit =>
-                break trace_id
-                    .scope_async(async {
-                        info!("connection terminated normally [dst: {:?}]", dst_addr);
-                        Ok(ctx.quit_ok().await)
-                    })
-                    .await,
-            sys::Down { normal_exit, .. } => {
-                trace_id
-                    .scope_async(async {
-                        assert!(!normal_exit);
+        info!("connecting to {:?} from {:?}", dst_addr, dst_addr);
 
-                        warn!(
-                            "connection terminated abnormally. Reconnecting in {:?} [dst: {:?}]",
-                            RECONNECT_INTERVAL, dst_addr
-                        );
-                        timer_api
-                            .schedule_once_after(RECONNECT_INTERVAL, Connect)
-                            .await
-                            .wrap_err("timer_api.schedule_once_after")
-                    })
-                    .await?;
+        let uds_stream = match UnixStream::connect(&dst_addr).await {
+            Ok(uds_stream) => uds_stream,
+            Err(reason) => {
+                warn!("could not connect to {:?}: {}", dst_addr, reason);
+                timer_api
+                    .schedule_once_after(RECONNECT_INTERVAL, Connect)
+                    .await
+                    .wrap_err("timer_api.schedule_once_after")?;
+                return Ok(Outcome::NoReply)
             },
-        })
+        };
+
+        let connection_addr = ctx
+            .fork_ask::<_, uni_sup::StartResponse>(
+                *connection_sup,
+                uni_sup::StartRequest {
+                    args: (uds_stream, options, protocols),
+                },
+                CONNECTION_START_TIMEOUT,
+            )
+            .await
+            .wrap_err("ctx.fork_ask")?
+            .wrap_err("uni_sup::Start")?;
+
+        let _watch_ref = ctx.watch(connection_addr).await;
+
+        Ok(Outcome::NoReply)
     }
 }
 
-async fn handle_connect<Ctx>(
-    ctx: &mut Ctx,
-    timer_api: &mut OneshotTimer<Ctx>,
-    connection_sup: Address,
-    dst_addr: &Path,
-    options: Arc<nm::Options>,
-    protocols: Arc<[ProtocolResolved<Protocol>]>,
-) -> Result<(), AnyError>
+impl<Ctx> OnMessage<Ctx, sys::Down> for UdsConnector<Ctx>
 where
     Ctx: ActorContext,
 {
-    info!("connecting to {:?} from {:?}", dst_addr, dst_addr);
+    async fn on_message(
+        &mut self,
+        _ctx: &mut Ctx,
+        message: sys::Down,
+    ) -> Result<Outcome, AnyError> {
+        let sys::Down { normal_exit, .. } = message;
+        let Self {
+            timer_api,
+            dst_addr,
+            ..
+        } = self;
 
-    let uds_stream = match UnixStream::connect(&dst_addr).await {
-        Ok(uds_stream) => uds_stream,
-        Err(reason) => {
-            warn!("could not connect to {:?}: {}", dst_addr, reason);
-            timer_api
+        if normal_exit {
+            info!("connection terminated normally [dst: {:?}]", dst_addr);
+            Ok(Outcome::Break)
+        } else {
+            warn!(
+                "connection terminated abnormally. Reconnecting in {:?} [dst: {:?}]",
+                RECONNECT_INTERVAL, dst_addr
+            );
+            let _ = timer_api
                 .schedule_once_after(RECONNECT_INTERVAL, Connect)
                 .await
                 .wrap_err("timer_api.schedule_once_after")?;
-            return Ok(())
-        },
-    };
 
-    let connection_addr = ctx
-        .fork_ask::<_, uni_sup::StartResponse>(
-            connection_sup,
-            uni_sup::StartRequest {
-                args: (uds_stream, options, protocols),
-            },
-            CONNECTION_START_TIMEOUT,
-        )
-        .await
-        .wrap_err("ctx.fork_ask")?
-        .wrap_err("uni_sup::Start")?;
-
-    let _watch_ref = ctx.watch(connection_addr).await;
-
-    Ok(())
+            Ok(Outcome::NoReply)
+        }
+    }
 }
 
 async fn wait_for_protocol<Ctx>(

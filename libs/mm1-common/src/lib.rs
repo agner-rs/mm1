@@ -7,4 +7,5 @@ pub mod errors;
 pub mod futures;
 #[cfg(feature = "logging")]
 pub mod log;
+pub mod metrics;
 pub mod types;
