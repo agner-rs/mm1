@@ -15,8 +15,9 @@ const DEFAULT_TTL: usize = 3;
 
 #[derive(Debug)]
 pub struct EnvelopeHeader {
-    pub to:  Address,
-    pub ttl: usize,
+    pub to:       Address,
+    pub ttl:      usize,
+    pub priority: bool,
 
     #[allow(dead_code)]
     no:       u64,
@@ -34,6 +35,7 @@ impl EnvelopeHeader {
         Self {
             to,
             no: ENVELOPE_SEQ_NO.fetch_add(1, Ordering::Relaxed),
+            priority: false,
             ttl: DEFAULT_TTL,
             trace_id: TraceId::current(),
         }
@@ -45,6 +47,10 @@ impl EnvelopeHeader {
 
     pub fn with_trace_id(self, trace_id: TraceId) -> Self {
         Self { trace_id, ..self }
+    }
+
+    pub fn with_priority(self, priority: bool) -> Self {
+        Self { priority, ..self }
     }
 }
 

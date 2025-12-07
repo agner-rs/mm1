@@ -500,7 +500,7 @@ fn do_send(context: &mut ActorContext, outbound: Envelope) -> Result<(), ErrorOf
     trace!("sending [outbound: {:?}]", outbound);
     context
         .rt_api
-        .send_to(outbound.header().to, false, outbound)
+        .send_to(outbound.header().to, outbound.header().priority, outbound)
         .map_err(|k| ErrorOf::new(k, ""))
 }
 
@@ -512,6 +512,6 @@ fn do_forward(
     trace!("forwarding [to: {}, outbound: {:?}]", to, outbound);
     context
         .rt_api
-        .send_to(to, false, outbound)
+        .send_to(to, outbound.header().priority, outbound)
         .map_err(|k| ErrorOf::new(k, ""))
 }

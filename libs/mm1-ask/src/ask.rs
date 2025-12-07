@@ -153,7 +153,7 @@ where
             header:  response_header,
             payload: response,
         };
-        let response_envelope_header = EnvelopeHeader::to_address(reply_to);
+        let response_envelope_header = EnvelopeHeader::to_address(reply_to).with_priority(true);
         let response_envelope = Envelope::new(response_envelope_header, response_message);
         self.send(response_envelope.into_erased()).await?;
 
