@@ -96,7 +96,7 @@ fn test_01() {
         let mut workers = HashSet::new();
         for i in 0..128 {
             let start_response: uniform::StartResponse = ctx
-                .fork_ask(
+                .ask(
                     sup_addr,
                     uniform::StartRequest {
                         args: (main_addr, Duration::from_millis(i % 1024)),
@@ -129,7 +129,7 @@ fn test_01() {
             debug!("WORKER[{}]@{} said Hi", worker_id, worker_address);
 
             let stop_response: uniform::StopResponse = ctx
-                .fork_ask(
+                .ask(
                     sup_addr,
                     uniform::StopRequest {
                         child: worker_address,

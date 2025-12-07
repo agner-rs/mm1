@@ -75,7 +75,7 @@ where
         let message = message.into();
         let proto::ScheduledOneshot { key } = self
             .client_ctx
-            .ask(
+            .ask_nofork(
                 self.server_addr,
                 proto::ScheduleOneshotAt { at, message },
                 ASK_TIMEOUT,
@@ -96,7 +96,7 @@ where
     pub async fn cancel(&mut self, key: OneshotKey) -> Result<Option<AnyMessage>, TimerError> {
         let proto::CanceledOneshot { message } = self
             .client_ctx
-            .ask(self.server_addr, proto::CancelOneshot { key }, ASK_TIMEOUT)
+            .ask_nofork(self.server_addr, proto::CancelOneshot { key }, ASK_TIMEOUT)
             .await?;
         Ok(message)
     }

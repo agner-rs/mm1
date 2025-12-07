@@ -21,13 +21,13 @@ where
     Ctx: ActorContext,
 {
     let proto::SubscribeToRoutesResponse { routes } = ctx
-        .fork_ask::<_, proto::SubscribeToRoutesResponse>(
+        .ask::<_, proto::SubscribeToRoutesResponse>(
             multinode_manager,
             proto::SubscribeToRoutesRequest { deliver_to },
             ASK_TIMEOUT,
         )
         .await
-        .wrap_err("ctx.fork_ask")?;
+        .wrap_err("ask")?;
 
     Ok(routes)
 }
@@ -40,9 +40,9 @@ where
     Ctx: ActorContext,
 {
     let local_subnets: p::GetLocalSubnetsResponse = ctx
-        .fork_ask(multinode_manager, p::GetLocalSubnetsRequest, ASK_TIMEOUT)
+        .ask(multinode_manager, p::GetLocalSubnetsRequest, ASK_TIMEOUT)
         .await
-        .wrap_err("ctx.fork_ask")?;
+        .wrap_err("ask")?;
 
     Ok(local_subnets)
 }
@@ -57,9 +57,9 @@ where
 {
     let request = p::RegisterOpaqueMessageRequest { name };
     let p::RegisterOpaqueMessageResponse { key } = ctx
-        .fork_ask(multinode_manager, request, ASK_TIMEOUT)
+        .ask(multinode_manager, request, ASK_TIMEOUT)
         .await
-        .wrap_err("ctx.fork_ask")?;
+        .wrap_err("ask")?;
 
     Ok(key)
 }
@@ -74,8 +74,8 @@ where
 {
     let request = p::GetMessageNameRequest { key };
     let p::GetMessageNameResponse { name } = ctx
-        .fork_ask(multinode_manager, request, ASK_TIMEOUT)
+        .ask(multinode_manager, request, ASK_TIMEOUT)
         .await
-        .wrap_err("ctx.fork_ask")?;
+        .wrap_err("ask")?;
     Ok(name)
 }

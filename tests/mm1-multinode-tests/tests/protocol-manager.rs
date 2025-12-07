@@ -19,7 +19,7 @@ fn mixed_test() {
 
     async fn main<Ctx>(ctx: &mut Ctx, tx: oneshot::Sender<()>)
     where
-        Ctx: Ask,
+        Ctx: Ask + Fork,
     {
         register(ctx, "proto-1", Protocol::new())
             .await
@@ -77,7 +77,7 @@ fn no_protocol_no_wait() {
 
     async fn main<Ctx>(ctx: &mut Ctx, tx: oneshot::Sender<()>)
     where
-        Ctx: Ask,
+        Ctx: Ask + Fork,
     {
         let reason = get(ctx, "proto", None)
             .await
@@ -100,7 +100,7 @@ fn no_protocol_with_timeout() {
 
     async fn main<Ctx>(ctx: &mut Ctx, tx: oneshot::Sender<()>)
     where
-        Ctx: Ask,
+        Ctx: Ask + Fork,
     {
         let reason = get(ctx, "proto", Some(Duration::from_secs(1)))
             .await
@@ -207,7 +207,7 @@ fn e(e: AnyError) -> Vec<String> {
 
 async fn register<Ctx>(ctx: &mut Ctx, name: &str, protocol: Protocol) -> Result<(), AnyError>
 where
-    Ctx: Ask,
+    Ctx: Ask + Fork,
 {
     let () = ctx
         .ask::<_, protocols::RegisterProtocolResponse>(
@@ -226,7 +226,7 @@ where
 
 async fn unregister<Ctx>(ctx: &mut Ctx, name: &str) -> Result<(), AnyError>
 where
-    Ctx: Ask,
+    Ctx: Ask + Fork,
 {
     let () = ctx
         .ask::<_, protocols::UnregisterProtocolResponse>(
@@ -246,7 +246,7 @@ async fn get<Ctx>(
     timeout: Option<Duration>,
 ) -> Result<Arc<Protocol>, AnyError>
 where
-    Ctx: Ask,
+    Ctx: Ask + Fork,
 {
     let protocols::ProtocolResolved { protocol, .. } = ctx
         .ask::<_, protocols::GetProtocolByNameResponse<Protocol>>(

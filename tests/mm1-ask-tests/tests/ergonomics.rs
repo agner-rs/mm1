@@ -126,11 +126,11 @@ where
     Ctx: Ask + Fork,
 {
     let Rs = ctx
-        .ask(server_address, Rq, Duration::from_millis(100))
+        .ask_nofork(server_address, Rq, Duration::from_millis(100))
         .await
         .unwrap();
     let e = ctx
-        .ask::<Rq, Rs>(server_address, Rq, Duration::from_millis(100))
+        .ask_nofork::<Rq, Rs>(server_address, Rq, Duration::from_millis(100))
         .await
         .unwrap_err();
     assert_eq!(e.kind(), AskErrorKind::Timeout);

@@ -31,18 +31,19 @@ pub trait Ask: Messaging + Sized {
         timeout: Duration,
     ) -> impl Future<Output = Result<Rs, ErrorOf<AskErrorKind>>> + Send
     where
+        Self: Fork,
         Rq: Send,
         Request<Rq>: Message,
         Rs: Message;
 
-    fn fork_ask<Rq, Rs>(
+    #[doc(hidden)]
+    fn ask_nofork<Rq, Rs>(
         &mut self,
         server: Address,
         request: Rq,
         timeout: Duration,
     ) -> impl Future<Output = Result<Rs, ErrorOf<AskErrorKind>>> + Send
     where
-        Self: Fork,
         Rq: Send,
         Request<Rq>: Message,
         Rs: Message;
@@ -63,7 +64,7 @@ impl<Ctx> Ask for Ctx
 where
     Ctx: Messaging + Sized + Send,
 {
-    async fn ask<Rq, Rs>(
+    async fn ask_nofork<Rq, Rs>(
         &mut self,
         server: Address,
         request: Rq,
@@ -114,7 +115,7 @@ where
         Ok(response)
     }
 
-    async fn fork_ask<Rq, Rs>(
+    async fn ask<Rq, Rs>(
         &mut self,
         server: Address,
         request: Rq,
@@ -129,7 +130,7 @@ where
         self.fork()
             .await
             .map_err(into_ask_error)?
-            .ask(server, request, timeout)
+            .ask_nofork(server, request, timeout)
             .await
     }
 }

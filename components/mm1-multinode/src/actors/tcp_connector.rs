@@ -111,7 +111,7 @@ where
         };
 
         let connection_addr = ctx
-            .fork_ask::<_, uni_sup::StartResponse>(
+            .ask::<_, uni_sup::StartResponse>(
                 *connection_sup,
                 uni_sup::StartRequest {
                     args: (tcp_stream, options, protocols),
@@ -119,7 +119,7 @@ where
                 CONNECTION_START_TIMEOUT,
             )
             .await
-            .wrap_err("ctx.fork_ask")?
+            .wrap_err("ask")?
             .wrap_err("uni_sup::Start")?;
 
         let _watch_ref = ctx.watch(connection_addr).await;
@@ -170,7 +170,7 @@ where
     Ctx: ActorContext,
 {
     let resolved = ctx
-        .fork_ask::<_, protocols::GetProtocolByNameResponse<Protocol>>(
+        .ask::<_, protocols::GetProtocolByNameResponse<Protocol>>(
             MULTINODE_MANAGER,
             protocols::GetProtocolByNameRequest {
                 name,
@@ -179,7 +179,7 @@ where
             PROTOCOL_WAIT_TIMEOUT + Duration::from_secs(1),
         )
         .await
-        .wrap_err("fork_ask")?
+        .wrap_err("ask")?
         .wrap_err("GetProtocolByName")?;
 
     Ok(resolved)

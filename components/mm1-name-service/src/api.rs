@@ -115,7 +115,7 @@ where
                 reg_props,
             };
             let response: RegisterResponse = ctx
-                .ask(name_server, request, register_timeout)
+                .ask_nofork(name_server, request, register_timeout)
                 .await
                 .map_err(|e| e.map_kind(|_| RegisterErrorKind::Internal))?;
             let () = response?;
@@ -160,7 +160,7 @@ impl<Ctx> Resolver<Ctx> {
         let requested_at = Instant::now();
         let response: ResolveResponse = self
             .ctx
-            .fork_ask(self.name_server, request, self.resolve_timeout)
+            .ask(self.name_server, request, self.resolve_timeout)
             .await
             .map_err(|e| e.map_kind(|_| ResolveErrorKind::Internal))?;
         let mut entries = response?;

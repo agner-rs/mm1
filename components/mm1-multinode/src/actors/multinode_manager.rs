@@ -267,7 +267,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, i::ConnectRequest<SocketAddr>> for Multin
             };
 
             let actor_address = ctx
-                .fork_ask::<_, uni_sup::StartResponse>(
+                .ask::<_, uni_sup::StartResponse>(
                     *connector_sup,
                     uni_sup::StartRequest {
                         args: (iface_address, protocol_names, options),
@@ -275,7 +275,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, i::ConnectRequest<SocketAddr>> for Multin
                     CONNECTOR_START_TIMEOUT,
                 )
                 .await
-                .wrap_err("ctx.fork_ask")?
+                .wrap_err("ask")?
                 .wrap_err("uni_sup::Start")?;
             let connector_key = entries.insert(IfaceEntry {
                 iface_address,
@@ -327,7 +327,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, i::ConnectRequest<Box<Path>>> for Multino
             };
 
             let actor_address = ctx
-                .fork_ask::<_, uni_sup::StartResponse>(
+                .ask::<_, uni_sup::StartResponse>(
                     *connector_sup,
                     uni_sup::StartRequest {
                         args: (iface_address.clone(), protocol_names, options),
@@ -335,7 +335,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, i::ConnectRequest<Box<Path>>> for Multino
                     CONNECTOR_START_TIMEOUT,
                 )
                 .await
-                .wrap_err("ctx.fork_ask")?
+                .wrap_err("ask")?
                 .wrap_err("uni_sup::Start")?;
             let connector_key = entries.insert(IfaceEntry {
                 iface_address,
@@ -387,7 +387,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, i::BindRequest<SocketAddr>> for Multinode
             };
 
             let actor_address = ctx
-                .fork_ask::<_, uni_sup::StartResponse>(
+                .ask::<_, uni_sup::StartResponse>(
                     *acceptor_sup,
                     uni_sup::StartRequest {
                         args: (iface_address, protocol_names, options),
@@ -395,7 +395,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, i::BindRequest<SocketAddr>> for Multinode
                     ACCEPTOR_START_TIMEOUT,
                 )
                 .await
-                .wrap_err("ctx.fork_ask")?
+                .wrap_err("ask")?
                 .wrap_err("uni_sup::Start")?;
 
             let acceptor_key = entries.insert(IfaceEntry {
@@ -448,7 +448,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, i::BindRequest<Box<Path>>> for MultinodeM
             };
 
             let actor_address = ctx
-                .fork_ask::<_, uni_sup::StartResponse>(
+                .ask::<_, uni_sup::StartResponse>(
                     *acceptor_sup,
                     uni_sup::StartRequest {
                         args: (iface_address.clone(), protocol_names, options),
@@ -456,7 +456,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, i::BindRequest<Box<Path>>> for MultinodeM
                     ACCEPTOR_START_TIMEOUT,
                 )
                 .await
-                .wrap_err("ctx.fork_ask")?
+                .wrap_err("ask")?
                 .wrap_err("uni_sup::Start")?;
 
             let acceptor_key = entries.insert(IfaceEntry {
@@ -885,7 +885,7 @@ impl<Ctx: ActorContext> OnMessage<Ctx, SetRoute> for MultinodeManager<Ctx> {
                 };
                 let subnet_ingress_worker = *subnet_ingress_entry.get();
                 let () = ctx
-                    .fork_ask::<_, uni_sup::StopResponse>(
+                    .ask::<_, uni_sup::StopResponse>(
                         *subnet_ingress_sup,
                         uni_sup::StopRequest {
                             child: subnet_ingress_worker,
@@ -893,7 +893,7 @@ impl<Ctx: ActorContext> OnMessage<Ctx, SetRoute> for MultinodeManager<Ctx> {
                         Duration::from_secs(10),
                     )
                     .await
-                    .wrap_err("ctx.fork_ask")?
+                    .wrap_err("ask")?
                     .wrap_err("uni_sup::StopResponse")?;
                 subnet_ingress_entry.remove();
 
@@ -909,7 +909,7 @@ impl<Ctx: ActorContext> OnMessage<Ctx, SetRoute> for MultinodeManager<Ctx> {
                     panic!("duplicate subnet_ingress worker: {}", destination)
                 };
                 let subnet_ingress_worker = ctx
-                    .fork_ask::<_, uni_sup::StartResponse>(
+                    .ask::<_, uni_sup::StartResponse>(
                         *subnet_ingress_sup,
                         uni_sup::StartRequest {
                             args: (destination,),
@@ -917,7 +917,7 @@ impl<Ctx: ActorContext> OnMessage<Ctx, SetRoute> for MultinodeManager<Ctx> {
                         Duration::from_secs(1),
                     )
                     .await
-                    .wrap_err("ctx.fork_ask")?
+                    .wrap_err("ask")?
                     .wrap_err("uni_sup::StartResponse")?;
                 subnet_ingress_entry.insert(subnet_ingress_worker);
 

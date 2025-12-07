@@ -72,7 +72,7 @@ fn two_nodes() {
             let mut ctx_2 = borrow_2_rx.await.expect("borrow_2_rx");
 
             let _: mm1::multinode::proto::RegisterProtocolResponse = ctx_1
-                .fork_ask(
+                .ask(
                     MULTINODE_MANAGER,
                     mm1::multinode::proto::RegisterProtocolRequest {
                         name:     "proto".into(),
@@ -81,10 +81,10 @@ fn two_nodes() {
                     Duration::from_secs(1),
                 )
                 .await
-                .expect("ctx_1.fork_ask");
+                .expect("ctx_1.ask");
 
             let _: mm1::multinode::proto::RegisterProtocolResponse = ctx_2
-                .fork_ask(
+                .ask(
                     MULTINODE_MANAGER,
                     mm1::multinode::proto::RegisterProtocolRequest {
                         name:     "proto".into(),
@@ -93,7 +93,7 @@ fn two_nodes() {
                     Duration::from_secs(1),
                 )
                 .await
-                .expect("ctx_2.fork_ask");
+                .expect("ctx_2.ask");
 
             tokio::time::sleep(Duration::from_secs(2)).await;
 

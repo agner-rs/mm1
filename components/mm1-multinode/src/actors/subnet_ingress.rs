@@ -40,7 +40,7 @@ where
         .wrap_err("subnet_ctx.bind")?;
 
     let proto::SubscribeToRoutesResponse { routes } = ctx
-        .fork_ask(
+        .ask(
             multinode_manager,
             proto::SubscribeToRoutesRequest {
                 deliver_to: ctx.address(),
@@ -48,7 +48,7 @@ where
             MULTINODE_MANAGER_TIMEOUT,
         )
         .await
-        .wrap_err("ctx.fork_ask (SubscribeToRoutes)")?;
+        .wrap_err("ask (SubscribeToRoutes)")?;
 
     let mut route_registry = RouteRegistry::default();
     for proto::SetRoute {
@@ -156,13 +156,13 @@ where
             Occupied(resolved) => Some(*resolved.get()),
             Vacant(new) => {
                 let p::ResolveTypeIdResponse { type_key_opt } = ctx
-                    .fork_ask(
+                    .ask(
                         multinode_manager,
                         p::ResolveTypeIdRequest { type_id },
                         MULTINODE_MANAGER_TIMEOUT,
                     )
                     .await
-                    .wrap_err("ctx.fork_ask (ResolveTypeId)")?;
+                    .wrap_err("ask (ResolveTypeId)")?;
                 if let Some(type_key) = type_key_opt {
                     new.insert(type_key);
                 }
