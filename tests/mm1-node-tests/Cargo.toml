@@ -9,12 +9,18 @@ description.workspace = true
 exclude.workspace = true
 publish = false
 
+[[bench]]
+name = "local-delivery-time"
+harness = false
+
 [dependencies]
 [dev-dependencies]
-mm1 = {workspace = true, features = ["runtime"]}
+mm1 = {workspace = true, features = ["ask", "runtime", "server"]}
 mm1-logger.workspace = true
 
+eyre.workspace = true
 futures.workspace = true
-tokio = {workspace = true, features = ["rt", "rt-multi-thread", "macros"]}
+hdrhistogram = "7"
+tokio = {workspace = true, features = ["macros", "rt", "rt-multi-thread", "time"]}
 serde = {workspace = true, features = ["derive"]}
 serde_yaml = "^0.9"
