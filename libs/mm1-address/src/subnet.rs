@@ -62,7 +62,7 @@ impl NetMask {
 
 impl From<Address> for NetAddress {
     fn from(address: Address) -> Self {
-        (address, NetMask::M_64).into()
+        (address, NetMask::MAX).into()
     }
 }
 

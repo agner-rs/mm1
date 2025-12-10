@@ -5,7 +5,6 @@ use std::task::{Context, Poll, ready};
 use futures::Stream;
 use mm1_address::address::Address;
 use mm1_common::types::AnyError;
-use mm1_core::envelope::Envelope;
 use mm1_core::tracing::TraceId;
 use mm1_proto_system::WatchRef;
 use tokio::sync::{mpsc, oneshot};
@@ -26,7 +25,7 @@ pub(crate) enum SysCall {
         sender:   Address,
         receiver: Address,
     },
-    ForkAdded(Address, mpsc::WeakUnboundedSender<Envelope>),
+    ForkAdded(Address),
     Spawn(Pin<Box<dyn Future<Output = ()> + Send + 'static>>),
     Watch {
         sender:   Address,
@@ -89,7 +88,7 @@ impl fmt::Display for SysCall {
                 write!(f, "unlink [{sender} -> {receiver}]")
             },
             SysCall::TrapExit(set_into) => write!(f, "trap_exit [set-into: {set_into}]"),
-            SysCall::ForkAdded(address, _) => write!(f, "fork_addded [addr: {address}]"),
+            SysCall::ForkAdded(address) => write!(f, "fork_addded [addr: {address}]"),
             SysCall::Spawn(_) => write!(f, "spawn"),
             SysCall::Watch {
                 sender, receiver, ..

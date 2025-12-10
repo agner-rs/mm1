@@ -7,7 +7,7 @@ use mm1_core::tracing::TraceId;
 use mm1_runnable::local::{self, BoxedRunnable};
 use tokio::runtime::{Handle, Runtime};
 use tokio::sync::mpsc;
-use tracing::{error, instrument};
+use tracing::{error, instrument, trace};
 
 use crate::actor_key::ActorKey;
 use crate::config::{EffectiveActorConfig, Mm1NodeConfig, Valid};
@@ -132,11 +132,14 @@ async fn run_inner(
         rt_api: rt_api.clone(),
         rt_config: Arc::new(config),
     };
+    trace!("creating and running container...");
     let exit_reason = Container::create(args, main_actor, tx_actor_failure)
         .map_err(RtRunError::ContainerError)?
         .run()
         .await
         .map_err(RtRunError::ContainerError)?;
+
+    trace!("container exited: {:?}", exit_reason);
 
     if let Err(failure) = exit_reason {
         error!(

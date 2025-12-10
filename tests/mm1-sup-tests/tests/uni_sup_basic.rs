@@ -186,7 +186,7 @@ async fn test_02() {
         address: lease_a.address,
         mask:    lease_a.mask,
     });
-    let lease_sup = subnet_sup.lease(NetMask::M_64).unwrap();
+    let lease_sup = subnet_sup.lease(NetMask::MAX).unwrap();
     let address_sup = lease_sup.address;
 
     info!("SUP: {}", lease_a.address);
@@ -229,7 +229,7 @@ async fn test_02() {
         .convert::<query::Recv>()
         .unwrap();
     assert_eq!(recv.task_key.actor, address_sup);
-    let lease_client = node_subnet.lease(NetMask::M_64).unwrap();
+    let lease_client = node_subnet.lease(NetMask::MAX).unwrap();
     let address_client = lease_client.address;
     let envelope = Envelope::new(
         EnvelopeHeader::to_address(address_sup),

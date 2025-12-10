@@ -24,7 +24,7 @@ mm1-address = { workspace = true}
 mm1-ask.workspace = true
 mm1-common = {workspace = true, features = ["futures", "logging"]}
 mm1-core.workspace = true
-mm1-proto.workspace = true
+# mm1-proto.workspace = true
 mm1-proto-network-management.workspace = true
 mm1-proto-system.workspace = true
 mm1-runnable.workspace = true
@@ -38,12 +38,12 @@ derive_more = {workspace = true, features = ["debug", "from"]}
 either.workspace = true
 eyre.workspace = true
 futures.workspace = true
+kanal.workspace = true
 num_cpus = "^1"
+spin.workspace = true
 pin-project.workspace = true
 scc = "^2.3.4"
 serde = {workspace = true, features = ["derive"]}
-# serde_json = {workspace = true, optional = true}
-serde-value.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "macros", "net"] }
 tracing.workspace = true

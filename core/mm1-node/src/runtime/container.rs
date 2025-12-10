@@ -7,8 +7,8 @@ use either::Either;
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
 use mm1_address::address::Address;
-use mm1_address::pool::{Lease as AddressLease, LeaseError};
-use mm1_address::subnet::NetAddress;
+use mm1_address::pool::{Lease as AddressLease, LeaseError, Pool};
+use mm1_address::subnet::{NetAddress, NetMask};
 use mm1_common::futures::catch_panic::CatchPanicExt;
 use mm1_common::types::AnyError;
 use mm1_core::envelope::{Envelope, EnvelopeHeader};
@@ -20,7 +20,7 @@ use tracing::{instrument, trace};
 
 use crate::actor_key::ActorKey;
 use crate::config::{EffectiveActorConfig, Mm1NodeConfig, Valid};
-use crate::registry::{ActorNode, ForkEntry, MessageWithPermit};
+use crate::registry::{self, MessageWithoutPermit, Node, SubnetMailboxRx, WeakSubnetMailboxTx};
 use crate::runtime::context;
 use crate::runtime::rt_api::{RequestAddressError, RtApi};
 use crate::runtime::sys_call::{self, SysCall};
@@ -56,10 +56,9 @@ pub(crate) enum ContainerError {
 }
 
 struct JobEntry {
-    linked_to:        HashSet<Address>,
-    watches:          BTreeSet<(Address, system::WatchRef)>,
-    watched_by:       BTreeSet<(Address, system::WatchRef)>,
-    tx_priority_weak: mpsc::WeakUnboundedSender<Envelope>,
+    linked_to:  HashSet<Address>,
+    watches:    BTreeSet<(Address, system::WatchRef)>,
+    watched_by: BTreeSet<(Address, system::WatchRef)>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -84,17 +83,12 @@ pub(crate) struct Container {
     actor_key: ActorKey,
     trace_id:  TraceId,
 
-    actor_node:    Arc<ActorNode<(TraceId, SysMsg), Envelope>>,
-    actor_address: Address,
-    actor_subnet:  NetAddress,
+    actor_subnet:            NetAddress,
+    actor_subnet_pool:       Pool,
+    main_fork_address_lease: AddressLease,
 
-    rx_system:   mpsc::UnboundedReceiver<(TraceId, SysMsg)>,
-    rx_priority: mpsc::UnboundedReceiver<Envelope>,
-    rx_regular:  mpsc::UnboundedReceiver<MessageWithPermit<Envelope>>,
-
-    tx_system_weak:   mpsc::WeakUnboundedSender<(TraceId, SysMsg)>,
-    tx_priority_weak: mpsc::WeakUnboundedSender<Envelope>,
-    tx_regular_weak:  mpsc::WeakUnboundedSender<MessageWithPermit<Envelope>>,
+    subnet_mailbox_tx: WeakSubnetMailboxTx<(TraceId, SysMsg), Envelope>,
+    subnet_mailbox_rx: SubnetMailboxRx<(TraceId, SysMsg), Envelope>,
 
     rt_api:    RtApi,
     rt_config: Arc<Valid<Mm1NodeConfig>>,
@@ -122,82 +116,69 @@ impl Container {
         } = args;
         let inbox_size = rt_config.actor_config(&actor_key).inbox_size();
 
-        let (tx_system, rx_system) = mpsc::unbounded_channel();
-        let (tx_priority, rx_priority) = mpsc::unbounded_channel();
-        let (tx_regular, rx_regular) = mpsc::unbounded_channel();
-
-        let tx_system_weak = tx_system.downgrade();
-        let tx_priority_weak = tx_priority.downgrade();
-        let tx_regular_weak = tx_regular.downgrade();
+        let (subnet_mailbox_tx, subnet_mailbox_rx) = registry::new_mailbox();
 
         let actor_subnet = subnet_lease.net_address();
-        let actor_node = Arc::new(ActorNode::new(subnet_lease, inbox_size, tx_system));
-        if !rt_api.registry().register(actor_subnet, actor_node.clone()) {
-            return Err(ContainerError::RegistrationError)
-        }
-        let actor_address_lease = actor_node.lease_address()?;
-        let actor_address = actor_address_lease.address;
-        let fork_entry = ForkEntry::new(actor_address_lease, tx_priority, tx_regular);
-        let registered = actor_node.register(actor_address, fork_entry);
-        assert!(registered);
+        let actor_node = Node::new(subnet_lease, inbox_size, subnet_mailbox_tx.clone());
+        let () = rt_api
+            .registry()
+            .register(actor_subnet, actor_node)
+            .map_err(|_| ContainerError::RegistrationError)?;
+
+        let actor_subnet_pool = Pool::new(actor_subnet);
+        let main_actor_address_lease = actor_subnet_pool
+            .lease(NetMask::MAX)
+            .map_err(ContainerError::LeaseError)?;
+
+        let subnet_mailbox_tx = subnet_mailbox_tx.downgrade();
 
         let container = Self {
             ack_to,
             link_to,
             trace_id,
             actor_key,
-            actor_node,
-            actor_address,
             actor_subnet,
+            actor_subnet_pool,
+            main_fork_address_lease: main_actor_address_lease,
+            subnet_mailbox_rx,
+            subnet_mailbox_tx,
             rt_api,
             rt_config,
             runnable,
-            rx_system,
-            rx_priority,
-            rx_regular,
-            tx_system_weak,
-            tx_priority_weak,
-            tx_regular_weak,
             tx_actor_failure,
         };
         Ok(container)
     }
 
     pub(crate) fn actor_address(&self) -> Address {
-        self.actor_address
+        self.main_fork_address_lease.address
     }
 
     #[instrument(skip_all, fields(
-        addr = display(&self.actor_address),
+        addr = display(&self.main_fork_address_lease.address),
         subn = display(&self.actor_subnet),
         func = self.runnable.func_name(),
         akey = display(&self.actor_key),
     ))]
     pub(crate) async fn run(self) -> Result<Result<(), AnyError>, ContainerError> {
-        // TODO: produce a future, that is instrumented
         let Self {
             ack_to,
             link_to,
-            trace_id,
             actor_key,
+            trace_id,
             actor_subnet,
-            actor_address,
-            actor_node,
+            actor_subnet_pool,
+            main_fork_address_lease,
+            subnet_mailbox_rx,
+            subnet_mailbox_tx,
             rt_api,
             rt_config,
             runnable,
-
-            mut rx_system,
-            rx_priority,
-            rx_regular,
-
-            tx_priority_weak,
-            tx_regular_weak,
-            tx_system_weak,
             tx_actor_failure,
         } = self;
 
-        trace!("starting up");
+        let main_fork_address = main_fork_address_lease.address;
+        trace!("starting up [main-fork: {}]", main_fork_address);
 
         let (call_tx, call_rx) = sys_call::create();
 
@@ -206,21 +187,22 @@ impl Container {
 
         let linked_to: HashSet<_> = link_to.into_iter().collect();
         {
-            let tx_system = tx_system_weak
+            let tx_system = subnet_mailbox_tx
+                .tx_system
                 .upgrade()
                 .expect("come on! it's our own tx_system!");
             for peer in linked_to.iter().copied() {
                 let sys_send_result = rt_api.sys_send(
                     peer,
                     SysMsg::Link(SysLink::Connect {
-                        sender:   actor_address,
+                        sender:   main_fork_address,
                         receiver: peer,
                     }),
                 );
                 if sys_send_result.is_err() {
                     let sys_msg = SysMsg::Link(SysLink::Exit {
                         sender:   peer,
-                        receiver: actor_address,
+                        receiver: main_fork_address,
                         reason:   ExitReason::LinkDown,
                     });
                     let _ = tx_system.send((TraceId::current(), sys_msg));
@@ -229,9 +211,8 @@ impl Container {
         }
 
         let mut job_entries: HashMap<Address, JobEntry> = [(
-            actor_address,
+            main_fork_address,
             JobEntry {
-                tx_priority_weak: tx_priority_weak.clone(),
                 watches: Default::default(),
                 watched_by: Default::default(),
                 linked_to,
@@ -241,23 +222,35 @@ impl Container {
         .collect();
         let mut trap_exit = false;
 
-        let mut context = context::ActorContext {
-            rt_api: rt_api.clone(),
-            rt_config,
-
-            actor_key,
-            address: actor_address,
-            ack_to,
-            actor_node: Arc::downgrade(&actor_node),
-            network_nodes: Default::default(),
-
+        let SubnetMailboxRx {
+            mut rx_system,
+            subnet_notify,
             rx_priority,
             rx_regular,
-            tx_system_weak: tx_system_weak.clone(),
-            tx_priority_weak,
-            tx_regular_weak,
-            call: call_tx,
+        } = subnet_mailbox_rx;
+        let subnet_context = context::SubnetContext {
+            rt_api: rt_api.clone(),
+            rt_config,
+            actor_key,
+            subnet_pool: actor_subnet_pool,
+            subnet_address: actor_subnet,
+            subnet_notify,
+            rx_regular,
+            rx_priority,
+            subnet_mailbox_tx: subnet_mailbox_tx.clone(),
+            fork_entries: [(main_fork_address, Default::default())]
+                .into_iter()
+                .collect(),
+            bound_subnets: Default::default(),
             tx_actor_failure,
+        };
+        let mut context = context::ActorContext {
+            fork_address: main_fork_address,
+            fork_lease: Some(main_fork_address_lease),
+            ack_to,
+            call: call_tx,
+
+            subnet_context: Arc::new(subnet_context.into()),
         };
 
         let exit_reason = {
@@ -270,6 +263,8 @@ impl Container {
             let mut call_rx = pin!(call_rx.fuse());
 
             loop {
+                trace!("enter loop");
+
                 let sys_msg_recv = rx_system.recv().fuse();
                 let call_next = call_rx.next();
 
@@ -305,13 +300,27 @@ impl Container {
                         )
                     },
 
-                    _ = spawn_job_next, if spawn_jobs_non_empty => continue,
+                    spawned_job_done = spawn_job_next, if spawn_jobs_non_empty => {
+                        if let Err(panic) = spawned_job_done.transpose() {
+                            trace!("panic: {}", panic);
+                            Either::Right(
+                                (
+                                    TraceId::current(),
+                                    SysCall::Exit(Err(Panic(panic).into()))
+                                )
+                            )
+                        } else {
+                            continue
+                        }
+                    },
                 };
 
                 let (trace_id, selected) = match selected {
                     Either::Left((trace_id, sys_msg)) => (trace_id, Either::Left(sys_msg)),
                     Either::Right((trace_id, sys_call)) => (trace_id, Either::Right(sys_call)),
                 };
+
+                trace!("processing {:?}...", selected);
 
                 let cf = trace_id.scope_sync(|| {
                     match (trap_exit, selected) {
@@ -327,23 +336,19 @@ impl Container {
                         },
 
                         (_, Either::Right(SysCall::Spawn(job))) => {
-                            spawned_jobs.push(job);
+                            spawned_jobs.push(job.catch_panic());
                         },
 
-                        (_, Either::Right(SysCall::ForkAdded(fork_address, tx_priority_weak))) => {
-                            assert!(
-                                job_entries
-                                    .insert(
-                                        fork_address,
-                                        JobEntry {
-                                            linked_to: Default::default(),
-                                            watched_by: Default::default(),
-                                            watches: Default::default(),
-                                            tx_priority_weak,
-                                        }
-                                    )
-                                    .is_none()
+                        (_, Either::Right(SysCall::ForkAdded(fork_address))) => {
+                            let should_be_none = job_entries.insert(
+                                fork_address,
+                                JobEntry {
+                                    linked_to:  Default::default(),
+                                    watched_by: Default::default(),
+                                    watches:    Default::default(),
+                                },
                             );
+                            assert!(should_be_none.is_none());
                         },
 
                         (_, Either::Left(SysMsg::ForkDone(fork_address))) => {
@@ -394,7 +399,8 @@ impl Container {
                                         receiver: sender,
                                         reason:   ExitReason::LinkDown,
                                     });
-                                    let _ = tx_system_weak
+                                    let _ = subnet_mailbox_tx
+                                        .tx_system
                                         .upgrade()
                                         .expect("come on! it's our own tx_system!")
                                         .send((TraceId::current(), sys_msg));
@@ -485,6 +491,11 @@ impl Container {
                                 reason,
                             })),
                         ) => {
+                            trace!(
+                                "processing Exit when trap_exit=true [sender: {}, receiver: {}, \
+                                 reason: {:?}]",
+                                sender, receiver, reason
+                            );
                             if let Some(job_entry) = job_entries.get_mut(&receiver) {
                                 let should_handle = match reason {
                                     ExitReason::Terminate => true,
@@ -494,7 +505,10 @@ impl Container {
                                 };
 
                                 if should_handle
-                                    && let Some(tx_priority) = job_entry.tx_priority_weak.upgrade()
+                                    && let Some((tx_priority, subnet_notify)) = subnet_mailbox_tx
+                                        .tx_priority
+                                        .upgrade()
+                                        .zip(subnet_mailbox_tx.subnet_notify.upgrade())
                                 {
                                     let message = system::Exited {
                                         peer:        sender,
@@ -505,7 +519,11 @@ impl Container {
                                         message,
                                     )
                                     .into_erased();
-                                    let _ = tx_priority.send(envelope);
+                                    let _ = tx_priority.try_send(MessageWithoutPermit {
+                                        to:      receiver,
+                                        message: envelope,
+                                    });
+                                    subnet_notify.notify_one();
                                 }
                             }
                         },
@@ -554,7 +572,8 @@ impl Container {
                                     receiver: sender,
                                     reason:   ExitReason::LinkDown,
                                 });
-                                let _ = tx_system_weak
+                                let _ = subnet_mailbox_tx
+                                    .tx_system
                                     .upgrade()
                                     .expect("come on! it's our own tx_system!")
                                     .send((TraceId::current(), sys_msg));
@@ -645,7 +664,10 @@ impl Container {
                                     let (peer, watch_ref) = to_report;
                                     taken_watch_refs.remove(&watch_ref);
 
-                                    if let Some(tx_priority) = job_entry.tx_priority_weak.upgrade()
+                                    if let Some((tx_priority, subnet_notify)) = subnet_mailbox_tx
+                                        .tx_priority
+                                        .upgrade()
+                                        .zip(subnet_mailbox_tx.subnet_notify.upgrade())
                                     {
                                         let message = system::Down {
                                             peer,
@@ -657,7 +679,11 @@ impl Container {
                                             message,
                                         )
                                         .into_erased();
-                                        let _ = tx_priority.send(envelope);
+                                        let _ = tx_priority.send(MessageWithoutPermit {
+                                            to:      receiver,
+                                            message: envelope,
+                                        });
+                                        subnet_notify.notify_one();
                                     }
                                 }
                             }
@@ -684,18 +710,18 @@ impl Container {
                 trace!("sys-msg: {}", sys_msg);
                 match sys_msg {
                     SysMsg::Kill => (),
-                    SysMsg::ForkDone(fork_address) => {
+                    SysMsg::ForkDone(fork_lease) => {
                         let JobEntry {
                             linked_to,
                             watched_by,
                             ..
                         } = job_entries
-                            .remove(&fork_address.address)
-                            .expect("unknown fork");
+                            .remove(&fork_lease.address)
+                            .unwrap_or_else(|| panic!("unknown fork: {}", fork_lease.address));
                         for peer in linked_to {
                             let msg = sys_link_exit_message(
                                 exit_reason.is_ok(),
-                                fork_address.address,
+                                fork_lease.address,
                                 peer,
                             );
                             let _ = rt_api.sys_send(peer, msg);
@@ -706,16 +732,11 @@ impl Container {
                                 prev.replace(this)
                                     .is_none_or(|prev| prev != this)
                                     .then_some(this)
-                                // if prev.replace(this) == Some(this) {
-                                //     None
-                                // } else {
-                                //     Some(this)
-                                // }
                             }
                         }) {
                             let msg = sys_watch_down_message(
                                 exit_reason.is_ok(),
-                                fork_address.address,
+                                fork_lease.address,
                                 peer,
                             );
                             let _ = rt_api.sys_send(peer, msg);
@@ -738,13 +759,26 @@ impl Container {
                 }
             });
         }
+
         let job_entry = job_entries
-            .remove(&actor_address)
+            .remove(&main_fork_address)
             .expect("main job-entry is gone somewhere");
+
+        trace!(
+            "sending Exit to the {} linked actors",
+            job_entry.linked_to.len()
+        );
+
         for peer in job_entry.linked_to {
-            let msg = sys_link_exit_message(exit_reason.is_ok(), actor_address, peer);
+            let msg = sys_link_exit_message(exit_reason.is_ok(), main_fork_address, peer);
             let _ = rt_api.sys_send(peer, msg);
         }
+
+        trace!(
+            "sending Down to the {} watchers",
+            job_entry.watched_by.len()
+        );
+
         for peer in job_entry
             .watched_by
             .into_iter()
@@ -760,7 +794,7 @@ impl Container {
                 }
             })
         {
-            let msg = sys_watch_down_message(exit_reason.is_ok(), actor_address, peer);
+            let msg = sys_watch_down_message(exit_reason.is_ok(), main_fork_address, peer);
             let _ = rt_api.sys_send(peer, msg);
         }
 

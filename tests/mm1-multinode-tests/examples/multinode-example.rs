@@ -176,7 +176,7 @@ where
     ctx.bind(BindArgs {
         bind_to:    NetAddress {
             address: receive_at,
-            mask:    NetMask::M_64,
+            mask:    NetMask::MAX,
         },
         inbox_size: 1024,
     })

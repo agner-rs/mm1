@@ -1,6 +1,8 @@
 use crate::subnet::NetMask;
 
 impl NetMask {
+    pub const MAX: Self = Self::M_64;
+    pub const MIN: Self = Self::M_0;
     pub const M_0: Self = Self(0);
     pub const M_1: Self = Self(1);
     pub const M_10: Self = Self(10);

@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use futures::FutureExt;
 use mm1::address::{Address, AddressPool, NetAddress, NetMask};
+use mm1::common::Never;
 use mm1::common::log::{self, info};
 use mm1::core::context::{
     Bind, BindArgs, Fork, InitDone, Linking, Messaging, Quit, Start, Stop, Tell, Watching,
@@ -108,6 +109,50 @@ fn child_actor_panics() {
         info!("I'm child!");
 
         panic!("I have to")
+    }
+
+    let rt = Rt::create(Default::default()).expect("Rt::create");
+    rt.run(local::boxed_from_fn((main, (tx,)))).expect("rt.run");
+    rx.now_or_never().unwrap().expect("rx.await");
+}
+
+#[test]
+fn child_actors_fork_panics() {
+    let _ = mm1_logger::init(&logger_config());
+
+    let (tx, rx) = oneshot::channel();
+    async fn main<C>(ctx: &mut C, tx: oneshot::Sender<Exited>)
+    where
+        C: Messaging + Linking + Start<Local>,
+    {
+        info!("I'm main!");
+
+        ctx.set_trap_exit(true).await;
+        let _ = ctx
+            .spawn(local::boxed_from_fn(child), true)
+            .await
+            .expect("spawn failed");
+
+        let _ = dispatch!(match ctx.recv().await.expect("ctx.recv") {
+            exited @ Exited { .. } => tx.send(exited),
+        });
+    }
+    async fn child<C>(ctx: &mut C) -> Never
+    where
+        C: Fork,
+    {
+        info!("I'm child!");
+
+        ctx.fork()
+            .await
+            .expect("ctx.fork")
+            .run(async |_| {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+                panic!("sorry, i'm a fork")
+            })
+            .await;
+
+        std::future::pending().await
     }
 
     let rt = Rt::create(Default::default()).expect("Rt::create");
@@ -280,7 +325,7 @@ fn actor_bind_and_recv() {
         const COUNT: usize = 100;
 
         for _ in 0..COUNT {
-            let to = pool.lease(NetMask::M_64).expect("pool.lease");
+            let to = pool.lease(NetMask::MAX).expect("pool.lease");
             ctx.tell(to.address, Hello).await.expect("ctx.tell");
         }
 

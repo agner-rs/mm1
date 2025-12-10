@@ -20,10 +20,10 @@ async fn test_simple_actor() {
     let rt = TestRuntime::<()>::new();
 
     let address_pool = AddressPool::new("<cafe:>/16".parse().unwrap());
-    let server_lease = address_pool.lease(NetMask::M_64).unwrap();
+    let server_lease = address_pool.lease(NetMask::MAX).unwrap();
     let server_address = server_lease.address;
 
-    let client_lease = address_pool.lease(NetMask::M_64).unwrap();
+    let client_lease = address_pool.lease(NetMask::MAX).unwrap();
     let client_address = client_lease.address;
 
     rt.add_actor(server_address, Some(server_lease), launcher)
@@ -36,7 +36,7 @@ async fn test_simple_actor() {
         bind_to,
         NetAddress {
             address: NAME_SERVICE,
-            mask:    NetMask::M_64,
+            mask:    NetMask::MAX,
         }
     );
     bind.resolve_ok(());
@@ -72,7 +72,7 @@ async fn test_simple_actor() {
     assert!(response.payload.unwrap().is_empty());
 
     // register
-    let reg_1_lease = address_pool.lease(NetMask::M_64).unwrap();
+    let reg_1_lease = address_pool.lease(NetMask::MAX).unwrap();
     let reg_1_address = reg_1_lease.address;
     let recv = rt.expect_next_event().await.expect::<query::Recv>();
     recv.resolve_ok({
