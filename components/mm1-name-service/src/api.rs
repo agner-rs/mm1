@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use mm1_address::address::Address;
 use mm1_ask::Ask;
+use mm1_common::errors::chain::StdErrorDisplayChainExt;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::log;
 use mm1_common::types::Never;
@@ -87,9 +88,10 @@ where
     pub async fn run(self) -> Result<Never, ErrorOf<RegisterErrorKind>> {
         let key = self.key.clone();
         let addr = self.addr;
+
         self.run_inner()
             .await
-            .inspect_err(|reason| log::warn!("failed to register {} as {}: {}", addr, key, reason))
+            .inspect_err(|reason| log::warn!(%addr, as_key = %key, reason = %reason.as_display_chain(), "failed to register"))
     }
 
     async fn run_inner(self) -> Result<Never, ErrorOf<RegisterErrorKind>> {
@@ -121,10 +123,10 @@ where
             let () = response?;
 
             log::debug!(
-                "registered {} as {}. Refresh in {:?}",
-                addr,
-                name,
-                refresh_interval
+                %addr,
+                %name,
+                ?refresh_interval,
+                "registered"
             );
 
             time::sleep(refresh_interval).await;
@@ -210,27 +212,27 @@ impl Resolution {
                 *self = updated;
 
                 log::debug!(
-                    "resolved {} into {} addresses",
-                    self.key,
-                    self.entries.len()
+                    key = %self.key,
+                    addresses_count = %self.entries.len(),
+                    "resolved"
                 );
 
                 return Ok(())
             }
 
             log::debug!(
-                "resolved {} into no addresses. Retrying in {:?}",
-                self.key,
-                interval
+                key = %self.key,
+                retrying_in = ?interval,
+                "resolved into no addresses"
             );
             time::sleep(interval).await;
         }
 
         log::warn!(
-            "resolution for {} failed [retries: {}; interval: {:?}]",
-            self.key,
-            retries,
-            interval
+            key = %self.key,
+            %retries,
+            ?interval,
+            "resolution failed"
         );
         Err(ErrorOf::new(ResolveErrorKind::Internal, "out of retries"))
     }

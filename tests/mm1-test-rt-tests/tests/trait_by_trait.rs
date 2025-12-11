@@ -92,7 +92,7 @@ async fn t_spawn() {
         C: Start<Runnable>,
     {
         let addr = ctx.spawn(Runnable { name: task_name }, true).await.unwrap();
-        log::info!("spawned {}", addr);
+        log::info!(addr = %addr, "spawned");
     }
 }
 
@@ -147,7 +147,7 @@ async fn t_start() {
             )
             .await
             .unwrap();
-        log::info!("started {}", addr);
+        log::info!(addr = %addr, "started");
     }
 }
 
@@ -194,7 +194,7 @@ async fn t_recv() {
         C: Messaging,
     {
         let envelope = ctx.recv().await.unwrap();
-        log::info!("received {:?}", envelope);
+        log::info!(?envelope, "received");
     }
 }
 
@@ -279,7 +279,7 @@ async fn t_recv_close() {
         C: Messaging,
     {
         let envelope = ctx.close().await;
-        log::info!("received {:?}", envelope);
+        log::info!(?envelope, "received");
     }
 }
 
@@ -365,18 +365,18 @@ async fn t_fork_and_run() {
         C: Fork + Messaging,
     {
         let fork = ctx.fork().await.unwrap();
-        log::info!("forked {:?}", fork.address());
+        log::info!(fork_addr = ?fork.address(), "forked");
         fork.run(|mut ctx| {
             async move {
-                log::info!("hey! I'm forked [fork-addr: {}]", ctx.address());
+                log::info!(fork_addr = %ctx.address(), "hey! I'm forked");
                 let envelope = ctx.recv().await.unwrap();
-                log::info!("[forked] received: {:?}", envelope);
+                log::info!(?envelope, "[forked] received");
             }
         })
         .await;
 
         let envelope = ctx.recv().await.unwrap();
-        log::info!("[main] received: {:?}", envelope);
+        log::info!(?envelope, "[main] received");
     }
 }
 
@@ -462,7 +462,7 @@ async fn t_tell() {
     where
         C: Messaging,
     {
-        log::info!("sending to {}", to);
+        log::info!(to = %to, "sending");
         ctx.tell(to, Hello).await.unwrap();
     }
 }
@@ -566,7 +566,7 @@ async fn t_watching() {
         C: Watching,
     {
         let w = ctx.watch(peer).await;
-        log::info!("watching {} => {}", peer, w);
+        log::info!(peer = %peer, w = %w, "watching");
         ctx.unwatch(w).await;
     }
 }

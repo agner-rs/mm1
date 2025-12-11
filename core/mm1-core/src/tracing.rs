@@ -58,7 +58,7 @@ impl TraceId {
         span!(
             Level::TRACE,
             "trace-id-async-scope",
-            trace_id = tracing::field::display(self)
+            _trace_id = tracing::field::display(self)
         )
     }
 }

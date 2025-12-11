@@ -9,6 +9,7 @@ use futures::{FutureExt, StreamExt};
 use mm1_address::address::Address;
 use mm1_address::pool::{Lease as AddressLease, LeaseError, Pool};
 use mm1_address::subnet::{NetAddress, NetMask};
+use mm1_common::errors::chain::{ExactTypeDisplayChainExt, StdErrorDisplayChainExt};
 use mm1_common::futures::catch_panic::CatchPanicExt;
 use mm1_common::types::AnyError;
 use mm1_core::envelope::{Envelope, EnvelopeHeader};
@@ -155,10 +156,10 @@ impl Container {
     }
 
     #[instrument(skip_all, fields(
-        addr = display(&self.main_fork_address_lease.address),
-        subn = display(&self.actor_subnet),
-        func = self.runnable.func_name(),
-        akey = display(&self.actor_key),
+        _addr = display(&self.main_fork_address_lease.address),
+        _subn = display(&self.actor_subnet),
+        _func = self.runnable.func_name(),
+        _akey = display(&self.actor_key),
     ))]
     pub(crate) async fn run(self) -> Result<Result<(), AnyError>, ContainerError> {
         let Self {
@@ -178,7 +179,7 @@ impl Container {
         } = self;
 
         let main_fork_address = main_fork_address_lease.address;
-        trace!("starting up [main-fork: {}]", main_fork_address);
+        trace!(%main_fork_address, "starting up");
 
         let (call_tx, call_rx) = sys_call::create();
 
@@ -279,19 +280,19 @@ impl Container {
                         Either::Right(
                             call
                                 .ok_or(ContainerError::EndOfCallRx)
-                                .inspect(|(trace_id, call)| trace!("call::{} [{}]", call, trace_id))
-                                .inspect_err(|err| trace!("err: {}", err))?),
+                                .inspect(|(trace_id, call)| trace!(?call, associated_trace_id = %trace_id, "call"))
+                                .inspect_err(|err| trace!(err = %err.as_display_chain(), "error"))?),
 
                     sys_msg = sys_msg_recv =>
                         Either::Left(
                             sys_msg
                                 .ok_or(ContainerError::EndOfSysMsgRx)
-                                .inspect(|(trace_id, sys_msg)| trace!("inbound sys-msg::{} [{}]", sys_msg, trace_id))
-                                .inspect_err(|err| trace!("err: {}", err))?),
+                                .inspect(|(trace_id, sys_msg)| trace!(?sys_msg, associated_trace_id = %trace_id, "inbound sys-msg"))
+                                .inspect_err(|err| trace!(err = %err.as_display_chain(), "error"))?),
 
                     output = running.as_mut() => {
                         let panic = output.expect_err("have we produced an instance of `std::convert::Infallible`?");
-                        trace!("panic: {}", panic);
+                        trace!(%panic, "main fork panicked");
                         Either::Right(
                             (
                                 TraceId::current(),
@@ -302,7 +303,7 @@ impl Container {
 
                     spawned_job_done = spawn_job_next, if spawn_jobs_non_empty => {
                         if let Err(panic) = spawned_job_done.transpose() {
-                            trace!("panic: {}", panic);
+                            trace!(%panic, "spawned job panicked");
                             Either::Right(
                                 (
                                     TraceId::current(),
@@ -320,7 +321,7 @@ impl Container {
                     Either::Right((trace_id, sys_call)) => (trace_id, Either::Right(sys_call)),
                 };
 
-                trace!("processing {:?}...", selected);
+                trace!(?selected, "processing...");
 
                 let cf = trace_id.scope_sync(|| {
                     match (trap_exit, selected) {
@@ -492,9 +493,10 @@ impl Container {
                             })),
                         ) => {
                             trace!(
-                                "processing Exit when trap_exit=true [sender: {}, receiver: {}, \
-                                 reason: {:?}]",
-                                sender, receiver, reason
+                                %sender,
+                                %receiver,
+                                ?reason,
+                                "processing Exit when trap_exit=true"
                             );
                             if let Some(job_entry) = job_entries.get_mut(&receiver) {
                                 let should_handle = match reason {
@@ -555,7 +557,7 @@ impl Container {
 
                             job_entry.watches.insert((receiver, watch_ref));
 
-                            trace!("{} requests watch of {}", sender, receiver);
+                            trace!(watched_by = %sender, watched = %receiver, "requests to watch");
                             let sys_send_result = rt_api.sys_send(
                                 receiver,
                                 SysMsg::Watch(SysWatch::Watch {
@@ -610,12 +612,12 @@ impl Container {
                             })),
                         ) => {
                             if let Some(job_entry) = job_entries.get_mut(&receiver) {
-                                trace!("{} is now watched by {}", receiver, sender);
+                                trace!(watched_by = %sender, watched = %receiver, "now watched");
                                 job_entry.watched_by.insert((sender, watch_ref));
                             } else {
                                 trace!(
-                                    "{} is now watched by {}; sending Down immediately",
-                                    receiver, sender
+                                    watched_by = %sender, watched = %receiver,
+                                    "now watched; sending Down immediately"
                                 );
                                 let _ = rt_api.sys_send(
                                     sender,
@@ -697,7 +699,7 @@ impl Container {
             }
         };
 
-        trace!("exitting [reason: {:?}]", exit_reason);
+        trace!(reason = ?exit_reason.as_ref().map_err(|e| e.as_display_chain()), "exitting");
 
         let unregistered = rt_api.registry().unregister(actor_subnet);
         assert!(unregistered);
@@ -707,7 +709,7 @@ impl Container {
         rx_system.close();
         while let Some((trace_id, sys_msg)) = rx_system.recv().await {
             trace_id.scope_sync(|| {
-                trace!("sys-msg: {}", sys_msg);
+                trace!(?sys_msg, "sys-msg");
                 match sys_msg {
                     SysMsg::Kill => (),
                     SysMsg::ForkDone(fork_lease) => {
@@ -765,8 +767,8 @@ impl Container {
             .expect("main job-entry is gone somewhere");
 
         trace!(
-            "sending Exit to the {} linked actors",
-            job_entry.linked_to.len()
+            linked_count = %job_entry.linked_to.len(),
+            "sending Exit to the linked actors"
         );
 
         for peer in job_entry.linked_to {
@@ -775,8 +777,8 @@ impl Container {
         }
 
         trace!(
-            "sending Down to the {} watchers",
-            job_entry.watched_by.len()
+            watchers_count = %job_entry.watched_by.len(),
+            "sending Down to the watchers"
         );
 
         for peer in job_entry

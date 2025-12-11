@@ -52,7 +52,7 @@ impl RtApi {
     }
 
     pub(crate) fn sys_send(&self, to: Address, sys_msg: SysMsg) -> Result<(), SendErrorKind> {
-        trace!("sys_send [to: {}; sys_msg: {:?}]", to, sys_msg);
+        trace!(%to, ?sys_msg, "sys_send");
 
         self.inner
             .registry

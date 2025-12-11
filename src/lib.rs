@@ -94,6 +94,7 @@ pub mod common {
     }
 
     pub mod error {
+        pub use mm1_common::errors::chain::*;
         pub use mm1_common::errors::error_kind::HasErrorKind;
         pub use mm1_common::errors::error_of::ErrorOf;
         pub use mm1_common::types::{AnyError, StdError};

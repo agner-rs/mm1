@@ -100,9 +100,9 @@ where
             .cast()
             .map_err(|envelope| {
                 warn!(
-                    "invalid cast [expected: {}; actual: {}]",
-                    std::any::type_name::<Response<Rs>>(),
-                    envelope.message_name()
+                    expected = %std::any::type_name::<Response<Rs>>(),
+                    actual = %envelope.message_name(),
+                    "invalid cast"
                 );
                 ErrorOf::new(AskErrorKind::Cast, "unexpected response type")
             })?;

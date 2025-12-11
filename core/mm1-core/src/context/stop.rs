@@ -62,7 +62,7 @@ pub trait Stop {
                             },
 
                             unexpected @ _ => {
-                                warn!("unexpected message: {:?}", unexpected);
+                                warn!(msg = ?unexpected, "unexpected message");
                             },
                         })
                     }

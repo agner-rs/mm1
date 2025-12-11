@@ -118,7 +118,7 @@ where
     Ctx: ActorContext,
 {
     let local_addr = tcp_stream.local_addr().wrap_err("tcp_stream.local_addr")?;
-    info!("accepted a connection form {} to {}", peer_addr, local_addr);
+    info!(peer = %peer_addr, local = %local_addr, "accepted a connection");
 
     let connection_addr = ctx
         .ask::<_, uni_sup::StartResponse>(
@@ -132,8 +132,9 @@ where
         .wrap_err("ask")?
         .wrap_err("uni_sup::Start")?;
     info!(
-        "connection started {} [peer: {}; local: {}]",
-        connection_addr, peer_addr, local_addr
+        %connection_addr,
+        peer = %peer_addr, local = %local_addr,
+        "connection started"
     );
 
     Ok(())
@@ -141,7 +142,7 @@ where
 
 async fn handle_envelope<Ctx>(_ctx: &mut Ctx, envelope: Envelope) -> Result<(), AnyError> {
     dispatch!(match envelope {
-        unexpected @ _ => error!("received unexpected message: {:?}", unexpected),
+        unexpected @ _ => error!(?unexpected, "received unexpected message"),
     });
     Ok(())
 }

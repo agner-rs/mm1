@@ -62,7 +62,7 @@ where
 {
     fn register(handlers: &mut HashMap<TypeId, &dyn ErasedHandler<Ctx, B>>) {
         let Vacant(v) = handlers.entry(TypeId::of::<M>()) else {
-            error!("duplicate handler for {}", std::any::type_name::<M>());
+            error!(message_type = %std::any::type_name::<M>(), "duplicate handler");
             return
         };
         v.insert(&Msg::<M>);
@@ -80,8 +80,9 @@ where
     fn register(handlers: &mut HashMap<TypeId, &dyn ErasedHandler<Ctx, B>>) {
         let Vacant(v) = handlers.entry(TypeId::of::<Request<Rq>>()) else {
             error!(
-                "duplicate handler for {}",
-                std::any::type_name::<Request<Rq>>()
+                request_type = %std::any::type_name::<Rq>(),
+                message_type = %std::any::type_name::<Request<Rq>>(),
+                "duplicate handler"
             );
             return;
         };

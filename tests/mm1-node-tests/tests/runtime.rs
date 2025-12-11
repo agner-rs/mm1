@@ -331,7 +331,7 @@ fn actor_bind_and_recv() {
 
         for _ in 0..COUNT {
             let envelope = ctx.recv().await.expect("bound.recv");
-            log::info!("received [dest: {}]", envelope.header().to);
+            log::info!(dest = %envelope.header().to, "received");
         }
     }
 
@@ -362,7 +362,7 @@ fn actor_fork_watched_yields_down() {
         let fork_ctx = ctx.fork().await.expect("ctx.fork");
         let fork_address = fork_ctx.address();
 
-        info!("I ({}) watch for {}", ctx.address(), fork_ctx.address());
+        info!(watcher = %ctx.address(), watchee = %fork_ctx.address(), "watch for");
 
         let fork_watch_ref = ctx.watch(fork_address).await;
         mem::drop(fork_ctx);

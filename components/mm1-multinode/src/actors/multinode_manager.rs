@@ -9,6 +9,7 @@ use eyre::Context;
 use mm1_address::address::Address;
 use mm1_address::address_range::AddressRange;
 use mm1_address::subnet::NetAddress;
+use mm1_common::errors::chain::StdErrorDisplayChainExt;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::log::{debug, error, info, trace};
 use mm1_common::types::{AnyError, Never};
@@ -51,37 +52,37 @@ where
     let uds_connection_sup = start_connection_sup::<_, UnixStream>(ctx, ctx.address())
         .await
         .wrap_err("start_connection_sup::<UnixStream>")?;
-    debug!("uds-connection-sup: {}", uds_connection_sup);
+    debug!(started = %uds_connection_sup, "started uds-connection-sup");
 
     let uds_connector_sup = start_uds_connector_sup(ctx, uds_connection_sup)
         .await
         .wrap_err("start_uds_connector_sup")?;
-    debug!("uds-connector-sup: {}", uds_connector_sup);
+    debug!(started = %uds_connector_sup, "started uds-connector-sup");
 
     let uds_acceptor_sup = start_uds_acceptor_sup(ctx, uds_connection_sup)
         .await
         .wrap_err("start_uds_acceptor_sup")?;
-    debug!("uds-acceptor-sup: {}", uds_acceptor_sup);
+    debug!(started = %uds_acceptor_sup, "started uds-acceptor-sup");
 
     let tcp_connection_sup = start_connection_sup::<_, TcpStream>(ctx, ctx.address())
         .await
         .wrap_err("start_connection_sup::<TcpStream>")?;
-    debug!("tcp-connection-sup: {}", tcp_connection_sup);
+    debug!(started = %tcp_connection_sup, "started tcp-connection-sup");
 
     let tcp_connector_sup = start_tcp_connector_sup(ctx, tcp_connection_sup)
         .await
         .wrap_err("start_tcp_connector_sup")?;
-    debug!("tcp-connector-sup: {}", tcp_connector_sup);
+    debug!(started = %tcp_connector_sup, "started tcp-connector-sup");
 
     let tcp_acceptor_sup = start_tcp_acceptor_sup(ctx, tcp_connection_sup)
         .await
         .wrap_err("start_tcp_acceptor_sup")?;
-    debug!("tcp-acceptor-sup: {}", tcp_acceptor_sup);
+    debug!(started = %tcp_acceptor_sup, "started tcp-acceptor-sup");
 
     let subnet_ingress_sup = start_subnet_ingress_sup(ctx)
         .await
         .wrap_err("start_subnet_ingress_sup")?;
-    debug!("subnet-ingress-sup: {}", subnet_ingress_sup);
+    debug!(started = %subnet_ingress_sup, "started subnet-ingress-sup");
 
     ctx.bind(BindArgs {
         bind_to:    MULTINODE_MANAGER.into(),
@@ -225,7 +226,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, p::RegisterLocalSubnetRequest> for Multin
         let Self { local_subnets, .. } = self;
 
         local_subnets.insert(net.into());
-        info!("registered local subnet: {}", net,);
+        info!(%net, "registered local subnet");
 
         Ok(Outcome::Reply(Ok(())))
     }
@@ -498,10 +499,10 @@ impl<Ctx: ActorContext> OnRequest<Ctx, p::RegisterProtocolRequest<Protocol>>
         let protocol = Arc::new(protocol);
 
         let mut process_request = || -> p::RegisterProtocolResponse {
-            trace!("registering protocol {:?}", name);
+            trace!(%name, "registering protocol");
 
             protocol_registry.register_protocol(name.clone(), protocol.clone())?;
-            debug!("protocol registered: {:?}", name);
+            debug!(%name, "protocol registered");
 
             {
                 let Waitlist {
@@ -599,7 +600,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, p::UnregisterProtocolRequest> for Multino
     ) -> Result<Outcome<Self::Rs>, AnyError> {
         let p::UnregisterProtocolRequest { name } = request;
         let process_request = || -> p::UnregisterProtocolResponse {
-            trace!("unregistering protocol {:?}", name);
+            trace!(%name, "unregistering protocol");
 
             let Self {
                 protocol_registry, ..
@@ -825,9 +826,8 @@ impl<Ctx: ActorContext> OnRequest<Ctx, SubscribeToRoutesRequest> for MultinodeMa
         route_subscribers.insert(watch_ref, deliver_to);
 
         trace!(
-            "subscribed {} to the route-updates; sending {} routes",
-            deliver_to,
-            routes.len()
+            subscriber = %deliver_to, routes_count = %routes.len(),
+            "new subscription to the route-updates; sending current state routes"
         );
 
         let response = SubscribeToRoutesResponse { routes };
@@ -864,7 +864,9 @@ impl<Ctx: ActorContext> OnMessage<Ctx, SetRoute> for MultinodeManager<Ctx> {
 
         let Ok(old_metric) = route_registry
             .set_route(message, destination, via, new_metric)
-            .inspect_err(|reason| error!("error setting route: {}", reason))
+            .inspect_err(
+                |reason| error!(error = %reason.as_display_chain(), "error setting route"),
+            )
         else {
             return Ok(Outcome::NoReply)
         };
@@ -876,7 +878,7 @@ impl<Ctx: ActorContext> OnMessage<Ctx, SetRoute> for MultinodeManager<Ctx> {
             contains_net_after,
         ) {
             (false, true, false) => {
-                debug!("stopping subnet_ingress [destination: {}]", destination);
+                debug!(%destination, "stopping subnet_ingress");
 
                 let Occupied(subnet_ingress_entry) =
                     subnet_ingress_workers.entry(destination.into())
@@ -898,12 +900,12 @@ impl<Ctx: ActorContext> OnMessage<Ctx, SetRoute> for MultinodeManager<Ctx> {
                 subnet_ingress_entry.remove();
 
                 info!(
-                    "subnet_ingress stopped [destination: {}; worker: {}]",
-                    destination, subnet_ingress_worker
+                    %destination, worker = %subnet_ingress_worker,
+                    "subnet_ingress stopped"
                 );
             },
             (false, false, true) => {
-                debug!("starting subnet_ingress [destination: {}]", destination);
+                debug!(%destination, "starting subnet_ingress");
                 let Vacant(subnet_ingress_entry) = subnet_ingress_workers.entry(destination.into())
                 else {
                     panic!("duplicate subnet_ingress worker: {}", destination)
@@ -922,8 +924,8 @@ impl<Ctx: ActorContext> OnMessage<Ctx, SetRoute> for MultinodeManager<Ctx> {
                 subnet_ingress_entry.insert(subnet_ingress_worker);
 
                 info!(
-                    "subnet_ingress started [destination: {}; worker: {}]",
-                    destination, subnet_ingress_worker
+                    %destination, worker = %subnet_ingress_worker,
+                    "subnet_ingress started"
                 );
             },
             (false, ..) => {},
@@ -931,24 +933,22 @@ impl<Ctx: ActorContext> OnMessage<Ctx, SetRoute> for MultinodeManager<Ctx> {
         }
 
         debug!(
-            "route updated [msg: {:?}; dst: {} gw: {}; metric: {:?} -> {:?}]",
-            message,
-            destination,
-            via.map(|n| n.to_string()).unwrap_or_default(),
-            old_metric,
-            new_metric
+            msg = ?message, dst = %destination,
+            gw = %via.map(|n| n.to_string()).unwrap_or_default(),
+            old_metric = ?old_metric, new_metric = ?new_metric,
+            "route updated"
         );
 
         if let Some(gw) = via
             && !route_gws.contains_right(&gw)
         {
-            debug!("watching after gw {}", gw);
+            debug!(?gw, "watching after");
             let watch_ref = ctx.watch(gw).await;
             route_gws.insert(watch_ref, gw);
         }
 
         for subscriber in route_subscribers.values().copied() {
-            trace!("announcing route update to {}", subscriber);
+            trace!(%subscriber, "announcing route update");
             let _ = ctx.tell(subscriber, set_route.clone()).await;
         }
 
@@ -969,18 +969,18 @@ impl<Ctx: ActorContext> OnMessage<Ctx, sys::Down> for MultinodeManager<Ctx> {
         } = self;
 
         if route_subscribers.contains_key(&watch_ref) {
-            debug!("sys::Down: removing route-subscriber {}", peer);
+            debug!(subscriber = %peer, "sys::Down: removing route-subscriber");
             route_subscribers.remove(&watch_ref);
         }
 
         if route_gws.contains_left(&watch_ref) {
             let gw = peer;
-            debug!("sys::Down: removing route-gw {}", gw);
+            debug!(?gw, "sys::Down: removing route-gw");
             route_gws.remove_by_left(&watch_ref);
             for (message, destination, _metric) in route_registry.all_routes_by_gw(gw) {
                 trace!(
-                    "- sys::Down: removing route [msg: {:?}, dst: {}, via: {}]",
-                    message, destination, gw
+                    msg = ?message, dst = %destination, via = %gw,
+                    "- sys::Down: removing route"
                 );
                 let set_route = SetRoute {
                     message,

@@ -5,6 +5,7 @@ use std::time::Duration;
 use eyre::Context;
 use mm1_address::address::Address;
 use mm1_address::subnet::NetAddress;
+use mm1_common::errors::chain::StdErrorDisplayChainExt;
 use mm1_common::log::{debug, error, trace, warn};
 use mm1_common::types::{AnyError, Never};
 use mm1_core::context::BindArgs;
@@ -119,15 +120,15 @@ fn process_worker_inbound(
         } =>
             if destination == net_address {
                 debug!(
-                    "set route [msg: {:?}, dst: {}, via: {:?}, metric: {:?}]",
-                    message, destination, via, metric
+                    msg = ?message, dst = %destination, ?via, ?metric,
+                    "set route"
                 );
                 route_registry
                     .set_route(message, destination, via, metric)
                     .wrap_err("route_registry.set_route")?;
             },
         unexpected @ _ => {
-            warn!("unexpected messager: {:?}", unexpected);
+            warn!(msg = ?unexpected, "unexpected message");
         },
     });
     Ok(())
@@ -172,9 +173,8 @@ where
 
         let Some(message_type_key) = message_type_key_opt else {
             error!(
-                "no codec for the message [dst: {}, name: {}]",
-                message_destination_address,
-                envelope.message_name()
+                dst = %message_destination_address, name = %envelope.message_name(),
+                "no codec for the message"
             );
             return Ok(())
         };
@@ -184,17 +184,17 @@ where
     match route_registry.find_route(message_type_key, message_destination_address) {
         Err(reason) => {
             error!(
-                "can't find route [msg: {:?}, dst: {}]: {}",
-                message_type_key, message_destination_address, reason
+                msg = ?message_type_key, dst = %message_destination_address, reason = %reason.as_display_chain(),
+                "can't find route"
             );
         },
         Ok((None, _)) => {
             error!("attempt to route a message via a subnet-ingress to a local-subnet");
         },
         Ok((Some(gw), _metric)) => {
-            trace!("forwarding message [gw: {}]", gw);
+            trace!(?gw, "forwarding message");
             if let Err(reason) = ctx.forward(gw, envelope).await {
-                warn!("error forwarding a message [gw: {}]: {}", gw, reason);
+                warn!(?gw, reason = %reason.as_display_chain(), "error forwarding a message");
             }
         },
     }

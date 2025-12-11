@@ -2,7 +2,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use eyre::Context;
 use mm1::address::{Address, NetAddress, NetMask};
-use mm1::common::error::AnyError;
+use mm1::common::error::{AnyError, ExactTypeDisplayChainExt};
 use mm1::common::log::{error, info};
 use mm1::core::context::BindArgs;
 use mm1::core::envelope::dispatch;
@@ -66,7 +66,7 @@ fn logger_config() -> mm1_logger::LoggingConfig {
         min_log_level:     Level::TRACE,
         log_target_filter: vec![
             // "mm1_multinode::*=TRACE".parse().unwrap(),
-            "*=INFO".parse().unwrap(),
+            "*=DEBUG".parse().unwrap(),
         ],
     }
 }
@@ -136,14 +136,9 @@ fn run(args: Args) -> Result<(), AnyError> {
 
     let log_actor_failures = async move {
         while let Some((address, actor_failure)) = rx_actor_failure.recv().await {
-            let actor_failure_chain = actor_failure
-                .chain()
-                .map(|e| e.to_string())
-                .collect::<Vec<_>>()
-                .join(" <- ");
             error!(
-                "actor failure [address: {}]: {}",
-                address, actor_failure_chain
+                %address, error = %actor_failure.as_display_chain(),
+                "actor failure"
             );
         }
     };
@@ -183,7 +178,7 @@ where
     .await
     .wrap_err("ctx.bind")?;
 
-    info!("HELLO! I'm {} [also: {}]", ctx.address(), receive_at);
+    info!(address = %ctx.address(), receive_at = %receive_at, "HELLO!");
 
     let protocol = Protocol::new()
         .with_type::<proto::M1>()
@@ -227,9 +222,9 @@ where
             },
             proto::M1(reply_to, sent_at, data) => {
                 info!(
-                    "M1 from {} [dt: {:?}]",
-                    reply_to,
-                    Duration::from_micros(now().saturating_sub(sent_at))
+                    from = %reply_to,
+                    dt = ?Duration::from_micros(now().saturating_sub(sent_at)),
+                    "M1"
                 );
                 ctx.tell(reply_to, proto::M2(ctx.address(), now(), data))
                     .await
@@ -237,14 +232,14 @@ where
             },
             proto::M2(replied_by, sent_at, data) => {
                 info!(
-                    "M2 from {} [dt: {:?}; len: {}]",
-                    replied_by,
-                    Duration::from_micros(now().saturating_sub(sent_at)),
-                    data.len()
+                    from = %replied_by,
+                    dt = ?Duration::from_micros(now().saturating_sub(sent_at)),
+                    len = %data.len(),
+                    "M2"
                 );
             },
             a_message @ _ => {
-                info!("RECEIVED {:?}", a_message);
+                info!(message = ?a_message, "RECEIVED");
             },
         });
     }

@@ -6,6 +6,7 @@ use mm1_address::address::Address;
 use mm1_address::address_range::AddressRange;
 use mm1_address::pool::Lease;
 use mm1_address::subnet::{NetAddress, NetMask};
+use mm1_common::errors::chain::ExactTypeDisplayChainExt;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::futures::timeout::FutureTimeoutExt;
 use mm1_common::log;
@@ -70,7 +71,7 @@ impl Fork for ActorContext {
             fork_lease
         };
         let fork_address = fork_lease.address;
-        trace!("forking {} -> {}", this_address, fork_address);
+        trace!(parent = %this_address, child = %fork_address, "forking");
 
         call.invoke(SysCall::ForkAdded(fork_address)).await;
 
@@ -211,13 +212,13 @@ impl Messaging for ActorContext {
                         .copied()
                         .unwrap_or(message.to);
                     let Some(fork_entry) = fork_entries.get_mut(&message_to) else {
-                        warn!("no such fork [dst: {}]", message_to);
+                        warn!(dst = %message_to, "no such fork");
                         continue
                     };
                     fork_entry.inbox_priority.push_back(message);
-                    trace!("subnet received priority message [dst: {}]", message_to);
+                    trace!(dst = %message_to, "subnet received priority message");
                     if notified_forks.insert(message_to) {
-                        trace!("notifying fork [dst: {}]", message_to);
+                        trace!(dst = %message_to, "notifying fork");
                         fork_entry.fork_notifiy.notify_one();
                     }
                 }
@@ -230,13 +231,13 @@ impl Messaging for ActorContext {
                         .copied()
                         .unwrap_or(message.to);
                     let Some(fork_entry) = fork_entries.get_mut(&message_to) else {
-                        warn!("no such fork [dst: {}]", message_to);
+                        warn!(dst = %message_to, "no such fork");
                         continue
                     };
                     fork_entry.inbox_regular.push_back(message);
-                    trace!("subnet received regular message [dst: {}]", message_to);
+                    trace!(dst = %message_to, "subnet received regular message");
                     if notified_forks.insert(message_to) {
-                        trace!("notifying fork [dst: {}]", message_to);
+                        trace!(dst = %message_to, "notifying fork");
                         fork_entry.fork_notifiy.notify_one();
                     }
                 }
@@ -306,7 +307,7 @@ impl Bind<NetAddress> for ActorContext {
         } = args;
         let address_range = AddressRange::from(bind_to);
 
-        log::debug!("binding [to: {}; inbox-size: {}]", bind_to, inbox_size);
+        log::debug!(%bind_to, %inbox_size, "binding");
 
         let Self {
             fork_address,
@@ -358,7 +359,7 @@ impl Bind<NetAddress> for ActorContext {
             bound_subnet_entry.insert(*fork_address);
         }
 
-        log::info!("bound [to: {}; inbox-size: {}]", bind_to, inbox_size);
+        log::info!(%bind_to, %inbox_size, "bound");
 
         Ok(())
     }
@@ -454,7 +455,7 @@ async fn do_spawn(
     let actor_config = rt_config.actor_config(&actor_key);
     let execute_on = rt_api.choose_executor(actor_config.runtime_key());
 
-    trace!("starting [ack-to: {:?}]", ack_to);
+    trace!(?ack_to, "starting");
 
     let subnet_lease = rt_api
         .request_address(actor_config.netmask())
@@ -462,7 +463,7 @@ async fn do_spawn(
         .inspect_err(|e| log::error!("lease-error: {}", e))
         .map_err(|e| ErrorOf::new(SpawnErrorKind::ResourceConstraint, e.to_string()))?;
 
-    trace!("starting [subnet-lease: {}]", subnet_lease.net_address());
+    trace!(subnet_lease = %subnet_lease.net_address(), "subnet leased");
 
     let rt_api = rt_api.clone();
     let rt_config = rt_config.clone();
@@ -484,7 +485,7 @@ async fn do_spawn(
     .map_err(|e| ErrorOf::new(SpawnErrorKind::InternalError, e.to_string()))?;
     let actor_address = container.actor_address();
 
-    trace!("actor-address: {}", actor_address);
+    trace!(spawned_address = %actor_address, "about to run spawned actor");
 
     let tx_actor_failure = tx_actor_failure.clone();
     // TODO: maybe keep it somewhere too?
@@ -496,14 +497,9 @@ async fn do_spawn(
             },
             Err(container_failure) => {
                 let report = AnyError::from(container_failure);
-                mm1_common::log::error!(
-                    "actor container failure [addr: {}]: {}",
-                    actor_address,
-                    report
-                        .chain()
-                        .map(|e| e.to_string())
-                        .collect::<Vec<_>>()
-                        .join(" <- ")
+                log::error!(
+                    err = %report.as_display_chain(), %actor_address,
+                    "actor container failure"
                 );
             },
         }
@@ -611,7 +607,7 @@ async fn do_init_done(context: &mut ActorContext, address: Address) {
 }
 
 fn do_send(context: &mut ActorContext, outbound: Envelope) -> Result<(), ErrorOf<SendErrorKind>> {
-    trace!("sending [outbound: {:?}]", outbound);
+    trace!(envelope = ?outbound, "sending");
     let ActorContext { subnet_context, .. } = context;
     let subnet_context_locked = subnet_context
         .try_lock()
@@ -627,7 +623,7 @@ fn do_forward(
     to: Address,
     outbound: Envelope,
 ) -> Result<(), ErrorOf<SendErrorKind>> {
-    trace!("forwarding [to: {}, outbound: {:?}]", to, outbound);
+    trace!(forward_to = %to, envelope = ?outbound, "forwarding");
     let ActorContext { subnet_context, .. } = context;
     let subnet_context_locked = subnet_context
         .try_lock()

@@ -59,8 +59,9 @@ where
                 io.read_exact(&mut buf[..]).await.wrap_err("read body")?;
                 let type_name = String::from_utf8(buf).wrap_err("non UTF-8 name")?;
                 info!(
-                    "type declared [f-key: {:?}; name: {}]",
-                    declare_type.message_type, type_name
+                    f_key = ?declare_type.message_type,
+                    name = %type_name,
+                    "type declared"
                 );
 
                 let message = DeclareType {
@@ -76,8 +77,8 @@ where
                     metric,
                 } = subnet_distance;
                 info!(
-                    "foreign subnet [net: {}; f-key: {:?}; metric: {:?}]",
-                    net_address, type_handle, metric
+                    net = %net_address, f_key = ?type_handle, metric = ?metric,
+                    "foreign subnet"
                 );
 
                 let message = SubnetDistance {

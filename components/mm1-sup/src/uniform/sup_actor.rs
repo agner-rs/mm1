@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use eyre::Context;
 use mm1_address::address::Address;
+use mm1_common::errors::chain::StdErrorDisplayChainExt;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::log::{debug, warn};
 use mm1_common::types::AnyError;
@@ -80,7 +81,7 @@ where
                     .wrap_err("handle_sys_exited")?,
 
             unexpected @ _ => {
-                trace_id.scope_sync(|| warn!("unexpected message: {:?}", unexpected));
+                trace_id.scope_sync(|| warn!(msg = ?unexpected, "unexpected message"));
             },
         });
     }
@@ -162,7 +163,7 @@ where
         })
         .await;
 
-    debug!("child[{:?}] status Created -> Starting", key);
+    debug!(key = ?key, "child status Created -> Starting");
 
     Ok(())
 }
@@ -193,8 +194,8 @@ where
     *status = ChildStatus::Started(address);
 
     debug!(
-        "child[{:?}] status Starting -> Started [child-address: {}]",
-        key, address
+        key = ?key, address = %address,
+        "child status Starting -> Started"
     );
 
     Ok(())
@@ -318,8 +319,8 @@ where
             primary.remove(key);
 
             debug!(
-                "child[{:?}] status Stopping -> Stopped [child-address: {}]",
-                key, peer
+                key = ?key, peer = %peer,
+                "child status Stopping -> Stopped"
             );
 
             Ok(())
@@ -335,8 +336,8 @@ where
                 *status = ChildStatus::Starting;
 
                 debug!(
-                    "child[{:?}] status Started -> Starting [child-address: {}]",
-                    key, peer
+                    key = ?key, peer = %peer,
+                    "child status Started -> Starting"
                 );
 
                 ctx.fork()
@@ -360,9 +361,8 @@ where
                 primary.remove(key);
 
                 debug!(
-                    "child[{:?}] status Started -> Stopped (should not restart) [child-address: \
-                     {}]",
-                    key, peer
+                    key = ?key, peer = %peer,
+                    "child status Started -> Stopped (should not restart)"
                 );
                 Ok(())
             }
@@ -381,7 +381,7 @@ async fn do_start_child<Runnable, Ctx>(
 where
     Ctx: Messaging + Start<Runnable>,
 {
-    debug!("starting child [init_type: {:?}]", init_type,);
+    debug!(init_type = ?init_type, "starting child");
 
     let result = match init_type {
         InitType::NoAck => {
@@ -393,13 +393,13 @@ where
     };
     match result {
         Err(reason) => {
-            warn!("error [reason: {}]", reason);
+            warn!(reason = %reason.as_display_chain(), "error");
             Err(reason)
         },
         Ok(child) => {
-            debug!("child [address: {}]", child);
+            debug!(address = %child, "child");
             if announce_parent {
-                debug!("child [address: {}] announcing parent", child);
+                debug!(address = %child, "child announcing parent");
                 ctx.tell(
                     child,
                     sup_common::SetParent {
@@ -433,8 +433,8 @@ where
     Ctx: Fork + Stop + Watching + Messaging,
 {
     debug!(
-        "stopping child [child_address: {}, stop_timeout: {:?}]",
-        child_address, stop_timeout
+        child_address = %child_address, stop_timeout = ?stop_timeout,
+        "stopping child"
     );
 
     ctx.shutdown(child_address, stop_timeout)

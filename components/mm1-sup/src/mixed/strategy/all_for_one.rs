@@ -3,6 +3,7 @@ use std::fmt;
 
 use either::Either;
 use mm1_address::address::Address;
+use mm1_common::errors::chain::StdErrorDisplayChainExt;
 use mm1_common::log;
 
 use crate::common::restart_intensity::{RestartIntensity, RestartStats};
@@ -135,9 +136,8 @@ where
             .find_map(|(k, s)| (k == key).then_some(s))
         else {
             log::warn!(
-                "reported start, key not found [key: {}; addr: {}]",
-                key,
-                reported_address
+                key = %key, addr = %reported_address,
+                "reported start, key not found"
             );
             return
         };
@@ -163,9 +163,8 @@ where
             .then_some(s)
         }) else {
             log::info!(
-                "termination requested [by-addr: {}, normal-exit: {}]",
-                reported_addr,
-                normal_exit
+                by_addr = %reported_addr, normal_exit = %normal_exit,
+                "termination requested"
             );
             self.status = SupStatus::Stopping { normal_exit: true };
             return;
@@ -187,7 +186,7 @@ where
                     .restart_intensity
                     .report_exit(&mut self.restart_stats, at)
                 {
-                    log::info!("restart intensity exceeded; giving up. Reason: {}", reason);
+                    log::info!(reason = %reason.as_display_chain(), "restart intensity exceeded; giving up");
                     self.status = SupStatus::Stopping { normal_exit: false };
                 } else {
                     self.status = SupStatus::Restarting;
@@ -268,10 +267,8 @@ where
             all_children_started = all_children_started && matches!(status, Status::Running { .. });
 
             log::debug!(
-                "considering {}; status: {:?}, target: {:?}",
-                key,
-                status,
-                target
+                key = %key, status = ?status, target = ?target,
+                "considering"
             );
 
             match (status, target) {
@@ -302,7 +299,7 @@ where
             SupStatus::Running | SupStatus::Stopped => Ok(None),
 
             SupStatus::Starting => {
-                log::info!("starting [all-children-started: {}]", all_children_started);
+                log::info!(all_children_started = %all_children_started, "starting");
                 if all_children_started {
                     self.status = SupStatus::Running;
                     Ok(Some(Action::InitDone))
@@ -313,8 +310,8 @@ where
 
             SupStatus::Restarting => {
                 log::info!(
-                    "restarting [all-children-stopped: {}]",
-                    all_children_stopped
+                    all_children_stopped = %all_children_stopped,
+                    "restarting"
                 );
                 if all_children_stopped {
                     self.status = SupStatus::Running;
@@ -325,9 +322,8 @@ where
             },
             SupStatus::Stopping { normal_exit } => {
                 log::info!(
-                    "stopping [normal: {}; all-children-stopped: {}]",
-                    normal_exit,
-                    all_children_stopped
+                    normal = %normal_exit, all_children_stopped = %all_children_stopped,
+                    "stopping"
                 );
                 if all_children_stopped {
                     self.status = SupStatus::Stopped;

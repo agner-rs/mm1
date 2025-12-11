@@ -66,7 +66,7 @@ pub(crate) async fn run(
             )
             .await
             .wrap_err("name-service start")?;
-        log::debug!("started name-service at {}", name_service_address);
+        log::debug!(started = %name_service_address, "started name-service");
     };
 
     #[cfg(feature = "multinode")]
@@ -88,14 +88,14 @@ pub(crate) async fn run(
             .await
             .wrap_err("multinode-connection-manager start")?;
         log::debug!(
-            "started multinode-connection-manager at {}",
-            multinode_manager_address
+            started = %multinode_manager_address,
+            "started multinode-connection-manager"
         );
 
         for net in local_subnets_bind.into_iter().chain([local_subnet_auto]) {
             use mm1_proto_network_management::protocols;
 
-            info!("registering local-subnet: {}", net);
+            info!(%net, "registering local-subnet");
 
             type Ret = protocols::RegisterLocalSubnetResponse;
             let request = protocols::RegisterLocalSubnetRequest { net };
@@ -114,8 +114,8 @@ pub(crate) async fn run(
             use mm1_proto_network_management::iface;
 
             info!(
-                "adding inbound multinode-interface: {:?} @ {}",
-                protocol_names, bind_address
+                %bind_address, ?protocol_names,
+                "adding inbound multinode-interface"
             );
 
             type Ret = iface::BindResponse;
@@ -155,8 +155,8 @@ pub(crate) async fn run(
             use mm1_proto_network_management::iface;
 
             info!(
-                "adding outbound multinode-interface: {:?} @ {}",
-                protocol_name, dst_address
+                ?protocol_name, %dst_address,
+                "adding outbound multinode-interface"
             );
 
             type Ret = iface::ConnectResponse;
@@ -193,12 +193,12 @@ pub(crate) async fn run(
         }
     }
 
-    log::debug!("about to start main-actor: {}", main_actor.func_name());
+    log::debug!(main_actor_func = %main_actor.func_name(), "about to start main-actor");
     let main_actor_address = ctx
         .spawn(main_actor, true)
         .await
         .wrap_err("main-actor spawn")?;
-    log::debug!("main-actor address: {}", main_actor_address);
+    log::debug!(started = %main_actor_address, "started main-actor");
 
     let main_actor_exited = loop {
         let envelope = ctx.recv().await.wrap_err("init-actor recv")?;
@@ -206,14 +206,14 @@ pub(crate) async fn run(
             exited @ mm1_proto_system::Exited { .. } => break exited,
             unexpected @ _ => {
                 log::warn!(
-                    "init-actor received an unexpected message: {:?}",
-                    unexpected
+                    msg = ?unexpected,
+                    "init-actor received an unexpected message"
                 );
             },
         })
     };
 
-    log::info!("main-actor exited: {:?}", main_actor_exited);
+    log::info!(exited = ?main_actor_exited, "main-actor exited");
 
     Ok(ctx.quit_ok().await)
 }

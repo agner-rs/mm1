@@ -61,7 +61,7 @@ impl ProtocolRegistry {
     ) -> Result<(), ErrorOf<protocols::UnregisterProtocolErrorKind>> {
         let Self { protocols, .. } = self;
         let Occupied(mut protocol_entry) = protocols.entry(name.clone()) else {
-            warn!("no protocol with name: {:?}", name);
+            warn!(?name, "no protocol");
             return Err(ErrorOf::new(
                 protocols::UnregisterProtocolErrorKind::NoProtocol,
                 "no such protocol",
@@ -69,7 +69,7 @@ impl ProtocolRegistry {
         };
 
         if Arc::get_mut(protocol_entry.get_mut()).is_none() {
-            warn!("protocol is in use: {:?}", name);
+            warn!(?name, "protocol is in use");
             Err(ErrorOf::new(
                 protocols::UnregisterProtocolErrorKind::ProtocolInUse,
                 "protocol in use",

@@ -35,7 +35,7 @@ fn hello_runtime() {
         "#,
     )
     .expect("parse-config error");
-    log::info!("config: {config:#?}");
+    log::info!(?config, "config");
     let rt = Rt::create(config).unwrap();
     rt.run(local::boxed_from_fn(main))
         .expect("main actor run error");
@@ -45,7 +45,7 @@ async fn main<Ctx>(ctx: &mut Ctx)
 where
     Ctx: Fork + Messaging + Start<BoxedRunnable<Ctx>> + Quit + InitDone + Stop + Sync,
 {
-    log::info!("Hello! I'm the-main! [addr: {}]", ctx.address());
+    log::info!(addr = %ctx.address(), "Hello! I'm the-main!");
 
     let mut idxs = (0..).cycle();
     let mut addresses = vec![];
@@ -57,12 +57,12 @@ where
         )
         .await
     {
-        log::info!("- {started_address}");
+        log::info!(started_address = %started_address, "started");
         addresses.push(started_address);
         tokio::task::yield_now().await
     }
 
-    log::info!("spawned {} actors", addresses.len());
+    log::info!(count = %addresses.len(), "spawned actors");
 
     for address in addresses {
         let mut rq_ctx = ctx.fork().await.expect("fork");
@@ -89,12 +89,12 @@ async fn child<Ctx>(ctx: &mut Ctx, idx: usize) -> Never
 where
     Ctx: Quit + Messaging + InitDone + Stop,
 {
-    log::info!("* Hello! I'm [{:>3}]. I live at {}", idx, ctx.address());
+    log::info!(idx = %idx, addr = %ctx.address(), "Hello!");
     tokio::task::yield_now().await;
     ctx.init_done(ctx.address()).await;
     dispatch!(match ctx.recv().await.expect("no message") {
         Request { reply_to, message } => {
-            log::info!("  [{idx:>3}] received: {message:?} [from: {reply_to}]");
+            log::info!(idx = %idx, ?message, from = %reply_to, "received");
             let _ = ctx.tell(reply_to, Response).await;
         },
     });
@@ -102,7 +102,7 @@ where
     let main_address = dispatch!(match ctx.recv().await.expect("no message") {
         ImMain { address } => address,
     });
-    log::info!("Sending StopRequest to {main_address}");
+    log::info!(to = %main_address, "Sending StopRequest");
     let _ = ctx.kill(main_address).await;
 
     ctx.quit_ok().await

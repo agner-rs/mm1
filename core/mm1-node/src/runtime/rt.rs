@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use mm1_address::address::Address;
+use mm1_common::errors::chain::ExactTypeDisplayChainExt;
 use mm1_common::types::AnyError;
 use mm1_core::tracing::TraceId;
 use mm1_runnable::local::{self, BoxedRunnable};
@@ -139,16 +140,12 @@ async fn run_inner(
         .await
         .map_err(RtRunError::ContainerError)?;
 
-    trace!("container exited: {:?}", exit_reason);
+    trace!(reason = ?exit_reason.as_ref().map_err(|e| e.as_display_chain()), "container exited");
 
     if let Err(failure) = exit_reason {
         error!(
-            "main-actor failure: {}",
-            failure
-                .chain()
-                .map(|reason| reason.to_string())
-                .collect::<Vec<_>>()
-                .join(" <- ")
+            error = %failure.as_display_chain(),
+            "main-actor failure"
         );
     }
 

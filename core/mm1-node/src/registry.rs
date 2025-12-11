@@ -98,11 +98,11 @@ where
         let address_range = AddressRange::from(subnet_address);
         self.networks
             .insert(address_range, node)
-            .inspect_err(|(address_range, _node)| {
-                log::warn!("failed to bind address range: {}", address_range)
-            })
+            .inspect_err(
+                |(address_range, _node)| log::warn!(%address_range, "failed to bind address range"),
+            )
             .map_err(|(_address_range, node)| node)?;
-        log::trace!("register: registered {}", address_range);
+        log::trace!(%address_range, "register: registered");
         Ok(())
     }
 
@@ -111,21 +111,21 @@ where
         let sought_range = AddressRange::from(subnet_address);
         let Some((found_range, _)) = self.networks.peek_entry(&sought_range, &guard) else {
             log::trace!(
-                "unregister: sought-range not found [sought-range: {}]",
-                sought_range
+                %sought_range,
+                "unregister: sought-range not found"
             );
             return false
         };
         if *found_range != sought_range {
             log::error!(
-                "unregister: sought-range is not equal to the found range [sought: {}; found: {}]",
-                sought_range,
-                found_range
+                %sought_range,
+                %found_range,
+                "unregister: sought-range is not equal to the found range"
             );
             return false
         }
         let removed = self.networks.remove(&sought_range);
-        log::trace!("unregister: range {} removed — {}", sought_range, removed);
+        log::trace!(%sought_range, %removed, "unregister: removing range");
 
         removed
     }

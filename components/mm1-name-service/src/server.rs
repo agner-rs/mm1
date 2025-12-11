@@ -6,6 +6,7 @@ use either::Either;
 use mm1_address::address::Address;
 use mm1_address::subnet::NetAddress;
 use mm1_ask::Reply;
+use mm1_common::errors::chain::StdErrorDisplayChainExt;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::log;
 use mm1_common::types::{AnyError, Never};
@@ -33,9 +34,9 @@ where
             inbox_size: DEFAULT_INBOX_SIZE,
         })
         .await
-        .inspect_err(|reason| log::error!("failed to bind to {}: {}", bind_to, reason))?;
+        .inspect_err(|reason| log::error!(to = %bind_to, reason = %reason.as_display_chain(), "failed to bind"))?;
 
-        log::info!("bound to {}", bind_to);
+        log::info!(to = %bind_to, "bound");
     }
     let () = ctx.init_done(ctx.address()).await;
 
@@ -55,8 +56,8 @@ where
                     .checked_add(reg_props.ttl)
                     .unwrap_or_else(|| {
                         log::warn!(
-                            "ttl too large, overflow producing valid_thru [ttl: {:?}]",
-                            reg_props.ttl
+                            ttl = ?reg_props.ttl,
+                            "ttl too large, overflow producing valid_thru"
                         );
                         Instant::now()
                     });
@@ -142,10 +143,10 @@ impl State {
         match (exclusive, self.names.entry(key.clone())) {
             (true, Vacant(v)) => {
                 log::info!(
-                    "registering {:?} -> {} [valid-thru: {:?}; exclusive; new-entry]",
-                    key,
-                    address,
-                    valid_thru
+                    %key,
+                    %address,
+                    ?valid_thru,
+                    "registering [exclusive; new-entry]"
                 );
                 v.insert(Name::Exclusive {
                     address,
@@ -155,10 +156,11 @@ impl State {
             },
             (false, Vacant(v)) => {
                 log::info!(
-                    "registering {:?} -> {} [valid-thru: {:?}; shared; new-entry]",
-                    key,
-                    address,
-                    valid_thru
+                    %key,
+                    %address,
+                    ?valid_thru,
+                    "registering [shared; new-entry]",
+
                 );
                 v.insert(Name::Shared(
                     [(address, registration)].into_iter().collect(),
@@ -172,18 +174,17 @@ impl State {
                         registration: existing_registration,
                     } if *existing_address == address => {
                         log::info!(
-                            "registering {:?} -> {} [valid-thru: {:?} -> {:?}; exclusive; \
-                             new-entry]",
-                            key,
-                            address,
-                            existing_registration.valid_thru,
-                            valid_thru
+                            %key,
+                            %address,
+                            old_valid_trhu = ?existing_registration.valid_thru,
+                            new_valid_thru = ?valid_thru,
+                            "registering [exclusive; new-entry]"
                         );
                         *existing_registration = registration;
                         Ok(())
                     },
                     _ => {
-                        log::warn!("CONFLICT registering {:?} as {} [exclusive]", key, address);
+                        log::warn!(%key, %address, "CONFLICT registering [exclusive]");
                         Err(RegisterErrorKind::Conflict)
                     },
                 }
@@ -191,17 +192,17 @@ impl State {
             (false, Occupied(mut o)) => {
                 match o.get_mut() {
                     Name::Exclusive { .. } => {
-                        log::warn!("CONFLICT registering {:?} as {} [shared]", key, address);
+                        log::warn!(%key, %address, "CONFLICT registering [shared]");
                         Err(RegisterErrorKind::Conflict)
                     },
                     Name::Shared(registrations) => {
                         let old_registration = registrations.insert(address, registration);
                         log::info!(
-                            "registering {:?} -> {} [valid-thru: {:?} -> {:?}; shared; new-entry]",
-                            key,
-                            address,
-                            old_registration.map(|r| r.valid_thru),
-                            valid_thru
+                            %key,
+                            %address,
+                            old_valid_thru = ?old_registration.map(|r| r.valid_thru),
+                            new_valid_thru = ?valid_thru,
+                            "registering [shared; new-entry]"
                         );
                         Ok(())
                     },

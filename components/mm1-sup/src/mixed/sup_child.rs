@@ -2,6 +2,7 @@ use std::fmt;
 use std::time::Duration;
 
 use mm1_address::address::Address;
+use mm1_common::errors::chain::StdErrorDisplayChainExt;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::log;
 use mm1_core::context::{
@@ -66,9 +67,9 @@ pub(crate) async fn run<K, Runnable, Ctx>(
 
     match do_start(ctx, runnable, init_type).await {
         Ok(address) => {
-            log::info!("{}[{}] started: {}", sup_address, child_id, address);
+            log::info!(sup_address = %sup_address, child_id = %child_id, address = %address, "started");
             if announce_parent {
-                log::debug!("{}[{}] announcing parent", sup_address, child_id);
+                log::debug!(sup_address = %sup_address, child_id = %child_id, "announcing parent");
                 ctx.tell(
                     address,
                     sup_common::SetParent {
@@ -81,7 +82,7 @@ pub(crate) async fn run<K, Runnable, Ctx>(
             send_report(ctx, sup_address, Started { child_id, address }).await;
         },
         Err(reason) => {
-            log::info!("{}[{}] failed to start: {}", sup_address, child_id, reason);
+            log::info!(sup_address = %sup_address, child_id = %child_id, reason = %reason.as_display_chain(), "failed to start");
             send_report(ctx, sup_address, StartFailed { child_id }).await;
         },
     };

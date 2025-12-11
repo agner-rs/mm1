@@ -41,7 +41,7 @@ where
         let d = dispatch!(match envelope {
             d @ Duration { .. } => d,
         });
-        log::info!("TICK: {:?}", d);
+        log::info!(d = ?d, "TICK");
 
         let Some(d) = d.checked_sub(STEP) else { break };
 

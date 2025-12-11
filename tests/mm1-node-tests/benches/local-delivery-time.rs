@@ -55,7 +55,7 @@ mod actors {
     use mm1::address::Address;
     use mm1::ask::proto::RequestHeader;
     use mm1::ask::{Ask, Reply};
-    use mm1::common::error::AnyError;
+    use mm1::common::error::{AnyError, ExactTypeDisplayChainExt};
     use mm1::core::context::{Fork, InitDone, Messaging, Quit, Start};
     use mm1::proto::message;
     use mm1::runnable::local;
@@ -172,15 +172,9 @@ mod actors {
             Ok(())
         }
 
-        inner(ctx, config).await.inspect_err(|e| {
-            eprintln!(
-                "{}",
-                e.chain()
-                    .map(|e| e.to_string())
-                    .collect::<Vec<_>>()
-                    .join(" << ")
-            )
-        })
+        inner(ctx, config)
+            .await
+            .inspect_err(|e| eprintln!("{}", e.as_display_chain()))
     }
 
     async fn client<Ctx, const MESSAGE_SIZE: usize>(ctx: &mut Ctx) -> Result<(), AnyError>

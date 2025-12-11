@@ -88,13 +88,13 @@ impl Drop for ActorContext {
         for address_range in unbound_subnets {
             bound_subnets.remove(&address_range);
             if !registry.unregister(address_range.into()) {
-                log::error!("could not unregister {address_range} [bound subnet]");
+                log::error!(%address_range, "could not unregister bound subnet");
             }
         }
         if fork_entries.remove(fork_address).is_none() {
             log::error!(
-                "nothing actually removed from fork_entries [fork: {}]",
-                fork_address
+                fork = %fork_address,
+                "nothing actually removed from fork_entries"
             );
         }
 

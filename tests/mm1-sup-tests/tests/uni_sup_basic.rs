@@ -48,8 +48,8 @@ fn test_01() {
         static WORKER_ID: AtomicUsize = AtomicUsize::new(0);
         let worker_id = WORKER_ID.fetch_add(1, Ordering::Relaxed);
         debug!(
-            "worker[{}] started, replying to {} in {:?}",
-            worker_id, reply_to, delay
+            worker_id = %worker_id, reply_to = %reply_to, delay = ?delay,
+            "worker started"
         );
         ctx.init_done(ctx.address()).await;
 
@@ -90,8 +90,8 @@ fn test_01() {
             .expect("failed to run `sup_runnable`");
         let main_addr = ctx.address();
 
-        info!("MAIN: {}", main_addr);
-        info!("SUP:  {}", sup_addr);
+        info!(main_addr = %main_addr, "MAIN");
+        info!(sup_addr = %sup_addr, "SUP");
 
         let mut workers = HashSet::new();
         for i in 0..128 {
@@ -106,12 +106,12 @@ fn test_01() {
                 .await
                 .expect("ask");
             let started = start_response.expect("start-response");
-            debug!("started[{}]: {}", i, started);
+            debug!(i = %i, started = %started, "started");
 
             assert!(workers.insert(started), "duplicate address: {started}");
         }
 
-        info!("WORKERS: {}", workers.len());
+        info!(workers_count = %workers.len(), "WORKERS");
 
         while !workers.is_empty() {
             let (
@@ -126,7 +126,7 @@ fn test_01() {
                 workers.remove(&worker_address),
                 "unknown address: {worker_address}"
             );
-            debug!("WORKER[{}]@{} said Hi", worker_id, worker_address);
+            debug!(worker_id = %worker_id, worker_address = %worker_address, "WORKER said Hi");
 
             let stop_response: uniform::StopResponse = ctx
                 .ask(
@@ -141,7 +141,7 @@ fn test_01() {
 
             let () = stop_response.expect("stop-response");
 
-            debug!("WORKER[{}]@{} terminated", worker_id, worker_address);
+            debug!(worker_id = %worker_id, worker_address = %worker_address, "WORKER terminated");
         }
     }
 
@@ -189,7 +189,7 @@ async fn test_02() {
     let lease_sup = subnet_sup.lease(NetMask::MAX).unwrap();
     let address_sup = lease_sup.address;
 
-    info!("SUP: {}", lease_a.address);
+    info!(sup_address = %lease_a.address, "SUP");
 
     let child_spec = ChildSpec::new(Factory::default())
         .with_child_type(child_type::Temporary)

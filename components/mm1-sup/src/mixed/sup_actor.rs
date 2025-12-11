@@ -3,6 +3,7 @@ use std::fmt;
 use std::hash::Hash;
 
 use mm1_ask::Reply;
+use mm1_common::errors::chain::StdErrorDisplayChainExt;
 use mm1_common::errors::error_kind::HasErrorKind;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::log;
@@ -50,7 +51,7 @@ where
             .next_action(ctx.now())
             .map_err(MixedSupError::decider)?
         {
-            log::debug!("processing decider action: {}", action);
+            log::debug!(action = %action, "processing decider action");
             match action {
                 Action::Noop => (),
                 Action::InitDone => {
@@ -110,19 +111,18 @@ where
 
         dispatch!(match received {
             sup_child::Started::<K> { child_id, address } => {
-                log::debug!("[{}] started as {}. Linking...", child_id, address);
+                log::debug!(child_id = %child_id, address = %address, "started. Linking...");
                 ctx.link(address).await;
                 decider.started(&child_id, address, ctx.now())
             },
             sup_child::StartFailed::<K> { child_id } => {
-                log::warn!("failed to start [{}]. Initiating shutdown...", child_id);
+                log::warn!(child_id = %child_id, "failed to start. Initiating shutdown...");
                 decider.failed(&child_id, ctx.now());
             },
             sup_child::StopFailed { address, reason } => {
                 log::warn!(
-                    "failed to stop {}: {}. Initiating shutdown...",
-                    address,
-                    reason
+                    address = %address, reason = %reason.as_display_chain(),
+                    "failed to stop. Initiating shutdown..."
                 );
                 decider.quit(false);
             },
@@ -144,11 +144,11 @@ where
             },
 
             Exited { peer, normal_exit } => {
-                log::debug!("{} exited", peer);
+                log::debug!(peer = %peer, "exited");
                 decider.exited(peer, normal_exit, ctx.now());
             },
 
-            unexpected @ _ => log::warn!("unexpected message: {:?}", unexpected),
+            unexpected @ _ => log::warn!(msg = ?unexpected, "unexpected message"),
         });
     }
 }

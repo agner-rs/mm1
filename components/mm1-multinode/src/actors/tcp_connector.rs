@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use eyre::Context;
 use mm1_address::address::Address;
+use mm1_common::errors::chain::StdErrorDisplayChainExt;
 use mm1_common::log::{info, warn};
 use mm1_common::types::AnyError;
 use mm1_proto::message;
@@ -96,12 +97,12 @@ where
         let options = options.clone();
         let protocols = protocols.clone();
 
-        info!("connecting to {} from {:?}", dst_addr, dst_addr);
+        info!(dst = %dst_addr, "connecting");
 
         let tcp_stream = match TcpStream::connect(*dst_addr).await {
             Ok(tcp_stream) => tcp_stream,
             Err(reason) => {
-                warn!("could not connect to {}: {}", dst_addr, reason);
+                warn!(dst = %dst_addr, reason = %reason.as_display_chain(), "could not connect");
                 timer_api
                     .schedule_once_after(RECONNECT_INTERVAL, Connect)
                     .await
@@ -145,12 +146,13 @@ where
         } = self;
 
         if normal_exit {
-            info!("connection terminated normally [dst: {:?}]", dst_addr);
+            info!(dst = %dst_addr, "connection terminated normally");
             Ok(Outcome::Break)
         } else {
             warn!(
-                "connection terminated abnormally. Reconnecting in {:?} [dst: {:?}]",
-                RECONNECT_INTERVAL, dst_addr
+                dst = %dst_addr,
+                reconnecting_in = ?RECONNECT_INTERVAL,
+                "connection terminated abnormally"
             );
             let _ = timer_api
                 .schedule_once_after(RECONNECT_INTERVAL, Connect)

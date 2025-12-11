@@ -128,11 +128,10 @@ impl RouteRegistry {
         set_metric: Option<RouteMetric>,
     ) -> Result<Option<RouteMetric>, SetRouteError> {
         trace!(
-            "RouteRegistry::set_route [msg: {:?}; dst: {}; gw: {}; metric: {:?}]",
-            message,
-            dst_net,
-            gw.map(|a| a.to_string()).unwrap_or_default(),
-            set_metric
+            msg = ?message, dst = %dst_net,
+            gw = %gw.map(|a| a.to_string()).unwrap_or_default(),
+            metric = ?set_metric,
+            "RouteRegistry::set_route"
         );
 
         let Self {

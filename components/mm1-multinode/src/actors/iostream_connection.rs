@@ -273,8 +273,8 @@ where
             };
             if let Some(local_type_key) = inbound_by_name.get(&name).copied() {
                 debug!(
-                    "declared known type [f-key: {:?}; l-key: {:?}; name: {}]",
-                    foreign_type_key, local_type_key, name
+                    f_key = ?foreign_type_key, l_key = ?local_type_key, %name,
+                    "declared known type"
                 );
                 entry.insert(local_type_key);
             } else {
@@ -284,8 +284,8 @@ where
                         .wrap_err("mn_mgr::register_opaque_message")?;
 
                 debug!(
-                    "declared opaque type [f-key: {:?}; l-key: {:?}; name: {}]",
-                    foreign_type_key, local_type_key, name
+                    f_key = ?foreign_type_key, l_key = ?local_type_key, %name,
+                    "declared opaque type"
                 );
                 entry.insert(local_type_key);
             }
@@ -329,12 +329,12 @@ where
                 let header = EnvelopeHeader::to_address(dst_address).with_trace_id(trace_id);
                 let to_deliver = Envelope::new(header, any_message);
 
-                trace!("delivering [dst: {}]", dst_address);
+                trace!(dst = %dst_address, "delivering");
                 ctx.send(to_deliver).await.ok();
             } else {
                 trace!(
-                    "forwarding [dst: {}; l-key: {:?}]",
-                    dst_address, local_type_key
+                    dst = %dst_address, l_key = ?local_type_key,
+                    "forwarding"
                 );
                 let forward = proto::Forward {
                     local_type_key,
@@ -353,7 +353,7 @@ where
         },
 
         unexpected @ _ => {
-            warn!("UNEXPECTED MESSAGE: {:?}", unexpected);
+            warn!(msg = ?unexpected, "UNEXPECTED MESSAGE");
         },
     });
 
@@ -391,14 +391,14 @@ where
             .ok();
 
         trace!(
-            "handle_set_route [msg: {:?}, dst: {}; metric: {:?} -> {:?}; via: {:?}; own_gw: {:?}]",
-            message, destination, metric_before, metric_after, via, own_gw
+            ?message, dst = %destination, ?metric, ?via, ?own_gw,
+            "handle_set_route"
         );
 
         if metric_after != metric_before && via.is_none_or(|gw| gw != own_gw) {
             trace!(
-                "reporting to peer [msg: {:?}, dst: {}, metric: {:?}]",
-                message, destination, metric
+                ?message, dst = %destination, ?metric,
+                "reporting to peer"
             );
             output_writer
                 .write_subnet_distance(set_route)

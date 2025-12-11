@@ -79,7 +79,7 @@ impl<Ctx, B, H> Server<Ctx, B, H> {
             let trace_id = envelope.header().trace_id();
             let msg_type_id = envelope.tid();
             let Some(handler) = handlers.get(&msg_type_id) else {
-                trace_id.scope_sync(|| warn!("unexpected: {:?}", envelope));
+                trace_id.scope_sync(|| warn!(unexpected = ?envelope, "unexpected"));
                 continue
             };
             match handler
