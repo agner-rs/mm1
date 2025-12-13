@@ -181,10 +181,7 @@ where
             Event::Time => {
                 let now = Instant::now();
 
-                loop {
-                    let Some((at, _)) = state.ordered.first().copied() else {
-                        break
-                    };
+                while let Some((at, _)) = state.ordered.first().copied() {
                     if at > now {
                         break
                     }
