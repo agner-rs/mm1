@@ -11,7 +11,7 @@ pub trait Ping: Send {
         &mut self,
         address: Address,
         timeout: Duration,
-    ) -> impl Future<Output = Result<Duration, ErrorOf<PingErrorKind>>>;
+    ) -> impl Future<Output = Result<Duration, ErrorOf<PingErrorKind>>> + Send;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
