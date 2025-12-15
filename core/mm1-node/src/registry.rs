@@ -6,6 +6,7 @@ use mm1_address::address::Address;
 use mm1_address::address_range::AddressRange;
 use mm1_address::pool::Lease;
 use mm1_address::subnet::NetAddress;
+use mm1_common::errors::chain::StdErrorDisplayChainExt;
 use mm1_common::log;
 use tokio::sync::{Notify, OwnedSemaphorePermit, Semaphore, mpsc};
 
@@ -171,6 +172,7 @@ impl<S, M> Node<S, M> {
             let message_without_permit = MessageWithoutPermit { to, message };
             tx_priority
                 .try_send(message_without_permit)
+                .inspect_err(|e| log::warn!(reason = %e.as_display_chain(), "could not send via tx-priority"))
                 .map_err(|_e| ())?
         } else {
             let Ok(permit) = inbox_semaphore.clone().try_acquire_owned() else {
@@ -181,9 +183,15 @@ impl<S, M> Node<S, M> {
                 message,
                 permit,
             };
-            tx_regular.try_send(message_with_permit).map_err(|_e| ())?
+            tx_regular
+                .try_send(message_with_permit)
+                .inspect_err(
+                    |e| log::warn!(reason = %e.as_display_chain(), "could not send via tx-regular"),
+                )
+                .map_err(|_e| ())?
         };
         if sent {
+            log::trace!(subnet = %self.subnet_lease.net_address(), "notifying subnet");
             subnet_notify.notify_one();
             Ok(())
         } else {

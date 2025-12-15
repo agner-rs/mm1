@@ -40,8 +40,9 @@ eyre.workspace = true
 futures.workspace = true
 kanal.workspace = true
 num_cpus = "^1"
-spin.workspace = true
 pin-project.workspace = true
+rand.workspace = true
+spin.workspace = true
 scc = "^2.3.4"
 serde = {workspace = true, features = ["derive"]}
 thiserror.workspace = true

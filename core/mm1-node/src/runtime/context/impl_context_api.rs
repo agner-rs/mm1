@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::Duration;
 
 use futures::FutureExt;
@@ -6,27 +6,29 @@ use mm1_address::address::Address;
 use mm1_address::address_range::AddressRange;
 use mm1_address::pool::Lease;
 use mm1_address::subnet::{NetAddress, NetMask};
-use mm1_common::errors::chain::ExactTypeDisplayChainExt;
+use mm1_common::errors::chain::{ExactTypeDisplayChainExt, StdErrorDisplayChainExt};
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::futures::timeout::FutureTimeoutExt;
 use mm1_common::log;
 use mm1_common::types::{AnyError, Never};
 use mm1_core::context::{
-    Bind, BindArgs, BindErrorKind, Fork, ForkErrorKind, InitDone, Linking, Messaging, Now, Quit,
-    RecvErrorKind, SendErrorKind, Start, Stop, Watching,
+    Bind, BindArgs, BindErrorKind, Fork, ForkErrorKind, InitDone, Linking, Messaging, Now, Ping,
+    PingErrorKind, Quit, RecvErrorKind, SendErrorKind, Start, Stop, Watching,
 };
 use mm1_core::envelope::{Envelope, EnvelopeHeader, dispatch};
 use mm1_core::tracing::{TraceId, WithTraceIdExt};
-use mm1_proto_system::{InitAck, SpawnErrorKind, StartErrorKind, WatchRef};
+use mm1_proto_system as sys;
 use mm1_runnable::local::BoxedRunnable;
+use rand::RngCore;
 use tokio::sync::oneshot;
 use tokio::time::Instant;
 use tracing::{trace, warn};
 
 use crate::config::EffectiveActorConfig;
-use crate::registry;
+use crate::registry::{self, MessageWithPermit, MessageWithoutPermit};
 use crate::runtime::container;
-use crate::runtime::context::{ActorContext, SubnetContext};
+use crate::runtime::context::{ActorContext, ForkEntry, SubnetContext};
+use crate::runtime::rt_api::RtApi;
 use crate::runtime::sys_call::SysCall;
 use crate::runtime::sys_msg::{ExitReason, SysLink, SysMsg};
 
@@ -114,7 +116,7 @@ impl Start<BoxedRunnable<Self>> for ActorContext {
         &mut self,
         runnable: BoxedRunnable<Self>,
         link: bool,
-    ) -> impl Future<Output = Result<Address, ErrorOf<SpawnErrorKind>>> + Send {
+    ) -> impl Future<Output = Result<Address, ErrorOf<sys::SpawnErrorKind>>> + Send {
         do_spawn(self, runnable, None, link.then_some(self.fork_address))
     }
 
@@ -123,7 +125,7 @@ impl Start<BoxedRunnable<Self>> for ActorContext {
         runnable: BoxedRunnable<Self>,
         link: bool,
         start_timeout: Duration,
-    ) -> impl Future<Output = Result<Address, ErrorOf<StartErrorKind>>> + Send {
+    ) -> impl Future<Output = Result<Address, ErrorOf<sys::StartErrorKind>>> + Send {
         do_start(self, runnable, link, start_timeout)
     }
 }
@@ -194,6 +196,7 @@ impl Messaging for ActorContext {
                     .try_lock()
                     .expect("could not lock subnet_context");
                 let SubnetContext {
+                    rt_api,
                     subnet_notify,
                     rx_priority,
                     rx_regular,
@@ -202,45 +205,7 @@ impl Messaging for ActorContext {
                     ..
                 } = &mut *subnet_context_locked;
 
-                let mut notified_forks = HashSet::new();
-                while let Some(message) = rx_priority
-                    .try_recv_realtime()
-                    .map_err(|e| ErrorOf::new(RecvErrorKind::Closed, e.to_string()))?
-                {
-                    let message_to = bound_subnets
-                        .get(&AddressRange::from(message.to))
-                        .copied()
-                        .unwrap_or(message.to);
-                    let Some(fork_entry) = fork_entries.get_mut(&message_to) else {
-                        warn!(dst = %message_to, "no such fork");
-                        continue
-                    };
-                    fork_entry.inbox_priority.push_back(message);
-                    trace!(dst = %message_to, "subnet received priority message");
-                    if notified_forks.insert(message_to) {
-                        trace!(dst = %message_to, "notifying fork");
-                        fork_entry.fork_notifiy.notify_one();
-                    }
-                }
-                while let Some(message) = rx_regular
-                    .try_recv_realtime()
-                    .map_err(|e| ErrorOf::new(RecvErrorKind::Closed, e.to_string()))?
-                {
-                    let message_to = bound_subnets
-                        .get(&AddressRange::from(message.to))
-                        .copied()
-                        .unwrap_or(message.to);
-                    let Some(fork_entry) = fork_entries.get_mut(&message_to) else {
-                        warn!(dst = %message_to, "no such fork");
-                        continue
-                    };
-                    fork_entry.inbox_regular.push_back(message);
-                    trace!(dst = %message_to, "subnet received regular message");
-                    if notified_forks.insert(message_to) {
-                        trace!(dst = %message_to, "notifying fork");
-                        fork_entry.fork_notifiy.notify_one();
-                    }
-                }
+                process_inlets(rt_api, bound_subnets, rx_priority, rx_regular, fork_entries)?;
 
                 let this_fork_entry = fork_entries
                     .get_mut(fork_address)
@@ -365,59 +330,214 @@ impl Bind<NetAddress> for ActorContext {
     }
 }
 
+impl Ping for ActorContext {
+    async fn ping(
+        &mut self,
+        address: Address,
+        timeout: Duration,
+    ) -> Result<Duration, ErrorOf<PingErrorKind>> {
+        let ping_id = rand::rng().next_u64();
+        let now = Instant::now();
+        let deadline = now.checked_add(timeout).unwrap_or(now);
+
+        let Self {
+            fork_address,
+            subnet_context,
+            ..
+        } = self;
+
+        let (subnet_notify, fork_notify) = {
+            let mut subnet_context_locked = subnet_context
+                .try_lock()
+                .expect("could not lock subnet_context");
+            let SubnetContext {
+                rt_api,
+                fork_entries,
+                subnet_notify,
+                ..
+            } = &mut *subnet_context_locked;
+            let ForkEntry { fork_notifiy, .. } = fork_entries
+                .get_mut(fork_address)
+                .expect("fork_entry missing");
+
+            let ping_msg = sys::Ping {
+                reply_to: Some(*fork_address),
+                id:       ping_id,
+            };
+
+            let ping_header = EnvelopeHeader::to_address(address).with_priority(true);
+            let ping_envelope = Envelope::new(ping_header, ping_msg).into_erased();
+            rt_api
+                .send_to(address, true, ping_envelope)
+                .map_err(|e| ErrorOf::new(PingErrorKind::Send, e.to_string()))?;
+
+            (subnet_notify.clone(), fork_notifiy.clone())
+        };
+
+        loop {
+            let timeout = tokio::time::sleep_until(deadline);
+            tokio::select! {
+                _ = timeout => { return Err(ErrorOf::new(PingErrorKind::Timeout, "timeout elapsed")) },
+                _ = subnet_notify.notified() => (),
+                _ = fork_notify.notified() => (),
+            };
+
+            let mut subnet_context_locked = subnet_context
+                .try_lock()
+                .expect("could not lock subnet_context");
+            let SubnetContext {
+                rt_api,
+                fork_entries,
+                bound_subnets,
+                rx_priority,
+                rx_regular,
+                ..
+            } = &mut *subnet_context_locked;
+
+            process_inlets(rt_api, bound_subnets, rx_priority, rx_regular, fork_entries)
+                .map_err(|e| ErrorOf::new(PingErrorKind::Recv, e.to_string()))?;
+
+            if fork_entries
+                .get(fork_address)
+                .expect("fork_entry_missing")
+                .last_ping_received
+                == Some(ping_id)
+            {
+                break
+            }
+        }
+        Ok(now.elapsed())
+    }
+}
+
+fn process_inlets(
+    rt_api: &RtApi,
+    bound_subnets: &BTreeMap<AddressRange, Address>,
+    rx_priority: &mut kanal::Receiver<MessageWithoutPermit<Envelope>>,
+    rx_regular: &mut kanal::Receiver<MessageWithPermit<Envelope>>,
+    fork_entries: &mut HashMap<Address, ForkEntry>,
+) -> Result<(), ErrorOf<RecvErrorKind>> {
+    let mut notified_forks = HashSet::new();
+    while let Some(message) = rx_priority
+        .try_recv_realtime()
+        .map_err(|e| ErrorOf::new(RecvErrorKind::Closed, e.to_string()))?
+    {
+        let message_to = bound_subnets
+            .get(&AddressRange::from(message.to))
+            .copied()
+            .unwrap_or(message.to);
+        let Some(fork_entry) = fork_entries.get_mut(&message_to) else {
+            warn!(dst = %message_to, "no such fork");
+            continue
+        };
+        let should_notify = if let Some(ping_message) = message.message.peek::<sys::Ping>() {
+            let sys::Ping { reply_to, id } = *ping_message;
+            if let Some(reply_to) = reply_to {
+                trace!(%id, %reply_to, "received a ping request");
+                let pong_header = EnvelopeHeader::to_address(reply_to).with_priority(true);
+                let pong_envelope =
+                    Envelope::new(pong_header, sys::Ping { reply_to: None, id }).into_erased();
+                rt_api
+                    .send_to(reply_to, true, pong_envelope)
+                    .inspect_err(
+                        |e| warn!(reason = %e.as_display_chain(), "can't send ping-response"),
+                    )
+                    .ok();
+                trace!(%id, %reply_to, "send a ping response");
+                false
+            } else {
+                trace!(%id, "received a ping response");
+                fork_entry.last_ping_received = Some(id);
+                true
+            }
+        } else {
+            fork_entry.inbox_priority.push_back(message);
+            true
+        };
+
+        if should_notify && notified_forks.insert(message_to) {
+            trace!(dst = %message_to, "notifying fork");
+            fork_entry.fork_notifiy.notify_one();
+        }
+    }
+
+    while let Some(message) = rx_regular
+        .try_recv_realtime()
+        .map_err(|e| ErrorOf::new(RecvErrorKind::Closed, e.to_string()))?
+    {
+        let message_to = bound_subnets
+            .get(&AddressRange::from(message.to))
+            .copied()
+            .unwrap_or(message.to);
+        let Some(fork_entry) = fork_entries.get_mut(&message_to) else {
+            warn!(dst = %message_to, "no such fork");
+            continue
+        };
+        fork_entry.inbox_regular.push_back(message);
+        trace!(dst = %message_to, "subnet received regular message");
+        if notified_forks.insert(message_to) {
+            trace!(dst = %message_to, "notifying fork");
+            fork_entry.fork_notifiy.notify_one();
+        }
+    }
+
+    Ok(())
+}
+
 async fn do_start(
     context: &mut ActorContext,
     runnable: BoxedRunnable<ActorContext>,
     link: bool,
     timeout: Duration,
-) -> Result<Address, ErrorOf<StartErrorKind>> {
+) -> Result<Address, ErrorOf<sys::StartErrorKind>> {
     let this_address = context.fork_address;
 
     let mut fork = context
         .fork()
         .await
-        .map_err(|e| ErrorOf::new(StartErrorKind::InternalError, e.to_string()))?;
+        .map_err(|e| ErrorOf::new(sys::StartErrorKind::InternalError, e.to_string()))?;
 
     let fork_address = fork.fork_address;
     let spawned_address = do_spawn(&mut fork, runnable, Some(fork_address), Some(fork_address))
         .await
-        .map_err(|e| e.map_kind(StartErrorKind::Spawn))?;
+        .map_err(|e| e.map_kind(sys::StartErrorKind::Spawn))?;
 
     let envelope = match fork.recv().timeout(timeout).await {
         Err(_elapsed) => {
             do_kill(context, spawned_address)
-                .map_err(|e| ErrorOf::new(StartErrorKind::InternalError, e.to_string()))?;
+                .map_err(|e| ErrorOf::new(sys::StartErrorKind::InternalError, e.to_string()))?;
 
             // TODO: should we ensure termination with a `system::Watch`?
 
             return Err(ErrorOf::new(
-                StartErrorKind::Timeout,
+                sys::StartErrorKind::Timeout,
                 "no init-ack within timeout",
             ))
         },
         Ok(recv_result) => {
-            recv_result.map_err(|e| ErrorOf::new(StartErrorKind::InternalError, e.to_string()))?
+            recv_result
+                .map_err(|e| ErrorOf::new(sys::StartErrorKind::InternalError, e.to_string()))?
         },
     };
 
     dispatch!(match envelope {
-        mm1_proto_system::InitAck { address } => {
+        sys::InitAck { address } => {
             if link {
                 do_link(context, this_address, address).await;
             }
             Ok(address)
         },
 
-        mm1_proto_system::Exited { .. } => {
+        sys::Exited { .. } => {
             Err(ErrorOf::new(
-                StartErrorKind::Exited,
+                sys::StartErrorKind::Exited,
                 "exited before init-ack",
             ))
         },
 
         unexpected @ _ => {
             Err(ErrorOf::new(
-                StartErrorKind::InternalError,
+                sys::StartErrorKind::InternalError,
                 format!("unexpected message: {unexpected:?}"),
             ))
         },
@@ -429,7 +549,7 @@ async fn do_spawn(
     runnable: BoxedRunnable<ActorContext>,
     ack_to: Option<Address>,
     link_to: impl IntoIterator<Item = Address>,
-) -> Result<Address, ErrorOf<SpawnErrorKind>> {
+) -> Result<Address, ErrorOf<sys::SpawnErrorKind>> {
     let ActorContext { subnet_context, .. } = context;
 
     let (actor_key, rt_config, rt_api, tx_actor_failure) = {
@@ -461,7 +581,7 @@ async fn do_spawn(
         .request_address(actor_config.netmask())
         .await
         .inspect_err(|e| log::error!("lease-error: {}", e))
-        .map_err(|e| ErrorOf::new(SpawnErrorKind::ResourceConstraint, e.to_string()))?;
+        .map_err(|e| ErrorOf::new(sys::SpawnErrorKind::ResourceConstraint, e.to_string()))?;
 
     trace!(subnet_lease = %subnet_lease.net_address(), "subnet leased");
 
@@ -482,7 +602,7 @@ async fn do_spawn(
         runnable,
         tx_actor_failure.clone(),
     )
-    .map_err(|e| ErrorOf::new(SpawnErrorKind::InternalError, e.to_string()))?;
+    .map_err(|e| ErrorOf::new(sys::SpawnErrorKind::InternalError, e.to_string()))?;
     let actor_address = container.actor_address();
 
     trace!(spawned_address = %actor_address, "about to run spawned actor");
@@ -559,7 +679,7 @@ async fn do_set_trap_exit(context: &mut ActorContext, enable: bool) {
     call.invoke(SysCall::TrapExit(enable)).await;
 }
 
-async fn do_watch(context: &mut ActorContext, peer: Address) -> WatchRef {
+async fn do_watch(context: &mut ActorContext, peer: Address) -> sys::WatchRef {
     let ActorContext {
         fork_address: this,
         call,
@@ -575,7 +695,7 @@ async fn do_watch(context: &mut ActorContext, peer: Address) -> WatchRef {
     reply_rx.await.expect("sys-call remained unanswered")
 }
 
-async fn do_unwatch(context: &mut ActorContext, watch_ref: WatchRef) {
+async fn do_unwatch(context: &mut ActorContext, watch_ref: sys::WatchRef) {
     let ActorContext {
         fork_address: this,
         call,
@@ -594,7 +714,7 @@ async fn do_init_done(context: &mut ActorContext, address: Address) {
         subnet_context,
         ..
     } = context;
-    let message = InitAck { address };
+    let message = sys::InitAck { address };
     let Some(ack_to_address) = ack_to.take() else {
         return;
     };

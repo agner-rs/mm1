@@ -31,9 +31,10 @@ pub struct ActorContext {
 
 #[derive(Default)]
 pub(crate) struct ForkEntry {
-    fork_notifiy:   Arc<Notify>,
-    inbox_priority: VecDeque<MessageWithoutPermit<Envelope>>,
-    inbox_regular:  VecDeque<MessageWithPermit<Envelope>>,
+    fork_notifiy:       Arc<Notify>,
+    inbox_priority:     VecDeque<MessageWithoutPermit<Envelope>>,
+    inbox_regular:      VecDeque<MessageWithPermit<Envelope>>,
+    last_ping_received: Option<u64>,
 }
 
 pub(crate) struct SubnetContext {

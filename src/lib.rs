@@ -157,6 +157,8 @@ pub mod core {
         pub use mm1_core::context::{Fork, ForkErrorKind};
         /// Send and receive messages.
         pub use mm1_core::context::{Messaging, RecvErrorKind, SendErrorKind};
+        /// Ping the specified actor.
+        pub use mm1_core::context::{Ping, PingErrorKind};
         /// Stop other actors.
         pub use mm1_core::context::{ShutdownErrorKind, Stop};
     }

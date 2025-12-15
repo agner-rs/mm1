@@ -940,6 +940,7 @@ dependencies = [
  "mm1-runnable",
  "num_cpus",
  "pin-project",
+ "rand",
  "scc",
  "serde",
  "serde_yaml",
