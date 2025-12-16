@@ -723,7 +723,7 @@ dependencies = [
 
 [[package]]
 name = "mm1"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "mm1-address",
  "mm1-ask",
@@ -749,7 +749,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-address"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "insta",
  "mm1-proto",
@@ -760,7 +760,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-ask"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "derive_more",
  "mm1-address",
@@ -772,7 +772,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-ask-tests"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "mm1",
  "serde",
@@ -781,7 +781,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-common"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "derive_more",
  "eyre",
@@ -796,7 +796,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-core"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "futures",
  "mm1-address",
@@ -813,7 +813,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-core-tests"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "eyre",
  "mm1",
@@ -822,7 +822,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-logger"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "serde",
  "structopt",
@@ -832,7 +832,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-multinode"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "bimap",
  "bincode",
@@ -871,7 +871,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-multinode-tests"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "dotenv",
  "eyre",
@@ -893,7 +893,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-name-service"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "either",
  "mm1-address",
@@ -908,7 +908,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-name-service-tests"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "mm1",
  "mm1-logger",
@@ -920,7 +920,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-node"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "derive_more",
  "either",
@@ -954,7 +954,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-node-tests"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "eyre",
  "futures",
@@ -968,7 +968,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proc-macros"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "either",
  "proc-macro2",
@@ -978,7 +978,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "mm1-proc-macros",
  "parking_lot",
@@ -987,7 +987,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-ask"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "mm1-address",
  "mm1-proto",
@@ -996,7 +996,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-named"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -1006,7 +1006,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-network-management"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -1018,7 +1018,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-sup"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -1029,7 +1029,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-system"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "mm1-address",
  "mm1-common",
@@ -1039,14 +1039,14 @@ dependencies = [
 
 [[package]]
 name = "mm1-proto-well-known"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "mm1-address",
 ]
 
 [[package]]
 name = "mm1-runnable"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "mm1-common",
  "mm1-core",
@@ -1054,7 +1054,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-server"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "derive_more",
  "eyre",
@@ -1072,7 +1072,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-sup"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "derive_more",
  "either",
@@ -1098,7 +1098,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-sup-tests"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "insta",
  "mm1",
@@ -1110,7 +1110,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-test-rt"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "derive_more",
  "futures",
@@ -1125,7 +1125,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-test-rt-tests"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "futures",
  "mm1",
@@ -1136,7 +1136,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-tests"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "mm1",
  "mm1-logger",
@@ -1147,7 +1147,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-timer"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "futures",
  "mm1-address",
@@ -1164,7 +1164,7 @@ dependencies = [
 
 [[package]]
 name = "mm1-timer-tests"
-version = "0.7.15"
+version = "0.7.16"
 dependencies = [
  "insta",
  "mm1",
