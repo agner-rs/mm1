@@ -146,6 +146,16 @@ impl<M> Envelope<M> {
     }
 }
 
+impl From<Envelope<()>> for EnvelopeHeader {
+    fn from(value: Envelope<()>) -> Self {
+        let Envelope {
+            header,
+            message: (),
+        } = value;
+        header
+    }
+}
+
 impl<M> fmt::Debug for Envelope<M>
 where
     M: fmt::Debug,

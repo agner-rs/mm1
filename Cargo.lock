@@ -1056,10 +1056,12 @@ dependencies = [
 name = "mm1-server"
 version = "0.7.15"
 dependencies = [
+ "derive_more",
  "eyre",
  "futures",
  "ghost",
  "metrics",
+ "mm1-address",
  "mm1-ask",
  "mm1-common",
  "mm1-core",

@@ -85,7 +85,7 @@ where
         &mut self,
         ctx: &mut Ctx,
         message: Connect,
-    ) -> Result<mm1_server::Outcome, AnyError> {
+    ) -> Result<Outcome<Connect>, AnyError> {
         let Connect = message;
         let Self {
             timer_api,
@@ -107,7 +107,7 @@ where
                     .schedule_once_after(RECONNECT_INTERVAL, Connect)
                     .await
                     .wrap_err("timer_api.schedule_once_after")?;
-                return Ok(Outcome::NoReply)
+                return Ok(Outcome::no_reply())
             },
         };
 
@@ -125,7 +125,7 @@ where
 
         let _watch_ref = ctx.watch(connection_addr).await;
 
-        Ok(Outcome::NoReply)
+        Ok(Outcome::no_reply())
     }
 }
 
@@ -137,7 +137,7 @@ where
         &mut self,
         _ctx: &mut Ctx,
         message: sys::Down,
-    ) -> Result<Outcome, AnyError> {
+    ) -> Result<Outcome<sys::Down>, AnyError> {
         let sys::Down { normal_exit, .. } = message;
         let Self {
             timer_api,
@@ -147,7 +147,7 @@ where
 
         if normal_exit {
             info!(dst = %dst_addr, "connection terminated normally");
-            Ok(Outcome::Break)
+            Ok(Outcome::no_reply().then_stop())
         } else {
             warn!(
                 dst = %dst_addr,
@@ -159,7 +159,7 @@ where
                 .await
                 .wrap_err("timer_api.schedule_once_after")?;
 
-            Ok(Outcome::NoReply)
+            Ok(Outcome::no_reply())
         }
     }
 }

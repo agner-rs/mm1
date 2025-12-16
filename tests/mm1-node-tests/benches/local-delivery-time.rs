@@ -238,7 +238,8 @@ mod actors {
             ctx: &mut Ctx,
             _reply_to: RequestHeader,
             request: Request<(Config<MESSAGE_SIZE>, Vec<Address>)>,
-        ) -> Result<Outcome<Self::Rs>, AnyError> {
+        ) -> Result<Outcome<Request<(Config<MESSAGE_SIZE>, Vec<Address>)>, Self::Rs>, AnyError>
+        {
             let Request {
                 payload: (config, mut servers),
             } = request;
@@ -266,7 +267,7 @@ mod actors {
                 response_times.push(t0.elapsed());
             }
 
-            Ok(Outcome::Reply(Response {
+            Ok(Outcome::reply(Response {
                 payload: response_times,
             }))
         }
@@ -292,9 +293,9 @@ mod actors {
             _ctx: &mut Ctx,
             _reply_to: RequestHeader,
             request: Request<[u8; MESSAGE_SIZE]>,
-        ) -> Result<Outcome<Self::Rs>, AnyError> {
+        ) -> Result<Outcome<Request<[u8; MESSAGE_SIZE]>, Self::Rs>, AnyError> {
             let Request { payload } = request;
-            Ok(Outcome::Reply(Response { payload }))
+            Ok(Outcome::reply(Response { payload }))
         }
     }
 }

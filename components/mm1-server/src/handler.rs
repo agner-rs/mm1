@@ -11,12 +11,14 @@ use mm1_common::log::{Instrument, error};
 use mm1_common::make_metrics;
 use mm1_common::metrics::MeasuredFutureExt;
 use mm1_common::types::AnyError;
+use mm1_core::context::Messaging;
 use mm1_core::envelope::Envelope;
 use mm1_proto::Message;
 use mm1_proto_ask::{Request, RequestHeader, Response};
 use tracing::Level;
 
-use crate::behaviour::{OnMessage, OnRequest, Outcome};
+use crate::behaviour::{OnMessage, OnRequest};
+use crate::outcome::{Action, Outcome, OutcomeForward, OutcomeReply};
 
 pub trait Register<Ctx, B> {
     fn register(handlers: &mut HashMap<TypeId, &dyn ErasedHandler<Ctx, B>>);
@@ -57,7 +59,7 @@ impl<Ctx, B> Register<Ctx, B> for () {
 impl<Ctx, B, M> Register<Ctx, B> for Msg<M>
 where
     B: OnMessage<Ctx, M>,
-    Ctx: Send,
+    Ctx: Messaging + Send,
     M: Message + Sync,
 {
     fn register(handlers: &mut HashMap<TypeId, &dyn ErasedHandler<Ctx, B>>) {
@@ -94,7 +96,7 @@ where
 impl<Ctx, B, M> ErasedHandler<Ctx, B> for Msg<M>
 where
     B: OnMessage<Ctx, M>,
-    Ctx: Send,
+    Ctx: Messaging + Send,
     M: Message + Sync,
 {
     fn handle<'a>(
@@ -107,7 +109,7 @@ where
             let envelope = envelope
                 .cast::<M>()
                 .expect("should not have dispatched here");
-            let (message, _empty_envelope) = envelope.take();
+            let (message, empty_envelope) = envelope.take();
             let outcome = behaviour.on_message(ctx, message).await.wrap_err_with(|| {
                 eyre::format_err!(
                     "{} as OnMessage<{}>",
@@ -115,11 +117,17 @@ where
                     std::any::type_name::<M>()
                 )
             })?;
-            let c = match outcome {
-                Outcome::Break => ControlFlow::Break(()),
-                Outcome::NoReply => ControlFlow::Continue(()),
-            };
-            Ok(c)
+            let Outcome { action, then } = outcome;
+            match action {
+                Action::Nothing => (),
+                Action::Reply(never) => match never {},
+                Action::Forward(forward) => {
+                    let OutcomeForward { to, request } = forward;
+                    let envelope = Envelope::new(empty_envelope.into(), request).into_erased();
+                    ctx.forward(to, envelope).await.wrap_err("ctx.forward")?;
+                },
+            }
+            Ok(then)
         }
         .measured(make_metrics!("mm1_server_on_message",
             "beh" => std::any::type_name::<B>(),
@@ -139,7 +147,7 @@ where
     B: OnRequest<Ctx, Rq, Rs = Rs>,
     Ctx: Reply + Send,
     Request<Rq>: Message,
-    Rq: Sync,
+    Rq: Send + Sync,
     Response<Rs>: Message,
     Rs: Send + Sync,
 {
@@ -158,7 +166,7 @@ where
                     header: request_header,
                     payload: request,
                 },
-                _empty_envelope,
+                empty_envelope,
             ) = envelope.take();
             let RequestHeader { id, reply_to } = request_header;
             let outcome = behaviour
@@ -171,17 +179,26 @@ where
                         std::any::type_name::<Rq>()
                     )
                 })?;
-            let c = match outcome {
-                Outcome::Break => ControlFlow::Break(()),
-                Outcome::NoReply => ControlFlow::Continue(()),
-                Outcome::Reply(reply_with) => {
-                    ctx.reply(RequestHeader { id, reply_to }, reply_with)
-                        .await
-                        .ok();
-                    ControlFlow::Continue(())
+            let Outcome { action, then } = outcome;
+            match action {
+                Action::Nothing => (),
+                Action::Reply(reply) => {
+                    let OutcomeReply { response } = reply;
+                    let reply_to = RequestHeader { id, reply_to };
+                    ctx.reply(reply_to, response).await.ok();
                 },
-            };
-            Ok(c)
+                Action::Forward(forward) => {
+                    let OutcomeForward { to, request } = forward;
+                    let header = RequestHeader { id, reply_to };
+                    let request = Request {
+                        header,
+                        payload: request,
+                    };
+                    let envelope = Envelope::new(empty_envelope.into(), request).into_erased();
+                    ctx.forward(to, envelope).await.wrap_err("ctx.forward")?;
+                },
+            }
+            Ok(then)
         }
         .measured(make_metrics!("mm1_server_on_request",
             "beh" => std::any::type_name::<B>(),

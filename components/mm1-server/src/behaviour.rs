@@ -2,18 +2,14 @@ use futures::never::Never;
 use mm1_common::types::AnyError;
 use mm1_proto_ask::RequestHeader;
 
-pub enum Outcome<Rs = Never> {
-    Reply(Rs),
-    NoReply,
-    Break,
-}
+use crate::outcome::Outcome;
 
 pub trait OnMessage<Ctx, M>: Send {
     fn on_message(
         &mut self,
         ctx: &mut Ctx,
         message: M,
-    ) -> impl Future<Output = Result<Outcome, AnyError>> + Send;
+    ) -> impl Future<Output = Result<Outcome<M, Never>, AnyError>> + Send;
 }
 
 pub trait OnRequest<Ctx, Rq>: Send {
@@ -24,5 +20,5 @@ pub trait OnRequest<Ctx, Rq>: Send {
         ctx: &mut Ctx,
         reply_to: RequestHeader,
         request: Rq,
-    ) -> impl Future<Output = Result<Outcome<Self::Rs>, AnyError>> + Send;
+    ) -> impl Future<Output = Result<Outcome<Rq, Self::Rs>, AnyError>> + Send;
 }

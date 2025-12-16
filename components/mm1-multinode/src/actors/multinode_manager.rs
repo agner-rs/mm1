@@ -221,14 +221,14 @@ impl<Ctx: ActorContext> OnRequest<Ctx, p::RegisterLocalSubnetRequest> for Multin
         _ctx: &mut Ctx,
         _reply_to: RequestHeader,
         request: p::RegisterLocalSubnetRequest,
-    ) -> Result<mm1_server::Outcome<Self::Rs>, AnyError> {
+    ) -> Result<Outcome<p::RegisterLocalSubnetRequest, Self::Rs>, AnyError> {
         let p::RegisterLocalSubnetRequest { net } = request;
         let Self { local_subnets, .. } = self;
 
         local_subnets.insert(net.into());
         info!(%net, "registered local subnet");
 
-        Ok(Outcome::Reply(Ok(())))
+        Ok(Outcome::reply(Ok(())))
     }
 }
 
@@ -240,7 +240,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, i::ConnectRequest<SocketAddr>> for Multin
         ctx: &mut Ctx,
         _reply_to: RequestHeader,
         request: i::ConnectRequest<SocketAddr>,
-    ) -> Result<Outcome<Self::Rs>, AnyError> {
+    ) -> Result<Outcome<i::ConnectRequest<SocketAddr>, Self::Rs>, AnyError> {
         use std::collections::hash_map::Entry::*;
 
         let i::ConnectRequest {
@@ -288,7 +288,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, i::ConnectRequest<SocketAddr>> for Multin
             Ok(())
         };
 
-        Ok(Outcome::Reply(reply_with))
+        Ok(Outcome::reply(reply_with))
     }
 }
 
@@ -300,7 +300,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, i::ConnectRequest<Box<Path>>> for Multino
         ctx: &mut Ctx,
         _reply_to: RequestHeader,
         request: i::ConnectRequest<Box<Path>>,
-    ) -> Result<Outcome<Self::Rs>, AnyError> {
+    ) -> Result<Outcome<i::ConnectRequest<Box<Path>>, Self::Rs>, AnyError> {
         use std::collections::hash_map::Entry::*;
 
         let i::ConnectRequest {
@@ -348,7 +348,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, i::ConnectRequest<Box<Path>>> for Multino
             Ok(())
         };
 
-        Ok(Outcome::Reply(reply_with))
+        Ok(Outcome::reply(reply_with))
     }
 }
 
@@ -360,7 +360,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, i::BindRequest<SocketAddr>> for Multinode
         ctx: &mut Ctx,
         _reply_to: RequestHeader,
         request: i::BindRequest<SocketAddr>,
-    ) -> Result<Outcome<Self::Rs>, AnyError> {
+    ) -> Result<Outcome<i::BindRequest<SocketAddr>, Self::Rs>, AnyError> {
         use std::collections::hash_map::Entry::*;
 
         let i::BindRequest {
@@ -409,7 +409,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, i::BindRequest<SocketAddr>> for Multinode
             Ok(())
         };
 
-        Ok(Outcome::Reply(reply_with))
+        Ok(Outcome::reply(reply_with))
     }
 }
 
@@ -421,7 +421,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, i::BindRequest<Box<Path>>> for MultinodeM
         ctx: &mut Ctx,
         _reply_to: RequestHeader,
         request: i::BindRequest<Box<Path>>,
-    ) -> Result<Outcome<Self::Rs>, AnyError> {
+    ) -> Result<Outcome<i::BindRequest<Box<Path>>, Self::Rs>, AnyError> {
         use std::collections::hash_map::Entry::*;
 
         let i::BindRequest {
@@ -470,7 +470,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, i::BindRequest<Box<Path>>> for MultinodeM
             Ok(())
         };
 
-        Ok(Outcome::Reply(reply_with))
+        Ok(Outcome::reply(reply_with))
     }
 }
 
@@ -484,7 +484,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, p::RegisterProtocolRequest<Protocol>>
         ctx: &mut Ctx,
         reply_to: RequestHeader,
         request: p::RegisterProtocolRequest<Protocol>,
-    ) -> Result<Outcome<Self::Rs>, AnyError> {
+    ) -> Result<Outcome<p::RegisterProtocolRequest<Protocol>, Self::Rs>, AnyError> {
         let p::RegisterProtocolRequest { name, protocol } = request;
         let mut waitlist_hits = vec![];
 
@@ -585,7 +585,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, p::RegisterProtocolRequest<Protocol>>
             .ok();
         }
 
-        Ok(Outcome::NoReply)
+        Ok(Outcome::no_reply())
     }
 }
 
@@ -597,7 +597,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, p::UnregisterProtocolRequest> for Multino
         _ctx: &mut Ctx,
         _reply_to: RequestHeader,
         request: p::UnregisterProtocolRequest,
-    ) -> Result<Outcome<Self::Rs>, AnyError> {
+    ) -> Result<Outcome<p::UnregisterProtocolRequest, Self::Rs>, AnyError> {
         let p::UnregisterProtocolRequest { name } = request;
         let process_request = || -> p::UnregisterProtocolResponse {
             trace!(%name, "unregistering protocol");
@@ -610,7 +610,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, p::UnregisterProtocolRequest> for Multino
         };
 
         let reply_with = process_request();
-        Ok(Outcome::Reply(reply_with))
+        Ok(Outcome::reply(reply_with))
     }
 }
 
@@ -622,14 +622,14 @@ impl<Ctx: ActorContext> OnRequest<Ctx, p::RegisterOpaqueMessageRequest> for Mult
         _ctx: &mut Ctx,
         _reply_to: RequestHeader,
         request: p::RegisterOpaqueMessageRequest,
-    ) -> Result<Outcome<Self::Rs>, AnyError> {
+    ) -> Result<Outcome<p::RegisterOpaqueMessageRequest, Self::Rs>, AnyError> {
         let p::RegisterOpaqueMessageRequest { name } = request;
         let Self {
             protocol_registry, ..
         } = self;
         let key = protocol_registry.register_message(codec::Opaque(name).into());
         let response = p::RegisterOpaqueMessageResponse { key };
-        Ok(Outcome::Reply(response))
+        Ok(Outcome::reply(response))
     }
 }
 
@@ -641,14 +641,14 @@ impl<Ctx: ActorContext> OnRequest<Ctx, p::GetMessageNameRequest> for MultinodeMa
         _ctx: &mut Ctx,
         _reply_to: RequestHeader,
         request: p::GetMessageNameRequest,
-    ) -> Result<Outcome<Self::Rs>, AnyError> {
+    ) -> Result<Outcome<p::GetMessageNameRequest, Self::Rs>, AnyError> {
         let p::GetMessageNameRequest { key } = request;
         let Self {
             protocol_registry, ..
         } = self;
         let name = protocol_registry.message_name_by_key(key);
         let response = p::GetMessageNameResponse { name };
-        Ok(Outcome::Reply(response))
+        Ok(Outcome::reply(response))
     }
 }
 
@@ -660,7 +660,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, p::GetProtocolByNameRequest> for Multinod
         _ctx: &mut Ctx,
         reply_to: RequestHeader,
         request: p::GetProtocolByNameRequest,
-    ) -> Result<Outcome<Self::Rs>, AnyError> {
+    ) -> Result<Outcome<p::GetProtocolByNameRequest, Self::Rs>, AnyError> {
         let p::GetProtocolByNameRequest {
             name,
             timeout: timeout_opt,
@@ -683,14 +683,14 @@ impl<Ctx: ActorContext> OnRequest<Ctx, p::GetProtocolByNameRequest> for Multinod
                     .map(|c| (c.name(), protocol_registry.register_message(c)))
                     .collect();
 
-                Outcome::Reply(Ok(p::ProtocolResolved {
+                Outcome::reply(Ok(p::ProtocolResolved {
                     protocol,
                     outbound,
                     inbound,
                 }))
             },
             (None, None) => {
-                Outcome::Reply(Err(ErrorOf::new(
+                Outcome::reply(Err(ErrorOf::new(
                     p::GetProtocolByNameErrorKind::NoProtocol,
                     "no such protocol",
                 )))
@@ -713,7 +713,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, p::GetProtocolByNameRequest> for Multinod
                 entries[waitlist_key].timer_key = Some(timer_key);
                 let new_key = by_protocol.insert((name, Some(waitlist_key)));
                 assert!(new_key);
-                Outcome::NoReply
+                Outcome::no_reply()
             },
         };
 
@@ -729,9 +729,9 @@ impl<Ctx: ActorContext> OnRequest<Ctx, p::GetLocalSubnetsRequest> for MultinodeM
         _ctx: &mut Ctx,
         _reply_to: RequestHeader,
         request: p::GetLocalSubnetsRequest,
-    ) -> Result<Outcome<Self::Rs>, AnyError> {
+    ) -> Result<Outcome<p::GetLocalSubnetsRequest, Self::Rs>, AnyError> {
         let p::GetLocalSubnetsRequest = request;
-        Ok(Outcome::Reply(
+        Ok(Outcome::reply(
             self.local_subnets
                 .iter()
                 .copied()
@@ -749,13 +749,13 @@ impl<Ctx: ActorContext> OnRequest<Ctx, p::ResolveTypeIdRequest> for MultinodeMan
         _ctx: &mut Ctx,
         _reply_to: RequestHeader,
         request: p::ResolveTypeIdRequest,
-    ) -> Result<Outcome<Self::Rs>, AnyError> {
+    ) -> Result<Outcome<p::ResolveTypeIdRequest, Self::Rs>, AnyError> {
         let p::ResolveTypeIdRequest { type_id } = request;
         let Self {
             protocol_registry, ..
         } = self;
         let type_key_opt = protocol_registry.local_type_key_by_tid(type_id);
-        Ok(Outcome::Reply(p::ResolveTypeIdResponse { type_key_opt }))
+        Ok(Outcome::reply(p::ResolveTypeIdResponse { type_key_opt }))
     }
 }
 
@@ -764,7 +764,7 @@ impl<Ctx: ActorContext> OnMessage<Ctx, WaitlistTimeoutElapsed> for MultinodeMana
         &mut self,
         ctx: &mut Ctx,
         message: WaitlistTimeoutElapsed,
-    ) -> Result<Outcome, AnyError> {
+    ) -> Result<Outcome<WaitlistTimeoutElapsed>, AnyError> {
         type Ret = p::GetProtocolByNameResponse<Protocol>;
         let WaitlistTimeoutElapsed { waitlist_key } = message;
         let Self {
@@ -781,7 +781,7 @@ impl<Ctx: ActorContext> OnMessage<Ctx, WaitlistTimeoutElapsed> for MultinodeMana
             protocol, reply_to, ..
         }) = entries.remove(waitlist_key)
         else {
-            return Ok(Outcome::NoReply)
+            return Ok(Outcome::no_reply())
         };
         assert!(protocol_registry.protocol_by_name(&protocol).is_none());
         let existing_key = by_protocol.remove(&(protocol, Some(waitlist_key)));
@@ -797,7 +797,7 @@ impl<Ctx: ActorContext> OnMessage<Ctx, WaitlistTimeoutElapsed> for MultinodeMana
         .await
         .ok();
 
-        Ok(Outcome::NoReply)
+        Ok(Outcome::no_reply())
     }
 }
 
@@ -809,7 +809,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, SubscribeToRoutesRequest> for MultinodeMa
         ctx: &mut Ctx,
         _reply_to: RequestHeader,
         request: SubscribeToRoutesRequest,
-    ) -> Result<Outcome<Self::Rs>, AnyError> {
+    ) -> Result<Outcome<SubscribeToRoutesRequest, Self::Rs>, AnyError> {
         let Self {
             route_registry,
             route_subscribers,
@@ -832,7 +832,7 @@ impl<Ctx: ActorContext> OnRequest<Ctx, SubscribeToRoutesRequest> for MultinodeMa
 
         let response = SubscribeToRoutesResponse { routes };
 
-        Ok(Outcome::Reply(response))
+        Ok(Outcome::reply(response))
     }
 }
 
@@ -841,7 +841,7 @@ impl<Ctx: ActorContext> OnMessage<Ctx, SetRoute> for MultinodeManager<Ctx> {
         &mut self,
         ctx: &mut Ctx,
         set_route: SetRoute,
-    ) -> Result<Outcome, AnyError> {
+    ) -> Result<Outcome<SetRoute>, AnyError> {
         use std::collections::btree_map::Entry::*;
 
         let Self {
@@ -868,7 +868,7 @@ impl<Ctx: ActorContext> OnMessage<Ctx, SetRoute> for MultinodeManager<Ctx> {
                 |reason| error!(error = %reason.as_display_chain(), "error setting route"),
             )
         else {
-            return Ok(Outcome::NoReply)
+            return Ok(Outcome::no_reply())
         };
         let contains_net_after = route_registry.contains_net(destination);
 
@@ -952,12 +952,16 @@ impl<Ctx: ActorContext> OnMessage<Ctx, SetRoute> for MultinodeManager<Ctx> {
             let _ = ctx.tell(subscriber, set_route.clone()).await;
         }
 
-        Ok(Outcome::NoReply)
+        Ok(Outcome::no_reply())
     }
 }
 
 impl<Ctx: ActorContext> OnMessage<Ctx, sys::Down> for MultinodeManager<Ctx> {
-    async fn on_message(&mut self, ctx: &mut Ctx, message: sys::Down) -> Result<Outcome, AnyError> {
+    async fn on_message(
+        &mut self,
+        ctx: &mut Ctx,
+        message: sys::Down,
+    ) -> Result<Outcome<sys::Down>, AnyError> {
         let sys::Down {
             watch_ref, peer, ..
         } = message;
@@ -991,7 +995,7 @@ impl<Ctx: ActorContext> OnMessage<Ctx, sys::Down> for MultinodeManager<Ctx> {
                 let _ = ctx.tell(ctx.address(), set_route).await;
             }
         }
-        Ok(Outcome::NoReply)
+        Ok(Outcome::no_reply())
     }
 }
 

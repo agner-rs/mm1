@@ -8,12 +8,14 @@ use mm1_address::address::Address;
 use mm1_proto::message;
 
 #[message(base_path = ::mm1_proto)]
+#[derive(Debug)]
 pub struct RequestHeader {
     pub id:       u64,
     pub reply_to: Address,
 }
 
 #[message(base_path = ::mm1_proto)]
+#[derive(Debug)]
 pub struct ResponseHeader {
     pub id: u64,
 }

@@ -5,13 +5,15 @@ use std::ops::ControlFlow;
 
 mod behaviour;
 mod handler;
+mod outcome;
 
-pub use behaviour::{OnMessage, OnRequest, Outcome};
+pub use behaviour::{OnMessage, OnRequest};
 use eyre::Context;
 use mm1_common::log::warn;
 use mm1_common::types::AnyError;
 use mm1_core::context::Messaging;
 use mm1_core::tracing::WithTraceIdExt;
+pub use outcome::Outcome;
 
 pub fn new<Ctx>() -> Server<Ctx, (), ()> {
     Server {

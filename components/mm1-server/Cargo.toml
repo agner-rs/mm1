@@ -10,6 +10,7 @@ publish.workspace = true
 exclude.workspace = true
 
 [dependencies]
+mm1-address.workspace = true
 mm1-ask.workspace = true
 mm1-common.workspace = true
 mm1-core.workspace = true
@@ -17,6 +18,7 @@ mm1-core.workspace = true
 mm1-proto.workspace = true
 mm1-proto-ask.workspace = true
 
+derive_more = {workspace = true, features = ["debug", "from"]}
 ghost.workspace = true
 eyre.workspace = true
 futures.workspace = true
