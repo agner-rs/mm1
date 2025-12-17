@@ -41,6 +41,7 @@ erased-serde = {workspace = true}
 eyre.workspace = true
 futures.workspace = true
 masked.workspace = true
+metrics.workspace = true
 rmp-serde = {workspace = true}
 serde = {workspace = true, features = ["derive"]}
 serde-value = {workspace = true}
@@ -49,5 +50,6 @@ static_assertions.workspace = true
 thiserror.workspace = true
 tokio = {workspace = true, features = ["io-util", "net"]}
 tokio-util = {workspace = true, features = ["codec"]}
+tracing.workspace = true
 trait-set.workspace = true
 zerocopy = {workspace = true, features = ["derive"]}

@@ -18,3 +18,5 @@ mm1-common = { workspace = true, features = ["futures"]}
 mm1-core.workspace = true
 
 derive_more = {workspace = true, features = ["from"] }
+metrics.workspace = true
+tracing.workspace = true

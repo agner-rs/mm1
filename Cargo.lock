@@ -763,11 +763,13 @@ name = "mm1-ask"
 version = "0.7.16"
 dependencies = [
  "derive_more",
+ "metrics",
  "mm1-address",
  "mm1-common",
  "mm1-core",
  "mm1-proto",
  "mm1-proto-ask",
+ "tracing",
 ]
 
 [[package]]
@@ -841,6 +843,7 @@ dependencies = [
  "eyre",
  "futures",
  "masked",
+ "metrics",
  "mm1-address",
  "mm1-ask",
  "mm1-common",
@@ -865,6 +868,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
+ "tracing",
  "trait-set",
  "zerocopy",
 ]

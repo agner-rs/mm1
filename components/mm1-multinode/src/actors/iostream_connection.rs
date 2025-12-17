@@ -1,5 +1,5 @@
 use std::any::TypeId;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::pin::pin;
 use std::sync::Arc;
 use std::time::Duration;
@@ -8,6 +8,8 @@ use eyre::Context;
 use mm1_address::address::Address;
 use mm1_address::address_range::AddressRange;
 use mm1_common::log::{debug, info, trace, warn};
+use mm1_common::make_metrics;
+use mm1_common::metrics::MeasuredFutureExt;
 use mm1_common::types::{AnyError, Never};
 use mm1_core::envelope::{Envelope, EnvelopeHeader, dispatch};
 use mm1_core::tracing::WithTraceIdExt;
@@ -16,6 +18,7 @@ use mm1_proto_network_management as nm;
 use mm1_proto_network_management::protocols as p;
 use mm1_timer::v1::OneshotTimer;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
+use tracing::{Instrument, Level};
 
 mod config;
 mod hello;
@@ -164,15 +167,32 @@ where
         .wrap_err("ctx.tell to self (KeepAliveTick)")?;
 
     let mut type_key_map = Default::default();
-    loop {
-        // let inbound = ctx.recv().await.wrap_err("ctx.recv")?;
+    let mut unique_message_names = HashSet::<Arc<str>>::new();
 
+    loop {
         let to_connection = ctx.recv();
         let to_gw = gw_ctx.recv();
 
         tokio::select! {
             recv_result = to_connection => {
                 let inbound = recv_result.wrap_err("ctx.recv")?;
+                let message_name = inbound.message_name();
+                let message_name =
+                    if let Some(existing) = unique_message_names.get(message_name) {
+                        existing
+                    } else {
+                        unique_message_names.insert(message_name.into());
+                        unique_message_names.get(message_name).unwrap()
+                    };
+                let span = tracing::span!(Level::TRACE, "mm1_multinode_iostream_on_message",
+                    io = std::any::type_name::<W>(),
+                    msg = %message_name,
+                );
+                let metrics = make_metrics!("mm1_multinode_iostream_on_message",
+                    "io" => std::any::type_name::<W>(),
+                    "msg" => message_name.clone(),
+                );
+
                 let trace_id = inbound.header().trace_id();
                 let () = handle_connection_actor_message(
                     ctx,
@@ -186,13 +206,38 @@ where
                     &mut type_key_map,
                     local_subnets,
                     inbound,
-                ).with_trace_id(trace_id)
+                )
+                .measured(metrics)
+                .instrument(span)
+                .with_trace_id(trace_id)
                 .await.wrap_err("handle_inbound")?;
             },
             recv_result = to_gw => {
                 let to_forward = recv_result.wrap_err("ctx.recv")?;
                 let trace_id = to_forward.header().trace_id();
-                let () = handle_forward_actor_message(ctx, output_writer, to_forward).with_trace_id(trace_id).await.wrap_err("handle_forward")?;
+                let message_name = to_forward.message_name();
+                let message_name =
+                    if let Some(existing) = unique_message_names.get(message_name) {
+                        existing
+                    } else {
+                        unique_message_names.insert(message_name.into());
+                        unique_message_names.get(message_name).unwrap()
+                    };
+
+                let span = tracing::span!(Level::TRACE, "mm1_multinode_iostream_on_forward",
+                    io = std::any::type_name::<W>(),
+                    msg = %message_name,
+                );
+                let metrics = make_metrics!("mm1_multinode_iostream_on_forward",
+                    "io" => std::any::type_name::<W>(),
+                    "msg" => message_name.clone(),
+                );
+
+                let () = handle_forward_actor_message(ctx, output_writer, to_forward)
+                    .measured(metrics)
+                    .instrument(span)
+                    .with_trace_id(trace_id)
+                    .await.wrap_err("handle_forward")?;
             }
         }
     }
