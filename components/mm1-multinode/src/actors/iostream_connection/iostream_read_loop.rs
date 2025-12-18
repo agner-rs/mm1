@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use mm1_address::address::Address;
 use mm1_address::subnet::NetAddress;
-use mm1_core::tracing::TraceId;
 use mm1_proto::message;
 use mm1_proto_network_management::protocols::ForeignTypeKey;
 use tokio::io::AsyncRead;
@@ -27,7 +26,10 @@ pub(super) struct SubnetDistance {
 #[message(base_path = ::mm1_proto)]
 pub(super) struct ReceivedMessage {
     pub(super) dst_address:      Address,
-    pub(super) trace_id:         TraceId,
+    pub(super) trace_id:         ::mm1_core::tracing::TraceId,
+    pub(super) origin_seq_no:    u64,
+    pub(super) ttl:              u8,
+    pub(super) priority:         bool,
     pub(super) foreign_type_key: ForeignTypeKey,
     pub(super) body:             Box<[u8]>,
 }
@@ -93,8 +95,11 @@ where
                 let pdu::TransmitMessage {
                     dst_address,
                     trace_id,
+                    origin_seq_no,
                     message_type,
                     payload_size,
+                    ttl,
+                    priority,
                 } = transmit_message;
                 let mut buf = vec![0u8; payload_size as usize].into_boxed_slice();
                 let _ = io
@@ -105,6 +110,9 @@ where
                 let message = ReceivedMessage {
                     dst_address,
                     trace_id,
+                    origin_seq_no,
+                    ttl,
+                    priority,
                     foreign_type_key: message_type,
                     body: buf,
                 };

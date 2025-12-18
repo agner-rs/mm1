@@ -727,6 +727,20 @@ async fn do_init_done(context: &mut ActorContext, address: Address) {
 }
 
 fn do_send(context: &mut ActorContext, outbound: Envelope) -> Result<(), ErrorOf<SendErrorKind>> {
+    let (message, empty_envelope) = outbound.take();
+    let mut header: EnvelopeHeader = empty_envelope.into();
+
+    let new_ttl = header.ttl.checked_sub(1).ok_or_else(|| {
+        warn!(
+            envelope_header = ?header,
+            "TTL exhausted, dropping message"
+        );
+        ErrorOf::new(SendErrorKind::TtlExhausted, "TTL exhausted")
+    })?;
+    header.ttl = new_ttl;
+
+    let outbound = Envelope::new(header, message);
+
     trace!(envelope = ?outbound, "sending");
     let ActorContext { subnet_context, .. } = context;
     let subnet_context_locked = subnet_context
@@ -743,6 +757,21 @@ fn do_forward(
     to: Address,
     outbound: Envelope,
 ) -> Result<(), ErrorOf<SendErrorKind>> {
+    let (message, empty_envelope) = outbound.take();
+    let mut header: EnvelopeHeader = empty_envelope.into();
+
+    let new_ttl = header.ttl.checked_sub(1).ok_or_else(|| {
+        warn!(
+            forward_to = %to,
+            envelope_header = ?header,
+            "TTL exhausted, dropping message"
+        );
+        ErrorOf::new(SendErrorKind::TtlExhausted, "TTL exhausted")
+    })?;
+    header.ttl = new_ttl;
+
+    let outbound = Envelope::new(header, message);
+
     trace!(forward_to = %to, envelope = ?outbound, "forwarding");
     let ActorContext { subnet_context, .. } = context;
     let subnet_context_locked = subnet_context

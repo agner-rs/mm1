@@ -359,6 +359,9 @@ where
         rl::ReceivedMessage {
             dst_address,
             trace_id,
+            origin_seq_no,
+            ttl,
+            priority,
             foreign_type_key,
             body,
         } => {
@@ -366,12 +369,17 @@ where
                 .get(&foreign_type_key)
                 .ok_or_else(|| eyre::format_err!("unregistered f-key: {:?}", foreign_type_key))?;
 
+            let header = EnvelopeHeader::to_address(dst_address)
+                .with_trace_id(trace_id)
+                .with_no(origin_seq_no)
+                .with_ttl(ttl)
+                .with_priority(priority);
+
             if local_subnets.contains(&AddressRange::from(dst_address)) {
                 let codec = inbound_by_lkey
                     .get(&local_type_key)
                     .ok_or_else(|| eyre::format_err!("no codec for l-key: {:?}", local_type_key))?;
                 let any_message = codec.decode(&body).wrap_err("codec.decode")?;
-                let header = EnvelopeHeader::to_address(dst_address).with_trace_id(trace_id);
                 let to_deliver = Envelope::new(header, any_message);
 
                 trace!(dst = %dst_address, "delivering");
@@ -385,7 +393,6 @@ where
                     local_type_key,
                     body,
                 };
-                let header = EnvelopeHeader::to_address(dst_address).with_trace_id(trace_id);
                 let envelope = Envelope::new(header, forward).into_erased();
                 ctx.send(envelope).await.ok();
             }

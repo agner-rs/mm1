@@ -6,6 +6,7 @@ use std::pin::pin;
 use eyre::Context;
 use mm1_address::address::Address;
 use mm1_address::subnet::NetAddress;
+use mm1_common::log::warn;
 use mm1_common::types::AnyError;
 use mm1_core::envelope::EnvelopeHeader;
 use mm1_core::message::AnyMessage;
@@ -137,6 +138,14 @@ where
             ..
         } = self;
 
+        let Some(ttl) = envelope_header.ttl.checked_sub(1) else {
+            warn!(
+                dst = %envelope_header.to,
+                "TTL exhausted, dropping message"
+            );
+            return Ok(());
+        };
+
         let mut io_w = pin!(io_w);
 
         let tid = message.tid();
@@ -153,11 +162,13 @@ where
         let payload_size = body.len().try_into().wrap_err("message too large")?;
 
         let header = pdu::TransmitMessage {
-            // FIXME: other Header information is erased here
             dst_address: envelope_header.to,
-            trace_id: envelope_header.trace_id(),
+            trace_id: envelope_header.trace_id,
+            origin_seq_no: envelope_header.no,
             message_type,
             payload_size,
+            ttl,
+            priority: envelope_header.priority,
         };
         iostream_util::write_header(&mut io_w, header)
             .await
@@ -185,6 +196,14 @@ where
             body,
         } = to_forward;
 
+        let Some(ttl) = envelope_header.ttl.checked_sub(1) else {
+            warn!(
+                dst = %envelope_header.to,
+                "TTL exhausted, dropping forwarded message"
+            );
+            return Ok(());
+        };
+
         let mut io_w = pin!(io_w);
 
         if let Vacant(message_to_declare) = declared_types.entry(message_type) {
@@ -201,11 +220,13 @@ where
         let payload_size = body.len().try_into().wrap_err("message too large")?;
 
         let header = pdu::TransmitMessage {
-            // FIXME: other Header information is erased here
             dst_address: envelope_header.to,
-            trace_id: envelope_header.trace_id(),
+            trace_id: envelope_header.trace_id,
+            origin_seq_no: envelope_header.no,
             message_type,
             payload_size,
+            ttl,
+            priority: envelope_header.priority,
         };
         iostream_util::write_header(&mut io_w, header)
             .await

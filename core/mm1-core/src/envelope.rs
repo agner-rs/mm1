@@ -11,18 +11,15 @@ use crate::tracing::TraceId;
 
 static ENVELOPE_SEQ_NO: AtomicU64 = AtomicU64::new(0);
 
-const DEFAULT_TTL: usize = 3;
+const DEFAULT_TTL: u8 = 15;
 
 #[derive(Debug)]
 pub struct EnvelopeHeader {
     pub to:       Address,
-    pub ttl:      usize,
+    pub ttl:      u8,
     pub priority: bool,
-
-    #[allow(dead_code)]
-    no:       u64,
-    #[allow(dead_code)]
-    trace_id: TraceId,
+    pub no:       u64,
+    pub trace_id: TraceId,
 }
 
 pub struct Envelope<M = AnyMessage> {
@@ -41,7 +38,7 @@ impl EnvelopeHeader {
         }
     }
 
-    pub fn with_ttl(self, ttl: usize) -> Self {
+    pub fn with_ttl(self, ttl: u8) -> Self {
         Self { ttl, ..self }
     }
 
@@ -52,9 +49,11 @@ impl EnvelopeHeader {
     pub fn with_priority(self, priority: bool) -> Self {
         Self { priority, ..self }
     }
-}
 
-impl EnvelopeHeader {
+    pub fn with_no(self, no: u64) -> Self {
+        Self { no, ..self }
+    }
+
     pub fn trace_id(&self) -> TraceId {
         self.trace_id
     }

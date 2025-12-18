@@ -20,6 +20,7 @@ pub enum SendErrorKind {
     NotFound,
     Closed,
     Full,
+    TtlExhausted,
 }
 
 pub trait Messaging {
