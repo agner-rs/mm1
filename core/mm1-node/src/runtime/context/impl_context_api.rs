@@ -202,6 +202,7 @@ impl Messaging for ActorContext {
                     rx_regular,
                     fork_entries,
                     bound_subnets,
+                    message_tap,
                     ..
                 } = &mut *subnet_context_locked;
 
@@ -219,6 +220,9 @@ impl Messaging for ActorContext {
                 } else {
                     None
                 };
+                if let Some(inbound_envelope) = inbound_envelope_opt.as_ref() {
+                    message_tap.on_recv(*fork_address, inbound_envelope);
+                }
                 (
                     inbound_envelope_opt,
                     subnet_notify.clone(),
@@ -574,6 +578,7 @@ async fn do_spawn(
 
     let actor_config = rt_config.actor_config(&actor_key);
     let execute_on = rt_api.choose_executor(actor_config.runtime_key());
+    let message_tap = rt_api.message_tap(actor_config.message_tap_key());
 
     trace!(?ack_to, "starting");
 
@@ -598,9 +603,10 @@ async fn do_spawn(
             subnet_lease,
             rt_api,
             rt_config,
+            message_tap,
+            tx_actor_failure: tx_actor_failure.clone(),
         },
         runnable,
-        tx_actor_failure.clone(),
     )
     .map_err(|e| ErrorOf::new(sys::SpawnErrorKind::InternalError, e.to_string()))?;
     let actor_address = container.actor_address();
@@ -727,6 +733,17 @@ async fn do_init_done(context: &mut ActorContext, address: Address) {
 }
 
 fn do_send(context: &mut ActorContext, outbound: Envelope) -> Result<(), ErrorOf<SendErrorKind>> {
+    let sender = context.fork_address;
+    let to = outbound.header().to;
+    {
+        let subnet_context_locked = context
+            .subnet_context
+            .try_lock()
+            .expect("could not lock subnet_context");
+        let SubnetContext { message_tap, .. } = &*subnet_context_locked;
+        message_tap.on_send(sender, to, &outbound);
+    }
+
     let (message, empty_envelope) = outbound.take();
     let mut header: EnvelopeHeader = empty_envelope.into();
 
@@ -757,6 +774,16 @@ fn do_forward(
     to: Address,
     outbound: Envelope,
 ) -> Result<(), ErrorOf<SendErrorKind>> {
+    let sender = context.fork_address;
+    {
+        let subnet_context_locked = context
+            .subnet_context
+            .try_lock()
+            .expect("could not lock subnet_context");
+        let SubnetContext { message_tap, .. } = &*subnet_context_locked;
+        message_tap.on_send(sender, to, &outbound);
+    }
+
     let (message, empty_envelope) = outbound.take();
     let mut header: EnvelopeHeader = empty_envelope.into();
 

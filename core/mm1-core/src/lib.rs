@@ -6,4 +6,5 @@ pub mod actor_exit;
 pub mod context;
 pub mod envelope;
 pub mod message;
+pub mod tap;
 pub mod tracing;

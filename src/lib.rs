@@ -109,7 +109,7 @@ pub mod common {
 pub mod core {
     //! The API to implement actors.
 
-    pub use mm1_core::tracing;
+    pub use mm1_core::{tap, tracing};
 
     pub mod envelope {
         //! An [`Envelope`] is a type-erasing container for the sent messages.

@@ -6,6 +6,7 @@ use mm1_address::pool::{Lease, Pool as SubnetPool};
 use mm1_address::subnet::{NetAddress, NetMask};
 use mm1_core::context::SendErrorKind;
 use mm1_core::envelope::Envelope;
+use mm1_core::tap::MessageTap;
 use mm1_core::tracing::TraceId;
 use tokio::runtime::Handle;
 use tracing::trace;
@@ -13,8 +14,9 @@ use tracing::trace;
 use crate::registry::Registry;
 use crate::runtime::sys_msg::SysMsg;
 
-#[derive(Debug, Clone)]
+#[derive(derive_more::Debug, Clone)]
 pub(crate) struct RtApi {
+    #[debug(skip)]
     inner: Arc<Inner>,
 }
 
@@ -22,12 +24,13 @@ pub(crate) struct RtApi {
 #[error("lease error: {}", _0)]
 pub(crate) struct RequestAddressError(#[source] mm1_address::pool::LeaseError);
 
-#[derive(Debug)]
 struct Inner {
-    subnet_pool: SubnetPool,
-    registry:    Registry<(TraceId, SysMsg), Envelope>,
-    default_rt:  Handle,
-    named_rts:   HashMap<String, Handle>,
+    subnet_pool:  SubnetPool,
+    registry:     Registry<(TraceId, SysMsg), Envelope>,
+    default_rt:   Handle,
+    named_rts:    HashMap<String, Handle>,
+    default_tap:  Arc<dyn MessageTap>,
+    message_taps: Arc<HashMap<String, Arc<dyn MessageTap>>>,
 }
 
 impl RtApi {
@@ -35,7 +38,10 @@ impl RtApi {
         subnet_address: NetAddress,
         default_rt: Handle,
         named_rts: HashMap<String, Handle>,
+        default_tap: Arc<dyn MessageTap>,
+        message_taps: HashMap<String, Arc<dyn MessageTap>>,
     ) -> Self {
+        let message_taps = message_taps.into();
         let subnet_pool = SubnetPool::new(subnet_address);
         let registry = Registry::new();
         let inner = Arc::new(Inner {
@@ -43,6 +49,8 @@ impl RtApi {
             registry,
             default_rt,
             named_rts,
+            default_tap,
+            message_taps,
         });
         Self { inner }
     }
@@ -95,5 +103,11 @@ impl RtApi {
         } else {
             &self.inner.default_rt
         }
+    }
+
+    pub(crate) fn message_tap(&self, key: Option<&str>) -> Arc<dyn MessageTap> {
+        key.and_then(|k| self.inner.message_taps.get(k))
+            .unwrap_or_else(|| &self.inner.default_tap)
+            .clone()
     }
 }

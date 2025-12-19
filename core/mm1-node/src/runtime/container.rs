@@ -13,6 +13,7 @@ use mm1_common::errors::chain::{ExactTypeDisplayChainExt, StdErrorDisplayChainEx
 use mm1_common::futures::catch_panic::CatchPanicExt;
 use mm1_common::types::AnyError;
 use mm1_core::envelope::{Envelope, EnvelopeHeader};
+use mm1_core::tap::MessageTap;
 use mm1_core::tracing::{TraceId, WithTraceIdExt};
 use mm1_proto_system::{self as system};
 use mm1_runnable::local::{ActorRun, BoxedRunnable};
@@ -36,6 +37,9 @@ pub(crate) struct ContainerArgs {
     pub(crate) subnet_lease: AddressLease,
     pub(crate) rt_api:       RtApi,
     pub(crate) rt_config:    Arc<Valid<Mm1NodeConfig>>,
+
+    pub(crate) message_tap:      Arc<dyn MessageTap>,
+    pub(crate) tx_actor_failure: mpsc::UnboundedSender<(Address, AnyError)>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -96,6 +100,7 @@ pub(crate) struct Container {
 
     runnable: BoxedRunnable<context::ActorContext>,
 
+    message_tap:      Arc<dyn MessageTap>,
     tx_actor_failure: mpsc::UnboundedSender<(Address, AnyError)>,
 }
 
@@ -103,7 +108,6 @@ impl Container {
     pub(crate) fn create(
         args: ContainerArgs,
         runnable: BoxedRunnable<context::ActorContext>,
-        tx_actor_failure: mpsc::UnboundedSender<(Address, AnyError)>,
     ) -> Result<Self, ContainerError> {
         let ContainerArgs {
             ack_to,
@@ -114,6 +118,8 @@ impl Container {
             subnet_lease,
             rt_api,
             rt_config,
+            message_tap,
+            tx_actor_failure,
         } = args;
         let inbox_size = rt_config.actor_config(&actor_key).inbox_size();
 
@@ -146,6 +152,7 @@ impl Container {
             rt_api,
             rt_config,
             runnable,
+            message_tap,
             tx_actor_failure,
         };
         Ok(container)
@@ -175,6 +182,7 @@ impl Container {
             rt_api,
             rt_config,
             runnable,
+            message_tap,
             tx_actor_failure,
         } = self;
 
@@ -243,6 +251,7 @@ impl Container {
                 .into_iter()
                 .collect(),
             bound_subnets: Default::default(),
+            message_tap,
             tx_actor_failure,
         };
         let mut context = context::ActorContext {

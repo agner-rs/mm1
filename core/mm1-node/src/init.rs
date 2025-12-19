@@ -236,4 +236,8 @@ impl EffectiveActorConfig for InitActorConfig {
     fn runtime_key(&self) -> Option<&str> {
         None
     }
+
+    fn message_tap_key(&self) -> Option<&str> {
+        None
+    }
 }

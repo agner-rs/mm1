@@ -4,6 +4,7 @@ use std::sync::Arc;
 use mm1_address::address::Address;
 use mm1_common::errors::chain::ExactTypeDisplayChainExt;
 use mm1_common::types::AnyError;
+use mm1_core::tap::{MessageTap, NoopTap};
 use mm1_core::tracing::TraceId;
 use mm1_runnable::local::{self, BoxedRunnable};
 use tokio::runtime::{Handle, Runtime};
@@ -17,13 +18,15 @@ use crate::runtime::container::{Container, ContainerArgs, ContainerError};
 use crate::runtime::context;
 use crate::runtime::rt_api::{RequestAddressError, RtApi};
 
-#[derive(Debug)]
+#[derive(derive_more::Debug)]
 pub struct Rt {
     #[allow(unused)]
     config:           Valid<Mm1NodeConfig>,
     rt_default:       Runtime,
     rt_named:         HashMap<String, Runtime>,
     tx_actor_failure: mpsc::UnboundedSender<(Address, AnyError)>,
+    #[debug(skip)]
+    message_taps:     HashMap<String, Arc<dyn MessageTap>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -62,6 +65,7 @@ impl Rt {
             rt_default,
             rt_named,
             tx_actor_failure,
+            message_taps: Default::default(),
         })
     }
 
@@ -73,6 +77,11 @@ impl Rt {
             tx_actor_failure,
             ..self
         }
+    }
+
+    pub fn with_tap(mut self, key: impl Into<String>, tap: Arc<dyn MessageTap>) -> Self {
+        self.message_taps.insert(key.into(), tap);
+        self
     }
 
     pub fn run(&self, main_actor: BoxedRunnable<context::ActorContext>) -> Result<(), RtRunError> {
@@ -102,11 +111,13 @@ impl Rt {
             rt_default,
             rt_named,
             local::boxed_from_fn((crate::init::run, (main_actor, init_actor_args))),
+            &self.message_taps,
             self.tx_actor_failure.clone(),
         ))
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[instrument(skip_all, fields(func = main_actor.func_name()))]
 async fn run_inner(
     config: Valid<Mm1NodeConfig>,
@@ -115,14 +126,23 @@ async fn run_inner(
     rt_default: Handle,
     rt_named: HashMap<String, Handle>,
     main_actor: BoxedRunnable<context::ActorContext>,
+    message_taps: &HashMap<String, Arc<dyn MessageTap>>,
     tx_actor_failure: mpsc::UnboundedSender<(Address, AnyError)>,
 ) -> Result<(), RtRunError> {
-    let rt_api = RtApi::create(config.local_subnet_address_auto(), rt_default, rt_named);
+    let rt_api = RtApi::create(
+        config.local_subnet_address_auto(),
+        rt_default,
+        rt_named,
+        Arc::new(NoopTap),
+        message_taps.clone(),
+    );
 
     let subnet_lease = rt_api
         .request_address(actor_config.netmask())
         .await
         .map_err(RtRunError::RequestAddressError)?;
+    let message_tap_key = actor_config.message_tap_key();
+    let message_tap = rt_api.message_tap(message_tap_key);
 
     let args = ContainerArgs {
         ack_to: None,
@@ -132,9 +152,11 @@ async fn run_inner(
         subnet_lease,
         rt_api: rt_api.clone(),
         rt_config: Arc::new(config),
+        message_tap,
+        tx_actor_failure,
     };
     trace!("creating and running container...");
-    let exit_reason = Container::create(args, main_actor, tx_actor_failure)
+    let exit_reason = Container::create(args, main_actor)
         .map_err(RtRunError::ContainerError)?
         .run()
         .await

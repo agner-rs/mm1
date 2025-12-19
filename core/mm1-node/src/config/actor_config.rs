@@ -8,6 +8,7 @@ pub(crate) trait EffectiveActorConfig {
     fn netmask(&self) -> NetMask;
     fn inbox_size(&self) -> usize;
     fn runtime_key(&self) -> Option<&str>;
+    fn message_tap_key(&self) -> Option<&str>;
 }
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
@@ -21,17 +22,19 @@ pub(crate) struct ActorConfigNode {
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct ActorConfig<S> {
-    runtime:    Option<S>,
-    netmask:    Option<NetMask>,
-    inbox_size: Option<usize>,
+    runtime:     Option<S>,
+    message_tap: Option<S>,
+    netmask:     Option<NetMask>,
+    inbox_size:  Option<usize>,
 }
 
 impl ActorConfigNode {
     pub(crate) fn select(&self, actor_key: &ActorKey) -> impl EffectiveActorConfig + '_ {
         let mut out = ActorConfig {
-            runtime:    self.config.runtime.as_ref(),
-            netmask:    self.config.netmask,
-            inbox_size: self.config.inbox_size,
+            runtime:     self.config.runtime.as_deref(),
+            message_tap: self.config.message_tap.as_deref(),
+            netmask:     self.config.netmask,
+            inbox_size:  self.config.inbox_size,
         };
 
         let mut node = self;
@@ -39,7 +42,7 @@ impl ActorConfigNode {
             let Some(n) = node.sub.get(p).or_else(|| node.sub.get("_")) else {
                 break
             };
-            out.runtime = n.config.runtime.as_ref().or(out.runtime);
+            out.runtime = n.config.runtime.as_deref().or(out.runtime);
             out.netmask = n.config.netmask.or(out.netmask);
             out.inbox_size = n.config.inbox_size.or(out.inbox_size);
             node = n;
@@ -71,7 +74,7 @@ impl ActorConfigNode {
     }
 }
 
-impl EffectiveActorConfig for ActorConfig<&'_ String> {
+impl EffectiveActorConfig for ActorConfig<&'_ str> {
     fn netmask(&self) -> NetMask {
         self.netmask.unwrap_or(defaults::DEFAULT_ACTOR_NETMASK)
     }
@@ -82,7 +85,11 @@ impl EffectiveActorConfig for ActorConfig<&'_ String> {
     }
 
     fn runtime_key(&self) -> Option<&str> {
-        self.runtime.as_ref().map(|s| s.as_ref())
+        self.runtime
+    }
+
+    fn message_tap_key(&self) -> Option<&str> {
+        self.message_tap
     }
 }
 

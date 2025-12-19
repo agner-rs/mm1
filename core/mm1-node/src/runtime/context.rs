@@ -8,6 +8,7 @@ use mm1_address::subnet::NetAddress;
 use mm1_common::log;
 use mm1_common::types::AnyError;
 use mm1_core::envelope::Envelope;
+use mm1_core::tap::MessageTap;
 use mm1_core::tracing::TraceId;
 use tokio::sync::{Notify, mpsc};
 
@@ -53,6 +54,7 @@ pub(crate) struct SubnetContext {
 
     pub(crate) fork_entries:  HashMap<Address, ForkEntry>,
     pub(crate) bound_subnets: BTreeMap<AddressRange, Address>,
+    pub(crate) message_tap:   Arc<dyn MessageTap>,
 
     // TODO: send the NetAddress instead of Address here
     pub(crate) tx_actor_failure: mpsc::UnboundedSender<(Address, AnyError)>,
