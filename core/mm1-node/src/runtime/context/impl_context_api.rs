@@ -16,6 +16,7 @@ use mm1_core::context::{
     PingErrorKind, Quit, RecvErrorKind, SendErrorKind, Start, Stop, Watching,
 };
 use mm1_core::envelope::{Envelope, EnvelopeHeader, dispatch};
+use mm1_core::tap;
 use mm1_core::tracing::{TraceId, WithTraceIdExt};
 use mm1_proto_system as sys;
 use mm1_runnable::local::BoxedRunnable;
@@ -197,6 +198,8 @@ impl Messaging for ActorContext {
                     .expect("could not lock subnet_context");
                 let SubnetContext {
                     rt_api,
+                    actor_key,
+                    subnet_address,
                     subnet_notify,
                     rx_priority,
                     rx_regular,
@@ -220,8 +223,13 @@ impl Messaging for ActorContext {
                 } else {
                     None
                 };
-                if let Some(inbound_envelope) = inbound_envelope_opt.as_ref() {
-                    message_tap.on_recv(*fork_address, inbound_envelope);
+                if let Some(envelope) = inbound_envelope_opt.as_ref() {
+                    message_tap.on_recv(tap::OnRecv {
+                        recv_by_addr: *fork_address,
+                        recv_by_net: *subnet_address,
+                        recv_by_key: actor_key,
+                        envelope,
+                    });
                 }
                 (
                     inbound_envelope_opt,
@@ -740,8 +748,19 @@ fn do_send(context: &mut ActorContext, outbound: Envelope) -> Result<(), ErrorOf
             .subnet_context
             .try_lock()
             .expect("could not lock subnet_context");
-        let SubnetContext { message_tap, .. } = &*subnet_context_locked;
-        message_tap.on_send(sender, to, &outbound);
+        let SubnetContext {
+            subnet_address,
+            actor_key,
+            message_tap,
+            ..
+        } = &*subnet_context_locked;
+        message_tap.on_send(tap::OnSend {
+            sent_by_addr: sender,
+            sent_by_net:  *subnet_address,
+            sent_by_key:  actor_key,
+            sent_to_addr: to,
+            envelope:     &outbound,
+        });
     }
 
     let (message, empty_envelope) = outbound.take();
@@ -780,8 +799,19 @@ fn do_forward(
             .subnet_context
             .try_lock()
             .expect("could not lock subnet_context");
-        let SubnetContext { message_tap, .. } = &*subnet_context_locked;
-        message_tap.on_send(sender, to, &outbound);
+        let SubnetContext {
+            subnet_address,
+            actor_key,
+            message_tap,
+            ..
+        } = &*subnet_context_locked;
+        message_tap.on_send(tap::OnSend {
+            sent_by_addr: sender,
+            sent_by_net:  *subnet_address,
+            sent_by_key:  actor_key,
+            sent_to_addr: to,
+            envelope:     &outbound,
+        });
     }
 
     let (message, empty_envelope) = outbound.take();
