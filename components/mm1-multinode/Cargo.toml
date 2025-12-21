@@ -39,6 +39,7 @@ bincode = {workspace = true, features = ["serde"]}
 derive_more = {workspace = true, features = ["from"]}
 erased-serde = {workspace = true}
 eyre.workspace = true
+fs2.workspace = true
 futures.workspace = true
 masked.workspace = true
 metrics.workspace = true

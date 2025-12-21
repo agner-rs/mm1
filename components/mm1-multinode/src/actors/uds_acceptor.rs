@@ -1,10 +1,13 @@
-use std::path::Path;
+use std::fs::File;
+use std::ops::{Deref, DerefMut};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
 use eyre::Context;
+use fs2::FileExt;
 use mm1_address::address::Address;
-use mm1_common::log::{error, info};
+use mm1_common::log::{error, info, warn};
 use mm1_common::types::{AnyError, Never};
 use mm1_core::envelope::{Envelope, dispatch};
 use mm1_core::tracing::{TraceId, WithTraceIdExt};
@@ -40,7 +43,13 @@ where
             .wrap_err("wait_for_protocol")?;
         protocols.push(protocol);
     }
-    let uds_listener = UnixListener::bind(bind_addr).wrap_err("UnixListener::bind")?;
+
+    let _lock_file =
+        try_cleanup_stale_socket(bind_addr.as_ref()).wrap_err("try_cleanup_stale_socket")?;
+    let uds_listener = RmOnDrop::new(
+        bind_addr.as_ref().to_path_buf(),
+        UnixListener::bind(bind_addr.as_ref()).wrap_err("UnixListener::bind")?,
+    );
 
     event_loop(
         ctx,
@@ -145,4 +154,74 @@ async fn handle_envelope<Ctx>(_ctx: &mut Ctx, envelope: Envelope) -> Result<(), 
         unexpected @ _ => error!(?unexpected, "received unexpected message"),
     });
     Ok(())
+}
+
+fn try_cleanup_stale_socket(socket_path: &Path) -> Result<RmOnDrop<File>, AnyError> {
+    let mut lock_path = socket_path.as_os_str().to_owned();
+    lock_path.push(".lock");
+    let lock_path = PathBuf::from(lock_path);
+
+    let lock_file = std::fs::OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .truncate(true)
+        .open(&lock_path)
+        .wrap_err("open lock file")?;
+
+    if let Err(err) = lock_file.try_lock_exclusive() {
+        error!(
+            socket = ?socket_path,
+            lock = ?lock_path,
+            error_kind = ?err.kind(),
+            ?err,
+            "failed to acquire lock on socket, already in use"
+        );
+        return Err(err).wrap_err("socket already in use");
+    }
+
+    if socket_path.exists() {
+        warn!(socket = ?socket_path, "removing stale socket");
+        std::fs::remove_file(socket_path).wrap_err("remove stale socket")?;
+    }
+
+    Ok(RmOnDrop::new(lock_path, lock_file))
+}
+
+struct RmOnDrop<F> {
+    path:  PathBuf,
+    inner: F,
+}
+
+impl<F> RmOnDrop<F> {
+    fn new(path: impl Into<PathBuf>, inner: F) -> Self {
+        Self {
+            path: path.into(),
+            inner,
+        }
+    }
+}
+
+impl<F> Deref for RmOnDrop<F> {
+    type Target = F;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<F> DerefMut for RmOnDrop<F> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+
+impl<F> Drop for RmOnDrop<F> {
+    fn drop(&mut self) {
+        if let Err(err) = std::fs::remove_file(&self.path)
+            && err.kind() != std::io::ErrorKind::NotFound
+        {
+            error!(path = ?self.path, ?err, "failed to remove socket");
+        }
+    }
 }
