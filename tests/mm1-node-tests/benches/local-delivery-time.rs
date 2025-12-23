@@ -63,16 +63,16 @@ mod actors {
     use mm1::server::behaviour::{OnRequest, Outcome};
     use tokio::time::Instant;
 
-    use crate::{Config, no_serde};
+    use crate::Config;
 
     #[message]
     struct Request<P> {
-        #[serde(with = "no_serde")]
+        #[serde(with = "mm1::common::serde::no_serde")]
         payload: P,
     }
     #[message]
     struct Response<P> {
-        #[serde(with = "no_serde")]
+        #[serde(with = "mm1::common::serde::no_serde")]
         payload: P,
     }
 
@@ -297,26 +297,5 @@ mod actors {
             let Request { payload } = request;
             Ok(Outcome::reply(Response { payload }))
         }
-    }
-}
-
-mod no_serde {
-    use serde::de::Error as _;
-    use serde::ser::Error as _;
-    use serde::{Deserializer, Serializer};
-
-    pub(super) fn serialize<S, T>(_: T, _: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let reason = S::Error::custom("not supported");
-        Err(reason)
-    }
-    pub(super) fn deserialize<'de, D, T>(_: D) -> Result<T, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let reason = D::Error::custom("not supported");
-        Err(reason)
     }
 }

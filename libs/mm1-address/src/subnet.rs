@@ -129,7 +129,12 @@ impl serde::Serialize for NetAddress {
     where
         S: serde::Serializer,
     {
-        self.to_string().serialize(serializer)
+        if serializer.is_human_readable() {
+            self.to_string().serialize(serializer)
+        } else {
+            let Self { address, mask } = self;
+            (address, mask).serialize(serializer)
+        }
     }
 }
 
@@ -138,9 +143,15 @@ impl<'de> serde::Deserialize<'de> for NetAddress {
     where
         D: serde::Deserializer<'de>,
     {
-        String::deserialize(deserializer)?
-            .parse()
-            .map_err(<D::Error as serde::de::Error>::custom)
+        if deserializer.is_human_readable() {
+            String::deserialize(deserializer)?
+                .parse()
+                .map_err(<D::Error as serde::de::Error>::custom)
+        } else {
+            let (address, mask) = serde::Deserialize::deserialize(deserializer)?;
+            let net_address = Self { address, mask };
+            Ok(net_address)
+        }
     }
 }
 

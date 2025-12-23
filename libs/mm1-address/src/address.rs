@@ -56,7 +56,11 @@ impl serde::Serialize for Address {
     where
         S: serde::Serializer,
     {
-        self.to_string().serialize(serializer)
+        if serializer.is_human_readable() {
+            self.to_string().serialize(serializer)
+        } else {
+            self.0.serialize(serializer)
+        }
     }
 }
 
@@ -65,9 +69,15 @@ impl<'de> serde::Deserialize<'de> for Address {
     where
         D: serde::Deserializer<'de>,
     {
-        String::deserialize(deserializer)?
-            .parse()
-            .map_err(<D::Error as serde::de::Error>::custom)
+        if deserializer.is_human_readable() {
+            String::deserialize(deserializer)?
+                .parse()
+                .map_err(<D::Error as serde::de::Error>::custom)
+        } else {
+            let value = u64::deserialize(deserializer)?;
+            let address = Self(value);
+            Ok(address)
+        }
     }
 }
 

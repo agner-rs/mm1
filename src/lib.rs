@@ -24,10 +24,6 @@ pub mod proto {
     /// }
     /// ```
     pub use mm1_proto::message;
-    #[cfg(feature = "sup")]
-    /// The protocol to communicate with supervisors.
-    /// See [`sup`](crate::sup).
-    pub use mm1_proto_sup as sup;
     /// The low-level API-to the actor system.
     /// See [`Call`](crate::core::context::Call).
     pub use mm1_proto_system as system;
@@ -103,6 +99,10 @@ pub mod common {
     pub mod future {
         pub use mm1_common::futures::catch_panic::{CatchPanic, CatchPanicExt};
         pub use mm1_common::futures::timeout::FutureTimeoutExt;
+    }
+
+    pub mod serde {
+        pub use mm1_common::serde::*;
     }
 }
 
@@ -200,6 +200,10 @@ pub mod server {
 pub mod sup {
     //! Supervisors — the actors that manage other actors.
 
+    #[cfg(feature = "sup")]
+    /// The protocol to communicate with supervisors.
+    pub use mm1_proto_sup as proto;
+
     pub mod common {
         //! The building blocks shared across different types of supervisors.
 
@@ -270,6 +274,11 @@ pub mod multinode {
         pub use mm1_proto_network_management::protocols::{
             RegisterProtocolRequest, RegisterProtocolResponse,
         };
+    }
+
+    #[doc(hidden)]
+    pub mod system_proto {
+        pub use mm1_multinode::proto::*;
     }
 
     pub use mm1_multinode::codec::Protocol;

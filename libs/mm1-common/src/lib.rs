@@ -8,4 +8,5 @@ pub mod futures;
 #[cfg(feature = "logging")]
 pub mod log;
 pub mod metrics;
+pub mod serde;
 pub mod types;

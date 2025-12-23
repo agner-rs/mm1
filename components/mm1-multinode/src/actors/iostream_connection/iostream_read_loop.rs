@@ -31,6 +31,7 @@ pub(super) struct ReceivedMessage {
     pub(super) ttl:              u8,
     pub(super) priority:         bool,
     pub(super) foreign_type_key: ForeignTypeKey,
+    #[serde(with = "mm1_common::serde::binary")]
     pub(super) body:             Box<[u8]>,
 }
 

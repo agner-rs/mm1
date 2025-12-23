@@ -18,6 +18,7 @@ pub struct SubscribeToRoutesResponse {
 #[message(base_path = ::mm1_proto)]
 pub struct Forward {
     pub local_type_key: LocalTypeKey,
+    #[serde(with = "mm1_common::serde::binary")]
     pub body:           Box<[u8]>,
 }
 
