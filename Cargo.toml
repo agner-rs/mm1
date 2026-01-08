@@ -60,7 +60,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.7.19"
+version = "0.7.20"
 edition = "2024"
 
 license = "MIT"
@@ -72,31 +72,31 @@ publish = true
 exclude = ["**/*.snap"]
 
 [workspace.dependencies]
-mm1 = {path = ".", version = "=0.7.19", default-features = false}
-mm1-core = {path = "core/mm1-core", version = "=0.7.19" }
-mm1-node = {path = "core/mm1-node", version = "=0.7.19" }
-mm1-runnable = {path = "core/mm1-runnable", version = "=0.7.19" }
-mm1-test-rt = {path = "core/mm1-test-rt", version = "=0.7.19" }
+mm1 = {path = ".", version = "=0.7.20", default-features = false}
+mm1-core = {path = "core/mm1-core", version = "=0.7.20" }
+mm1-node = {path = "core/mm1-node", version = "=0.7.20" }
+mm1-runnable = {path = "core/mm1-runnable", version = "=0.7.20" }
+mm1-test-rt = {path = "core/mm1-test-rt", version = "=0.7.20" }
 
-mm1-multinode = {path = "components/mm1-multinode", version = "=0.7.19", features = [] }
-mm1-name-service = {path = "components/mm1-name-service", version = "=0.7.19" }
-mm1-server = {path = "components/mm1-server", version = "=0.7.19"}
-mm1-sup = {path = "components/mm1-sup", version = "=0.7.19" }
-mm1-timer = {path = "components/mm1-timer", version = "=0.7.19" }
+mm1-multinode = {path = "components/mm1-multinode", version = "=0.7.20", features = [] }
+mm1-name-service = {path = "components/mm1-name-service", version = "=0.7.20" }
+mm1-server = {path = "components/mm1-server", version = "=0.7.20"}
+mm1-sup = {path = "components/mm1-sup", version = "=0.7.20" }
+mm1-timer = {path = "components/mm1-timer", version = "=0.7.20" }
 
-mm1-address = {path = "libs/mm1-address", version = "=0.7.19" }
-mm1-ask = {path = "libs/mm1-ask", version = "=0.7.19" }
-mm1-common = {path = "libs/mm1-common", version = "=0.7.19" }
-mm1-logger = {path = "libs/mm1-logger", version = "=0.7.19" }
-mm1-proc-macros = {path = "libs/mm1-proc-macros", version = "=0.7.19" }
+mm1-address = {path = "libs/mm1-address", version = "=0.7.20" }
+mm1-ask = {path = "libs/mm1-ask", version = "=0.7.20" }
+mm1-common = {path = "libs/mm1-common", version = "=0.7.20" }
+mm1-logger = {path = "libs/mm1-logger", version = "=0.7.20" }
+mm1-proc-macros = {path = "libs/mm1-proc-macros", version = "=0.7.20" }
 
-mm1-proto = {path = "protocols/mm1-proto", version = "=0.7.19" }
-mm1-proto-ask = {path = "protocols/mm1-proto-ask", version = "=0.7.19" }
-mm1-proto-named = {path = "protocols/mm1-proto-named", version = "=0.7.19"}
-mm1-proto-network-management = {path = "protocols/mm1-proto-network-management", version = "=0.7.19" }
-mm1-proto-sup = {path = "protocols/mm1-proto-sup", version = "=0.7.19" }
-mm1-proto-system = {path = "protocols/mm1-proto-system", version = "=0.7.19" }
-mm1-proto-well-known = {path = "protocols/mm1-proto-well-known", version = "=0.7.19" }
+mm1-proto = {path = "protocols/mm1-proto", version = "=0.7.20" }
+mm1-proto-ask = {path = "protocols/mm1-proto-ask", version = "=0.7.20" }
+mm1-proto-named = {path = "protocols/mm1-proto-named", version = "=0.7.20"}
+mm1-proto-network-management = {path = "protocols/mm1-proto-network-management", version = "=0.7.20" }
+mm1-proto-sup = {path = "protocols/mm1-proto-sup", version = "=0.7.20" }
+mm1-proto-system = {path = "protocols/mm1-proto-system", version = "=0.7.20" }
+mm1-proto-well-known = {path = "protocols/mm1-proto-well-known", version = "=0.7.20" }
 
 bimap = "^0.6"
 bincode = "^2"
