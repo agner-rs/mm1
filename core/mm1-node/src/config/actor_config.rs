@@ -45,6 +45,7 @@ impl ActorConfigNode {
             out.runtime = n.config.runtime.as_deref().or(out.runtime);
             out.netmask = n.config.netmask.or(out.netmask);
             out.inbox_size = n.config.inbox_size.or(out.inbox_size);
+            out.message_tap = n.config.message_tap.as_deref().or(out.message_tap);
             node = n;
         }
 
