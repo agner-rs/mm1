@@ -71,6 +71,12 @@ pub mod child_type {
         restart_intensity: RestartIntensity,
     }
 
+    impl<const RESTART_ON_NORMAL_EXIT: bool> Restarting<RESTART_ON_NORMAL_EXIT> {
+        pub fn new(restart_intensity: RestartIntensity) -> Self {
+            Self { restart_intensity }
+        }
+    }
+
     impl<const RESTART_ON_NORMAL_EXIT: bool, A> UniformChildType<A>
         for Restarting<RESTART_ON_NORMAL_EXIT>
     where
