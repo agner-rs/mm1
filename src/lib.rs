@@ -121,6 +121,8 @@ pub mod core {
         pub use mm1_core::envelope::EnvelopeHeader;
         /// A macro helping to match an [`Envelope`].
         pub use mm1_core::envelope::dispatch;
+        /// A type-erasing container for the message.
+        pub use mm1_core::message::AnyMessage;
     }
 
     pub mod context {
