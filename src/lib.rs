@@ -75,6 +75,8 @@ pub mod address {
     /// Address — a destination to send messages to.
     pub use mm1_address::address::Address;
     pub use mm1_address::address::AddressParseError;
+    /// A contiguous range of addresses (used as interval-tree keys).
+    pub use mm1_address::address_range::AddressRange;
     pub use mm1_address::pool::{
         Lease as AddressLease, LeaseError as AddressLeaseError, Pool as AddressPool,
     };
@@ -111,12 +113,17 @@ pub mod common {
     pub mod serde {
         pub use mm1_common::serde::*;
     }
+
+    pub mod metrics {
+        //! Helpers to measure futures (poll counts and timings).
+        pub use mm1_common::metrics::*;
+    }
 }
 
 pub mod core {
     //! The API to implement actors.
 
-    pub use mm1_core::{tap, tracing};
+    pub use mm1_core::{actor_exit, tap, tracing};
 
     pub mod envelope {
         //! An [`Envelope`] is a type-erasing container for the sent messages.
@@ -195,6 +202,9 @@ pub mod server {
 
     /// create a new server builder
     pub use mm1_server::new;
+    /// The server builder (the return type of [`new`]) and its type-list
+    /// helpers.
+    pub use mm1_server::{AppendMsg, AppendReq, Server};
     pub mod behaviour {
         /// Handle inbound messages.
         pub use mm1_server::OnMessage;
@@ -267,10 +277,25 @@ pub mod sup {
 #[cfg(feature = "runtime")]
 pub mod runtime {
     pub use mm1_node::config;
-    pub use mm1_node::runtime::{Local, Rt};
+    pub use mm1_node::runtime::{ActorContext, Local, Rt};
 }
 
+/// Logging setup helpers (`mm1_logger`). Enable the `logger` feature.
+#[cfg(feature = "logger")]
+pub use mm1_logger as logger;
 pub use mm1_runnable as runnable;
+
+#[cfg(feature = "name-service")]
+pub mod name_service {
+    //! Name service — register and resolve actors by name.
+
+    pub use mm1_name_service::{api, server};
+
+    /// The name-service protocol messages.
+    pub mod proto {
+        pub use mm1_proto_named::*;
+    }
+}
 
 #[cfg(feature = "timer")]
 pub mod timer {
