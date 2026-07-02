@@ -6,22 +6,23 @@ pub(crate) struct FilterTrie {
     children: HashMap<String, Self>,
 }
 impl FilterTrie {
-    pub(crate) fn level_for_target<'a>(
-        &self,
-        path: impl IntoIterator<Item = &'a str>,
-    ) -> Option<tracing::Level> {
-        let mut path = path.into_iter();
-        if let Some(next) = path.next() {
-            self.children
-                .get(next)
-                .and_then(move |node| node.level_for_target(path))
-                .or_else(|| {
-                    self.children
-                        .get("*")
-                        .and_then(|node| node.level_for_target([]))
-                })
-        } else {
-            self.level
+    pub(crate) fn level_for_target(&self, path: &[&str]) -> Option<tracing::Level> {
+        match path.split_first() {
+            Some((head, rest)) => {
+                self.children
+                    .get(*head)
+                    .and_then(|node| node.level_for_target(rest))
+                    .or_else(|| {
+                        self.children
+                            .get("*")
+                            .and_then(|node| node.level_for_target(&[]))
+                    })
+                    // Prefix inheritance: fall back to this prefix's own level,
+                    // so `a=debug` also applies to `a::b`. A more specific
+                    // statement (checked first) still wins.
+                    .or(self.level)
+            },
+            None => self.level,
         }
     }
 
@@ -41,9 +42,11 @@ impl FilterTrie {
     /// Whether an event at `event_level` on `target` passes the per-target
     /// filter. This is independent of the global minimum level.
     pub(crate) fn allows(&self, target: &str, event_level: tracing::Level) -> bool {
-        self.level_for_target(target.split("::"))
+        let path: Vec<&str> = target.split("::").collect();
+        self.level_for_target(&path)
             .map(|level| level >= event_level)
-            .unwrap_or(false)
+            // No matching statement: defer to the global minimum level.
+            .unwrap_or(true)
     }
 }
 

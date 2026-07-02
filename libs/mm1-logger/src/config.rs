@@ -37,7 +37,7 @@ impl std::str::FromStr for LogTargetConfig {
 
 impl fmt::Display for LogTargetConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        format!("{}={}", self.path.join("*"), self.level).fmt(f)
+        format!("{}={}", self.path.join("::"), self.level).fmt(f)
     }
 }
 
