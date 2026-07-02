@@ -9,6 +9,8 @@ plain bug fixes ship as `0.7.PATCH`.
 
 ## [Unreleased]
 
+## [0.7.22] - 2026-07-02
+
 This is the first release with a curated changelog. It groups the repository's
 "foundation" work: CI, docs, dependency, and test-scaffolding changes. It
 contains no breaking API changes.
