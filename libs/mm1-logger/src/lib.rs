@@ -23,10 +23,7 @@ pub fn init(config: &LoggingConfig) -> Result<(), AnyError> {
         .with_file(true)
         .with_filter(filter::LevelFilter::from_level(config.min_log_level))
         .with_filter(filter::filter_fn(move |entry| {
-            filter
-                .level_for_target(entry.target().split("::"))
-                .map(|level| level >= *entry.level())
-                .unwrap_or(false)
+            filter.allows(entry.target(), *entry.level())
         }));
 
     tracing_subscriber::registry().with(fmt).try_init()?;

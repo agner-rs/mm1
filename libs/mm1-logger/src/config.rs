@@ -85,3 +85,20 @@ mod impl_serde_for_level {
             .map_err(D::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::LogTargetConfig;
+
+    // Regression test for #138: Display must be the inverse of FromStr, so a
+    // multi-segment target survives a to_string()/parse() round-trip.
+    #[test]
+    fn log_target_config_round_trips() {
+        // Levels are written in tracing's canonical upper case so the test
+        // isolates the path separator (the #138 bug) from level formatting.
+        for s in ["mm1_node::runtime=DEBUG", "a=INFO", "a::b::c=TRACE"] {
+            let parsed: LogTargetConfig = s.parse().expect("parse");
+            assert_eq!(parsed.to_string(), s, "round-trip changed {s:?}");
+        }
+    }
+}
