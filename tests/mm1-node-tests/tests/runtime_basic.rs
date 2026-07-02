@@ -25,7 +25,7 @@ fn logger_config() -> mm1_logger::LoggingConfig {
 fn hello_runtime() {
     let _ = mm1_logger::init(&logger_config());
 
-    let config: Mm1NodeConfig = serde_yaml::from_str(
+    let config: Mm1NodeConfig = serde_yaml_ng::from_str(
         r#"
             local_subnets:
                 - net: <aaaabbbbcccc:>/52

@@ -2,13 +2,13 @@ use std::fmt;
 
 pub use tracing::Level;
 
-#[derive(Debug, Clone, structopt::StructOpt, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub struct LoggingConfig {
-    #[structopt(long, default_value = "info")]
+    #[arg(long, default_value = "info")]
     #[serde(with = "impl_serde_for_level")]
     pub min_log_level: tracing::Level,
 
-    #[structopt(long)]
+    #[arg(long)]
     #[serde(default)]
     pub log_target_filter: Vec<LogTargetConfig>,
 }

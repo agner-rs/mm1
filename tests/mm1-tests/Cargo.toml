@@ -15,5 +15,5 @@ mm1 = { workspace = true, features = ["multinode"] }
 mm1-logger.workspace = true
 
 serde = { workspace = true, features = ["derive"] }
-serde_yaml.workspace = true
+serde_yaml_ng.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }

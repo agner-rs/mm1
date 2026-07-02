@@ -10,7 +10,7 @@ exclude.workspace = true
 publish.workspace = true
 
 [dependencies]
+clap = {workspace = true}
 serde = {workspace = true, features = ["derive"]}
-structopt = "^0.3"
 tracing.workspace = true
 tracing-subscriber = "^0.3"
