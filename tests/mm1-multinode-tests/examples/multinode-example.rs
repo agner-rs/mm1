@@ -1,5 +1,6 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use clap::Parser;
 use eyre::Context;
 use mm1::address::{Address, NetAddress, NetMask};
 use mm1::common::error::{AnyError, ExactTypeDisplayChainExt};
@@ -15,42 +16,41 @@ use mm1_multinode::actors::context::ActorContext;
 use mm1_proto_network_management as nm;
 use mm1_proto_well_known::MULTINODE_MANAGER;
 use serde_json::json;
-use structopt::StructOpt;
 use tokio::sync::mpsc;
 use url::Url;
 
-#[derive(StructOpt)]
+#[derive(Parser)]
 struct Args {
-    #[structopt(long)]
+    #[arg(long)]
     local: NetAddress,
 
-    #[structopt(long)]
+    #[arg(long)]
     cookie: Option<String>,
 
-    #[structopt(long, short)]
+    #[arg(long, short)]
     proto: Vec<String>,
 
-    #[structopt(long)]
+    #[arg(long)]
     bind: Vec<Url>,
 
-    #[structopt(long)]
+    #[arg(long)]
     connect: Vec<Url>,
 
-    #[structopt(long = "dst", short = "d")]
+    #[arg(long = "dst", short = 'd')]
     destinations: Vec<Address>,
 
-    #[structopt(long = "receive-at", short = "r")]
+    #[arg(long = "receive-at", short = 'r')]
     receive_at: Address,
 
-    #[structopt(long = "tick", short = "t")]
+    #[arg(long = "tick", short = 't')]
     tick_interval: humantime::Duration,
 
-    #[structopt(long = "msg", short = "m", default_value = "64")]
+    #[arg(long = "msg", short = 'm', default_value = "64")]
     msg_size: usize,
 }
 
 fn main() {
-    if let Err(failure) = run(StructOpt::from_args()) {
+    if let Err(failure) = run(Args::parse()) {
         eprintln!("failure:");
         for cause in failure.chain() {
             eprintln!(" - {}", cause);

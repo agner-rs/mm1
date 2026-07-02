@@ -336,7 +336,7 @@ fn actor_bind_and_recv() {
     }
 
     Rt::create(
-        serde_yaml::from_str(
+        serde_yaml_ng::from_str(
             r#"
                 subnet: <cafe:>/16
 
@@ -379,7 +379,7 @@ fn actor_fork_watched_yields_down() {
     }
 
     Rt::create(
-        serde_yaml::from_str(
+        serde_yaml_ng::from_str(
             r#"
                 subnet: <cafe:>/16
             "#,

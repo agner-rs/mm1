@@ -17,7 +17,6 @@ multinode = ["name-service", "dep:mm1-proto-well-known", "dep:mm1-multinode"]
 [dev-dependencies]
 insta.workspace = true
 test-case.workspace = true
-serde_yaml.workspace = true
 
 [dependencies]
 mm1-address = { workspace = true}

@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-use eyre::Context;
-use fs2::FileExt;
+use eyre::{Context, eyre};
+use fs4::fs_std::FileExt;
 use mm1_address::address::Address;
 use mm1_common::log::{error, info, warn};
 use mm1_common::types::{AnyError, Never};
@@ -169,15 +169,26 @@ fn try_cleanup_stale_socket(socket_path: &Path) -> Result<RmOnDrop<File>, AnyErr
         .open(&lock_path)
         .wrap_err("open lock file")?;
 
-    if let Err(err) = lock_file.try_lock_exclusive() {
-        error!(
-            socket = ?socket_path,
-            lock = ?lock_path,
-            error_kind = ?err.kind(),
-            ?err,
-            "failed to acquire lock on socket, already in use"
-        );
-        return Err(err).wrap_err("socket already in use");
+    match lock_file.try_lock_exclusive() {
+        Ok(true) => {},
+        Ok(false) => {
+            error!(
+                socket = ?socket_path,
+                lock = ?lock_path,
+                "failed to acquire lock on socket, already in use"
+            );
+            return Err(eyre!("socket already in use"));
+        },
+        Err(err) => {
+            error!(
+                socket = ?socket_path,
+                lock = ?lock_path,
+                error_kind = ?err.kind(),
+                ?err,
+                "error acquiring lock on socket"
+            );
+            return Err(err).wrap_err("lock socket");
+        },
     }
 
     if socket_path.exists() {

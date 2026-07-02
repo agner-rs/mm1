@@ -18,7 +18,7 @@ fn main() {
             .unwrap(),
     };
 
-    let mm1_config = serde_yaml::from_str(
+    let mm1_config = serde_yaml_ng::from_str(
         r#"
             local_subnets:
                 - net: <:>/0
