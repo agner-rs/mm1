@@ -1,0 +1,61 @@
+name: Rust (deps)
+
+on:
+  push:
+    branches: [ "main", "dev", "*/dev" ]
+  pull_request:
+    branches: [ "*" ]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to run the workflow on"
+        required: true
+        default: main
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Advisories, licenses, bans, and sources (see deny.toml).
+  cargo-deny:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@1.91
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+
+      - name: Run cargo-deny
+        run: cargo deny check
+
+  # Catch under-declared features: check every crate with each feature enabled
+  # on its own (and with no default features).
+  features:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@1.91
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-all-crates: true
+          cache-workspace-crates: true
+          cache-on-failure: true
+
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-hack
+
+      - name: Check feature combinations
+        run: cargo hack --each-feature --workspace check
