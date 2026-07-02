@@ -202,4 +202,23 @@ mod tests {
             assert_eq!(NetMask(input).into_u64(), expected, "/{input}");
         }
     }
+
+    // Regression tests for #137: deserialization must reject out-of-range masks
+    // instead of accepting them and panicking later.
+    #[test]
+    fn netmask_deserialize_rejects_out_of_range() {
+        assert!(serde_json::from_str::<NetMask>("200").is_err());
+        assert!(serde_json::from_str::<NetMask>("65").is_err());
+        // Valid masks still deserialize.
+        assert_eq!(serde_json::from_str::<NetMask>("0").unwrap(), NetMask::MIN);
+        assert_eq!(serde_json::from_str::<NetMask>("64").unwrap(), NetMask::MAX);
+    }
+
+    #[test]
+    fn net_address_wire_deserialize_rejects_out_of_range_mask() {
+        // The non-human-readable path reads (Address, NetMask) as a tuple; an
+        // out-of-range mask on the wire must be rejected there too.
+        let bytes = rmp_serde::to_vec(&(Address::from_u64(1), 200u8)).unwrap();
+        assert!(rmp_serde::from_slice::<NetAddress>(&bytes).is_err());
+    }
 }
