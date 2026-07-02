@@ -75,6 +75,13 @@ impl<F> MeasuredFuture<F> {
     }
 }
 
+#[cfg(test)]
+impl<F> MeasuredFuture<F> {
+    fn recorded_wait_time(&self) -> Duration {
+        self.measurements.wait_time
+    }
+}
+
 impl<F> Future for MeasuredFuture<F>
 where
     F: Future,
@@ -108,5 +115,54 @@ where
         }
 
         poll
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::future::Future;
+    use std::pin::Pin;
+    use std::task::{Context, Poll, Waker};
+    use std::time::Duration;
+
+    use super::MeasuredFuture;
+
+    // Pends once, then completes, so `poll` runs twice with a gap in between.
+    struct PendOnce {
+        polled: bool,
+    }
+
+    impl Future for PendOnce {
+        type Output = ();
+
+        fn poll(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<()> {
+            if self.polled {
+                Poll::Ready(())
+            } else {
+                self.polled = true;
+                Poll::Pending
+            }
+        }
+    }
+
+    // Regression test for #146: the idle time between polls must accumulate.
+    #[test]
+    fn wait_time_accumulates_between_polls() {
+        let mut fut = MeasuredFuture::new(
+            PendOnce { polled: false },
+            crate::make_metrics!("test_measured"),
+        );
+        let waker = Waker::noop();
+        let mut cx = Context::from_waker(waker);
+
+        assert!(Pin::new(&mut fut).poll(&mut cx).is_pending());
+        std::thread::sleep(Duration::from_millis(5));
+        assert!(Pin::new(&mut fut).poll(&mut cx).is_ready());
+
+        assert!(
+            fut.recorded_wait_time() > Duration::ZERO,
+            "wait_time did not accumulate: {:?}",
+            fut.recorded_wait_time()
+        );
     }
 }
