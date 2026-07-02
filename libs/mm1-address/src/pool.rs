@@ -51,7 +51,12 @@ impl Pool {
                 std::mem::swap(main, used);
                 a
             } else {
-                return Err(LeaseError::Unavailable);
+                // Neither trie can satisfy the request on its own, but their
+                // combined free space might. Fold `used` into `main` (which
+                // coalesces adjacent blocks) and try once more.
+                used.drain_into(main);
+                main.acquire(mask.into_u64())
+                    .ok_or(LeaseError::Unavailable)?
             }
         };
 

@@ -149,6 +149,28 @@ impl Pool {
 
         out
     }
+
+    /// Move every free block out of `self` into `other`, coalescing as it goes,
+    /// and leave `self` empty.
+    pub(super) fn drain_into(&mut self, other: &mut Pool) {
+        fn dfs(node: Option<Box<Node>>, other: &mut Pool) {
+            let Some(node) = node else {
+                return;
+            };
+            match node.next {
+                Next::Leaf => {
+                    other.release(node.seg_path, node.seg_mask);
+                },
+                Next::Fork { zero, one } => {
+                    dfs(zero, other);
+                    dfs(one, other);
+                },
+            }
+        }
+
+        dfs(self.root.take(), other);
+        self.check_invariants();
+    }
 }
 
 mod util {
