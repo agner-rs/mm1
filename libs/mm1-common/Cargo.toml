@@ -25,3 +25,6 @@ serde = {workspace = true, features = ["derive", "rc"]}
 thiserror.workspace = true
 tokio = {workspace = true, optional = true}
 tracing = {workspace = true, optional = true}
+
+[dev-dependencies]
+serde_json.workspace = true

@@ -66,3 +66,35 @@ pub mod binary {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    // Regression tests for #127: the human-readable `binary` codec must
+    // round-trip even-length hex and must reject bad input without panicking.
+    #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+    struct Wrap {
+        #[serde(with = "super::binary")]
+        data: Vec<u8>,
+    }
+
+    #[test]
+    fn binary_hex_round_trips() {
+        let value = Wrap {
+            data: vec![0xde, 0xad, 0xbe, 0xef],
+        };
+        let json = serde_json::to_string(&value).unwrap();
+        assert_eq!(json, r#"{"data":"deadbeef"}"#);
+        let back: Wrap = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, value);
+    }
+
+    #[test]
+    fn binary_hex_rejects_odd_length() {
+        assert!(serde_json::from_str::<Wrap>(r#"{"data":"abc"}"#).is_err());
+    }
+
+    #[test]
+    fn binary_hex_rejects_non_ascii() {
+        assert!(serde_json::from_str::<Wrap>(r#"{"data":"a€"}"#).is_err());
+    }
+}
