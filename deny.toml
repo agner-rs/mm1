@@ -1,0 +1,41 @@
+# cargo-deny configuration. See https://embarkstudios.github.io/cargo-deny/
+
+[advisories]
+# Fail on security advisories and on yanked crates in the lockfile.
+yanked = "deny"
+# Tolerated advisories (each with a justification). These are "unmaintained"
+# informational advisories, not vulnerabilities, and have no drop-in fix today.
+ignore = [
+    # bincode 2.x is the multinode wire codec; no drop-in replacement. Revisit
+    # with the wire-format work (see issues #153 / #156).
+    "RUSTSEC-2025-0141",
+    # paste is pulled transitively by rmp (MessagePack). Drops out when
+    # rmp/rmp-serde move off it.
+    "RUSTSEC-2024-0436",
+]
+
+[licenses]
+# Allow-list of licenses that appear in the dependency tree. Extend
+# deliberately (with a note) when a new dependency introduces a new license.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "MPL-2.0",
+]
+confidence-threshold = 0.8
+
+[bans]
+# Duplicate versions are usually unavoidable platform shims; warn, don't fail.
+multiple-versions = "warn"
+wildcards = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
