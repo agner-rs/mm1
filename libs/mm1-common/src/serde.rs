@@ -28,13 +28,22 @@ pub mod binary {
     }
 
     fn from_hex(s: &str) -> Result<Vec<u8>, String> {
-        if s.len().is_multiple_of(2) {
+        if !s.len().is_multiple_of(2) {
             return Err("hex string must have even length".to_string());
         }
+        if !s.is_ascii() {
+            return Err("hex string must be ASCII".to_string());
+        }
 
-        (0..s.len())
+        let bytes = s.as_bytes();
+        (0..bytes.len())
             .step_by(2)
-            .map(|i| u8::from_str_radix(&s[i..i + 2], 16).map_err(|e| e.to_string()))
+            .map(|i| {
+                // Safe: `s` is ASCII and even-length, so each 2-byte window is a
+                // valid `str` on char boundaries.
+                let pair = std::str::from_utf8(&bytes[i..i + 2]).map_err(|e| e.to_string())?;
+                u8::from_str_radix(pair, 16).map_err(|e| e.to_string())
+            })
             .collect()
     }
 
