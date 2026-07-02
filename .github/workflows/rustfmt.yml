@@ -23,9 +23,13 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
+      # Pinned nightly: rustfmt.toml uses unstable options (needs nightly), but a
+      # floating @nightly drifts and breaks CI when a new nightly changes a rule.
+      # Bump `toolchain` deliberately together with a `cargo fmt` pass.
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: nightly-2026-06-23
           components: rustfmt
 
       - name: Cache Rust build
@@ -35,5 +39,5 @@ jobs:
           cache-workspace-crates: true
           cache-on-failure: true
 
-      - name: Run Clippy
-        run: cargo +nightly fmt --all -- --check
+      - name: Run rustfmt
+        run: cargo fmt --all -- --check

@@ -16,8 +16,10 @@ use mm1_common::types::{AnyError, Never};
 use mm1_core::context::BindArgs;
 use mm1_proto::message;
 use mm1_proto_ask::RequestHeader;
+use mm1_proto_network_management as nm;
 use mm1_proto_network_management::{iface as i, protocols as p};
 use mm1_proto_sup::uniform as uni_sup;
+use mm1_proto_system as sys;
 use mm1_proto_system::WatchRef;
 use mm1_proto_well_known::MULTINODE_MANAGER;
 use mm1_runnable::local;
@@ -29,7 +31,6 @@ use mm1_timer::v1::{OneshotKey, OneshotTimer};
 use slotmap::SlotMap;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpStream, UnixStream};
-use {mm1_proto_network_management as nm, mm1_proto_system as sys};
 
 use crate::actors::context::ActorContext;
 use crate::codec::{self, Protocol};
