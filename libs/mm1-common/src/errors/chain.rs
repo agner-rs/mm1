@@ -63,3 +63,22 @@ impl fmt::Debug for D<&AnyError> {
         fmt::Display::fmt(self, f)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("inner")]
+    struct Inner;
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("outer")]
+    struct Outer(#[source] Inner);
+
+    #[test]
+    fn std_error_display_chain_joins_sources() {
+        let e = Outer(Inner);
+        assert_eq!(e.as_display_chain().to_string(), "outer << inner");
+    }
+}
