@@ -1,5 +1,6 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use clap::Parser;
 use eyre::Context;
 use mm1::address::{Address, NetAddress, NetMask};
 use mm1::common::error::{AnyError, ExactTypeDisplayChainExt};
@@ -14,7 +15,6 @@ use mm1::timer::v1::OneshotTimer;
 use mm1_multinode::actors::context::ActorContext;
 use mm1_proto_network_management as nm;
 use mm1_proto_well_known::MULTINODE_MANAGER;
-use clap::Parser;
 use serde_json::json;
 use tokio::sync::mpsc;
 use url::Url;
