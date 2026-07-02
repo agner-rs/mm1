@@ -10,8 +10,16 @@ pub mod proto {
     pub use mm1_proto::Message;
     /// A proc-macro attribute to make a message out of a type.
     ///
+    /// The macro expands to `::serde::{Serialize, Deserialize}` derives, so the
+    /// crate that uses `#[message]` must depend on `serde` directly.
+    ///
     /// Example:
     /// ```rust
+    /// use std::time::Duration;
+    ///
+    /// use mm1::address::Address;
+    /// use mm1::proto::message;
+    ///
     /// #[message]
     /// struct Accept {
     ///     reply_to: Address,
@@ -20,12 +28,11 @@ pub mod proto {
     ///
     /// #[message]
     /// struct Accepted {
-    ///     io: Unique<TcpStream>,
+    ///     ok: bool,
     /// }
     /// ```
     pub use mm1_proto::message;
-    /// The low-level API-to the actor system.
-    /// See [`Call`](crate::core::context::Call).
+    /// The low-level request/response protocol used by the actor system.
     pub use mm1_proto_system as system;
 }
 

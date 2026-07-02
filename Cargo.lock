@@ -802,6 +802,7 @@ dependencies = [
  "mm1-sup",
  "mm1-test-rt",
  "mm1-timer",
+ "serde",
  "thiserror",
  "tokio",
 ]

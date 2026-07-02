@@ -43,6 +43,8 @@ mm1-timer = { workspace = true, optional = true }
 [dev-dependencies]
 mm1-logger = { workspace = true }
 
+# `#[message]` expands to `::serde::...`, so the doctests need serde in scope.
+serde = { workspace = true, features = ["derive"] }
 tokio = {workspace = true, features = ["rt", "macros"]}
 thiserror.workspace = true
 

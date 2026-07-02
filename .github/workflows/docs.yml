@@ -1,0 +1,43 @@
+name: Rust (docs)
+
+on:
+  push:
+    branches: [ "main", "dev", "*/dev" ]
+  pull_request:
+    branches: [ "*" ]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to run the workflow on"
+        required: true
+        default: main
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTDOCFLAGS: "-D warnings"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@1.91
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-all-crates: true
+          cache-workspace-crates: true
+          cache-on-failure: true
+
+      # Fails on broken intra-doc links (via RUSTDOCFLAGS=-D warnings).
+      - name: Build docs
+        run: cargo doc --workspace --no-deps --all-features
+
+      # nextest (the test job) does not run doctests, so run them here.
+      - name: Run doctests
+        run: cargo test --doc --workspace --all-features
