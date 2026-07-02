@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Pinned nightly: rustfmt.toml uses unstable options (needs nightly), but a
       # floating @nightly drifts and breaks CI when a new nightly changes a rule.
