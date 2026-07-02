@@ -254,10 +254,8 @@ impl EffectiveActorConfig for InitActorConfig {
 /// Whether an `Exited` should stop the init actor (and thus the node). Only the
 /// main actor's exit should; auxiliary services the init actor links to (the
 /// name service, the multinode manager) must not bring the node down.
-fn init_should_stop(_exited: &mm1_proto_system::Exited, _main_actor_address: Address) -> bool {
-    // Preserves the current (incorrect) behavior: stop on any exit. Fixed in the
-    // next commit.
-    true
+fn init_should_stop(exited: &mm1_proto_system::Exited, main_actor_address: Address) -> bool {
+    exited.peer == main_actor_address
 }
 
 #[cfg(test)]
