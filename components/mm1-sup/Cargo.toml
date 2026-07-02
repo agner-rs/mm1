@@ -34,3 +34,6 @@ mm1-logger.workspace = true
 
 insta.workspace = true
 test-case.workspace = true
+# The decider tests drive a paused clock; declare test-util here so the crate's
+# tests build on their own, not only under workspace feature unification.
+tokio = {workspace = true, features = ["test-util", "macros"]}

@@ -264,3 +264,63 @@ fn logger_config() -> mm1_logger::LoggingConfig {
         ],
     }
 }
+
+// --- Regression tests for #126 -------------------------------------------
+//
+// An "acceptable" exit must not restart the child: a Temporary child that exits
+// for any reason, and a Transient child that exits normally, must stay stopped.
+
+fn assert_not_restarted(decider: &mut impl Decider<Key = usize>, at: tokio::time::Instant) {
+    for _ in 0..16 {
+        match decider.next_action(at) {
+            Ok(Some(super::Action::Start { .. })) => panic!("child was restarted"),
+            Ok(None) => return,
+            Ok(Some(_)) => continue,
+            Err(_) => return,
+        }
+    }
+    // Reached the cap with no Start action: no restart happened.
+}
+
+#[tokio::test]
+async fn temporary_child_is_not_restarted_after_any_exit() {
+    tokio::time::pause();
+    let at = tokio::time::Instant::now();
+    let mut decider = AllForOne::<usize>::new(RestartIntensity {
+        max_restarts: 100,
+        within:       Duration::from_secs(30),
+    })
+    .decider();
+
+    decider.add(1, ChildType::Temporary).unwrap();
+    assert!(matches!(
+        decider.next_action(at),
+        Ok(Some(super::Action::Start { .. }))
+    ));
+    let addr = Address::from_u64(1);
+    decider.started(&1, addr, at);
+    // Abnormal exit is still "acceptable" for a Temporary child.
+    decider.exited(addr, false, at);
+    assert_not_restarted(&mut decider, at);
+}
+
+#[tokio::test]
+async fn transient_child_is_not_restarted_after_normal_exit() {
+    tokio::time::pause();
+    let at = tokio::time::Instant::now();
+    let mut decider = AllForOne::<usize>::new(RestartIntensity {
+        max_restarts: 100,
+        within:       Duration::from_secs(30),
+    })
+    .decider();
+
+    decider.add(1, ChildType::Transient).unwrap();
+    assert!(matches!(
+        decider.next_action(at),
+        Ok(Some(super::Action::Start { .. }))
+    ));
+    let addr = Address::from_u64(1);
+    decider.started(&1, addr, at);
+    decider.exited(addr, true, at); // normal exit
+    assert_not_restarted(&mut decider, at);
+}
