@@ -1,0 +1,19 @@
+[package]
+name = "mm1-proc-macros-tests"
+
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description.workspace = true
+exclude.workspace = true
+publish = false
+
+[dependencies]
+# The proc-macros are exercised through the facade (`#[message]` defaults its
+# base path to `::mm1::proto`), plus serde for the derives it emits.
+mm1 = { workspace = true, default-features = false }
+serde = { workspace = true, features = ["derive"] }
+
+[dev-dependencies]
+trybuild.workspace = true
