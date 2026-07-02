@@ -35,5 +35,5 @@ jobs:
           cache-workspace-crates: true
           cache-on-failure: true
 
-      - name: Run Clippy
+      - name: Run rustfmt
         run: cargo +nightly fmt --all -- --check

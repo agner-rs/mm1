@@ -23,10 +23,11 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
+      # Pinned to the declared MSRV (rust-version in Cargo.toml). Running the
+      # test suite on the MSRV also serves as the MSRV gate. Bump deliberately
+      # together with clippy.yml.
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
+        uses: dtolnay/rust-toolchain@1.91
 
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
