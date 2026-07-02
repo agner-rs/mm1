@@ -10,8 +10,20 @@ mod net_mask;
 const ADDRESS_BITS: u8 = u64::BITS as u8;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[message(base_path = ::mm1_proto)]
+#[message(base_path = ::mm1_proto, derive_deserialize = false)]
 pub struct NetMask(u8);
+
+impl<'de> serde::Deserialize<'de> for NetMask {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // Route through the validating TryFrom so an out-of-range mask is
+        // rejected on every format instead of panicking later.
+        let value = u8::deserialize(deserializer)?;
+        NetMask::try_from(value).map_err(<D::Error as serde::de::Error>::custom)
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[message(base_path = ::mm1_proto, derive_serialize = false, derive_deserialize = false)]
