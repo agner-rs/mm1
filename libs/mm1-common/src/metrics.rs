@@ -103,6 +103,8 @@ where
 
         let t_end = Instant::now();
         this.measurements.busy_time += t_end.duration_since(t_start);
+        // Record when this poll ended so the next poll can measure the idle gap.
+        this.measurements.last_poll = Some(t_end);
 
         if poll.is_ready() {
             this.metrics
