@@ -822,7 +822,9 @@ dependencies = [
  "insta",
  "mm1-proto",
  "parking_lot",
+ "rmp-serde",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 
@@ -859,6 +861,7 @@ dependencies = [
  "mm1-proto",
  "pin-project",
  "serde",
+ "serde_json",
  "thiserror",
  "tokio",
  "tracing",
