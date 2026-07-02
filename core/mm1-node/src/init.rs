@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use eyre::Context;
 use futures::never::Never;
+use mm1_address::address::Address;
 use mm1_address::subnet::{NetAddress, NetMask};
 use mm1_common::log;
 use mm1_common::types::AnyError;
@@ -203,7 +204,15 @@ pub(crate) async fn run(
     let main_actor_exited = loop {
         let envelope = ctx.recv().await.wrap_err("init-actor recv")?;
         dispatch!(match envelope {
-            exited @ mm1_proto_system::Exited { .. } => break exited,
+            exited @ mm1_proto_system::Exited { .. } => {
+                if init_should_stop(&exited, main_actor_address) {
+                    break exited;
+                }
+                log::warn!(
+                    peer = %exited.peer, normal_exit = %exited.normal_exit,
+                    "a linked auxiliary actor exited before the main actor; ignoring"
+                );
+            },
             unexpected @ _ => {
                 log::warn!(
                     msg = ?unexpected,
@@ -239,5 +248,38 @@ impl EffectiveActorConfig for InitActorConfig {
 
     fn message_tap_key(&self) -> Option<&str> {
         None
+    }
+}
+
+/// Whether an `Exited` should stop the init actor (and thus the node). Only the
+/// main actor's exit should; auxiliary services the init actor links to (the
+/// name service, the multinode manager) must not bring the node down.
+fn init_should_stop(_exited: &mm1_proto_system::Exited, _main_actor_address: Address) -> bool {
+    // Preserves the current (incorrect) behavior: stop on any exit. Fixed in the
+    // next commit.
+    true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Regression test for #145: only the main actor's exit stops the node.
+    #[test]
+    fn only_main_actor_exit_stops_the_node() {
+        let main = Address::from_u64(1);
+        let aux = Address::from_u64(2);
+
+        let main_exit = mm1_proto_system::Exited {
+            peer:        main,
+            normal_exit: false,
+        };
+        let aux_exit = mm1_proto_system::Exited {
+            peer:        aux,
+            normal_exit: true,
+        };
+
+        assert!(init_should_stop(&main_exit, main));
+        assert!(!init_should_stop(&aux_exit, main));
     }
 }
