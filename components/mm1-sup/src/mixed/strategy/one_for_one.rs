@@ -175,9 +175,17 @@ where
             ChildType::Temporary => true,
         };
         match (state.status, is_acceptable) {
-            (Status::Terminating { address }, _) | (Status::Running { address }, true) => {
+            (Status::Terminating { address }, _) => {
                 assert_eq!(address, reported_addr);
+                // Deliberate stop: the target was already set to Stopped/Removed.
                 state.status = Status::Stopped;
+            },
+            (Status::Running { address }, true) => {
+                assert_eq!(address, reported_addr);
+                // Acceptable exit (a Temporary child, or a Transient child
+                // exiting normally): do not restart — leave the child stopped.
+                state.status = Status::Stopped;
+                state.target = Target::Stopped;
             },
             (Status::Running { address }, false) => {
                 assert_eq!(address, reported_addr);
