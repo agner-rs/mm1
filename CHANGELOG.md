@@ -9,6 +9,42 @@ plain bug fixes ship as `0.7.PATCH`.
 
 ## [Unreleased]
 
+## [0.7.23] - 2026-07-02
+
+Bug-fix release: two critical fixes plus a batch of isolated fixes. No breaking
+API changes.
+
+### Fixed
+- **Critical:** the mixed supervisor no longer restarts a `Temporary` child (any
+  exit) or a `Transient` child (normal exit); such children are left stopped.
+- **Critical:** `mm1_common::serde::binary::from_hex` decodes correctly (the
+  length check was inverted, rejecting valid input and panicking on odd input).
+- `NetMask` deserialization now rejects out-of-range masks instead of accepting
+  them and panicking later — including over the wire via `NetAddress`.
+- The address pool coalesces free space across its internal tries, so a lease no
+  longer fails while the space is entirely free.
+- The init actor only shuts the node down on the *main* actor's exit; an
+  auxiliary service exiting is logged and ignored.
+- The name service enforces registration expiry: a dead exclusive owner no
+  longer blocks its name, and expired entries are swept on registration.
+- `MeasuredFuture` now records a non-zero `wait_time` (its `last_poll` was never
+  written).
+
+### Changed
+- The address-range `Ord` invariant (`lo <= hi`) is enforced at construction and
+  documented; the assert was removed from the hot comparison path.
+- Removed the dead `#[derive(Traversable)]` proc-macro (it never compiled and had
+  no users).
+
+### Behavior changes to note
+- **Logging:** an empty `log_target_filter` now defers to `min_log_level` instead
+  of dropping every event, a target statement now applies to child targets
+  (`a=debug` covers `a::b`), and `LogTargetConfig` round-trips (its `Display` used
+  `*` instead of `::`). Configs that worked around the old behavior may now log
+  more than before.
+- **Addresses:** an invalid net-mask on a wire message is now rejected at
+  deserialize time rather than surfacing as a later panic.
+
 ## [0.7.22] - 2026-07-02
 
 This is the first release with a curated changelog. It groups the repository's
