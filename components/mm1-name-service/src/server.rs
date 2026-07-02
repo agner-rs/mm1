@@ -236,3 +236,70 @@ impl State {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::*;
+
+    // Regression test for #142: an expired exclusive owner must not block a new
+    // registration of the same name from a different address.
+    #[tokio::test(start_paused = true)]
+    async fn expired_exclusive_owner_does_not_block_reregistration() {
+        let mut state = State::default();
+        let ttl = Duration::from_secs(1);
+        let addr1 = Address::from_u64(1);
+        let addr2 = Address::from_u64(2);
+
+        state
+            .register("x".into(), addr1, true, Instant::now() + ttl)
+            .expect("first registration");
+
+        tokio::time::advance(Duration::from_secs(2)).await;
+
+        assert!(
+            state
+                .register("x".into(), addr2, true, Instant::now() + ttl)
+                .is_ok(),
+            "an expired exclusive owner should not block re-registration"
+        );
+    }
+
+    // Regression test for #142: expired entries must be cleaned up (bounded
+    // growth), not kept until someone happens to resolve them.
+    #[tokio::test(start_paused = true)]
+    async fn register_sweeps_expired_entries() {
+        let mut state = State::default();
+        let ttl = Duration::from_secs(1);
+
+        for i in 0..5u64 {
+            state
+                .register(
+                    format!("k{i}").into(),
+                    Address::from_u64(i),
+                    true,
+                    Instant::now() + ttl,
+                )
+                .expect("registration");
+        }
+        assert_eq!(state.names.len(), 5);
+
+        tokio::time::advance(Duration::from_secs(2)).await;
+
+        state
+            .register(
+                "fresh".into(),
+                Address::from_u64(100),
+                true,
+                Instant::now() + ttl,
+            )
+            .expect("registration");
+
+        assert_eq!(
+            state.names.len(),
+            1,
+            "expired entries should be swept on registration"
+        );
+    }
+}
