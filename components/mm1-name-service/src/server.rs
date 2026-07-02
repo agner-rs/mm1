@@ -132,6 +132,20 @@ impl State {
         }
     }
 
+    /// Remove every registration whose `valid_thru` is at or before `now`.
+    /// Keeps `names` bounded and lets an expired name be taken over.
+    fn sweep_expired(&mut self, now: Instant) {
+        self.names.retain(|_key, name| {
+            match name {
+                Name::Exclusive { registration, .. } => registration.valid_thru > now,
+                Name::Shared(registrations) => {
+                    registrations.retain(|_addr, r| r.valid_thru > now);
+                    !registrations.is_empty()
+                },
+            }
+        });
+    }
+
     fn register(
         &mut self,
         key: Arc<str>,
@@ -139,6 +153,8 @@ impl State {
         exclusive: bool,
         valid_thru: Instant,
     ) -> Result<(), RegisterErrorKind> {
+        self.sweep_expired(Instant::now());
+
         let registration = Registration { valid_thru };
         match (exclusive, self.names.entry(key.clone())) {
             (true, Vacant(v)) => {
