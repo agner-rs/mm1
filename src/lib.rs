@@ -88,6 +88,8 @@ pub mod address {
 }
 
 pub mod common {
+    //! Cross-cutting utilities: error handling, logging, future adapters, serde
+    //! helpers, and metrics.
 
     /// A helper to define an error-kind enum
     pub use mm1_common::impl_error_kind;
@@ -182,6 +184,8 @@ pub mod core {
 
 #[cfg(feature = "ask")]
 pub mod ask {
+    //! The ask pattern: send a request and await a typed response.
+
     pub use mm1_ask::{Ask, AskErrorKind, Reply};
 
     pub mod proto {
@@ -276,6 +280,8 @@ pub mod sup {
 
 #[cfg(feature = "runtime")]
 pub mod runtime {
+    //! The node runtime: build a node from config and run actors on it.
+
     pub use mm1_node::config;
     pub use mm1_node::runtime::{ActorContext, Local, Rt};
 }
@@ -299,11 +305,15 @@ pub mod name_service {
 
 #[cfg(feature = "timer")]
 pub mod timer {
+    //! Timers: schedule messages to be delivered later.
+
     pub use mm1_timer::v1;
 }
 
 #[cfg(feature = "multinode")]
 pub mod multinode {
+    //! Multi-node messaging: connect nodes and route messages between them.
+
     pub mod proto {
         pub use mm1_proto_network_management::protocols::{
             RegisterProtocolRequest, RegisterProtocolResponse,
