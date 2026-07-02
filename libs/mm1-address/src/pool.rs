@@ -95,3 +95,35 @@ impl Drop for Lease {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn mask(bits: u8) -> NetMask {
+        NetMask::try_from(bits).expect("valid mask")
+    }
+
+    // Regression test for #147: freeing one half of a block must not strand the
+    // other half in a different trie. A lease that needs the whole block must
+    // still succeed after the two halves are freed to different tries.
+    #[test]
+    fn lease_reuses_coalesced_halves() {
+        // A /63 pool holds exactly two /64 addresses.
+        let pool = Pool::new(NetAddress {
+            address: Address::from_u64(0),
+            mask:    mask(63),
+        });
+
+        // Take one /64 (leaves the sibling in `main`), then free it (to `used`).
+        let leased = pool.lease(mask(64)).expect("first /64");
+        drop(leased);
+
+        // The two /64 halves are now split across `main` and `used`; a /63 needs
+        // both, so it must coalesce them.
+        assert!(
+            pool.lease(mask(63)).is_ok(),
+            "a /63 lease should reuse the two freed /64 halves"
+        );
+    }
+}
