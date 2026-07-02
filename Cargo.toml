@@ -14,7 +14,9 @@ publish.workspace = true
 default = ["ask", "runtime", "server", "sup", "timer", "multinode"]
 
 ask = ["dep:mm1-ask", "dep:mm1-proto-ask"]
-multinode = ["mm1-node/multinode", "dep:mm1-multinode", "dep:mm1-proto-network-management", "dep:mm1-proto-well-known"]
+logger = ["dep:mm1-logger"]
+multinode = ["runtime", "mm1-node/multinode", "dep:mm1-multinode", "dep:mm1-proto-network-management", "dep:mm1-proto-well-known"]
+name-service = ["dep:mm1-name-service", "dep:mm1-proto-named"]
 runtime = ["dep:mm1-node"]
 server = ["dep:mm1-server"]
 sup = ["dep:mm1-sup", "dep:mm1-proto-sup"]
@@ -26,10 +28,13 @@ mm1-address = { workspace = true}
 mm1-ask = { workspace = true, optional = true }
 mm1-common = { workspace = true, features = ["futures"] }
 mm1-core = { workspace = true }
+mm1-logger = { workspace = true, optional = true }
 mm1-multinode = { workspace = true, optional = true }
+mm1-name-service = { workspace = true, optional = true }
 mm1-node = { workspace = true, optional = true }
 mm1-proto = { workspace = true }
 mm1-proto-ask = { workspace = true, optional = true }
+mm1-proto-named = { workspace = true, optional = true }
 mm1-proto-network-management = { workspace = true, optional = true }
 mm1-proto-system = { workspace = true }
 mm1-proto-sup = { workspace = true, optional = true }
