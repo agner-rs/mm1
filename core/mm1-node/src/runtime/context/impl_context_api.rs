@@ -76,8 +76,12 @@ impl Fork for ActorContext {
         let fork_address = fork_lease.address;
         trace!(parent = %this_address, child = %fork_address, "forking");
 
-        call.invoke(SysCall::ForkAdded(fork_address)).await;
-
+        // Build the fork context now, before the await below. If this future is
+        // dropped at the `ForkAdded` await (e.g. a caller wraps `fork()` in a
+        // timeout or `select!`), the context's `Drop` runs: it undoes the
+        // fork-entry insert and hands the lease back via `ForkDone`, so a
+        // cancelled fork leaks neither the fork entry nor the container's job
+        // entry (#132).
         let context = Self {
             subnet_context: subnet_context.clone(),
             fork_address,
@@ -85,6 +89,8 @@ impl Fork for ActorContext {
             ack_to: None,
             call: call.clone(),
         };
+
+        call.invoke(SysCall::ForkAdded(fork_address)).await;
 
         Ok(context)
     }
