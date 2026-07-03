@@ -5,7 +5,7 @@ use mm1_address::address::Address;
 use mm1_common::errors::error_kind::ErrorKind;
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::futures::timeout::FutureTimeoutExt;
-use mm1_common::log::{Instrument, warn};
+use mm1_common::log::{Instrument, trace};
 use mm1_common::metrics::MeasuredFutureExt;
 use mm1_common::{impl_error_kind, make_metrics};
 use mm1_core::context::{Fork, ForkErrorKind, Messaging, RecvErrorKind, SendErrorKind};
@@ -157,40 +157,72 @@ where
     Response<Rs>: Message,
 {
     let reply_to = ctx.address();
-    let request_header = RequestHeader {
-        id: REQUEST_ID.fetch_add(1, AtomicOrdering::Relaxed),
-        reply_to,
-    };
+    let request_id = REQUEST_ID.fetch_add(1, AtomicOrdering::Relaxed);
     let request_message = Request {
-        header:  request_header,
+        header:  RequestHeader {
+            id: request_id,
+            reply_to,
+        },
         payload: request,
     };
-    let request_header = EnvelopeHeader::to_address(server);
-    let request_envelope = Envelope::new(request_header, request_message);
+    let request_envelope = Envelope::new(EnvelopeHeader::to_address(server), request_message);
     let () = ctx
         .send(request_envelope.into_erased())
         .await
         .map_err(into_ask_error)?;
-    let response_envelope: Envelope<Response<Rs>> = ctx
-        .recv()
+
+    // Messages that are not our response are set aside and put back on the
+    // mailbox afterwards, so an in-flight ask never destroys an unrelated
+    // message (#136). This lives outside the timed loop, so a timeout keeps
+    // them too.
+    let mut bystanders: Vec<Envelope> = Vec::new();
+
+    let outcome = {
+        let ctx = &mut *ctx;
+        let bystanders = &mut bystanders;
+        async move {
+            loop {
+                let envelope = ctx.recv().await.map_err(into_ask_error)?;
+                match envelope.cast::<Response<Rs>>() {
+                    Ok(response_envelope) => {
+                        let (
+                            Response {
+                                header: ResponseHeader { id },
+                                payload,
+                            },
+                            _empty,
+                        ) = response_envelope.take();
+                        if id == request_id {
+                            return Ok(payload)
+                        }
+                        // A response to an earlier, already-abandoned request:
+                        // drop it so it is never returned as this ask's answer.
+                        trace!(got = id, want = request_id, "discarding stale response");
+                    },
+                    Err(other) => {
+                        // Not our response — an unrelated message. Keep it to put
+                        // back for the actor's normal receive loop.
+                        bystanders.push(other);
+                    },
+                }
+            }
+        }
         .timeout(timeout)
         .await
-        .map_err(|_elapsed| ErrorOf::new(AskErrorKind::Timeout, "timed out waiting for response"))?
-        .map_err(into_ask_error)?
-        .cast()
-        .map_err(|envelope| {
-            warn!(
-                expected = %std::any::type_name::<Response<Rs>>(),
-                actual = %envelope.message_name(),
-                "invalid cast"
-            );
-            ErrorOf::new(AskErrorKind::Cast, "unexpected response type")
-        })?;
-    let (response_message, _empty_envelope) = response_envelope.take();
-    let Response {
-        header: _,
-        payload: response,
-    } = response_message;
+    };
 
-    Ok(response)
+    // Put unrelated messages back, whether the ask succeeded or timed out.
+    for bystander in bystanders.drain(..) {
+        let _ = ctx.forward(reply_to, bystander).await;
+    }
+
+    match outcome {
+        Ok(result) => result,
+        Err(_elapsed) => {
+            Err(ErrorOf::new(
+                AskErrorKind::Timeout,
+                "timed out waiting for response",
+            ))
+        },
+    }
 }
