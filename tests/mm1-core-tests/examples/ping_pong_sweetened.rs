@@ -50,6 +50,7 @@ pub mod ping_pong {
                         .expect("Heute leider nicht");
                     true
                 },
+                unexpected @ _ => panic!("unexpected message: {unexpected:?}"),
             });
 
             if !keep_running {

@@ -138,14 +138,20 @@ where
             }
         };
         let received = async {
-            match ctx.recv().await {
-                Ok(envelope) => {
-                    dispatch!(match envelope {
-                        msg @ Request::<proto::ScheduleOneshotAt> { .. } => Event::Schedule(msg),
-                        msg @ Request::<proto::CancelOneshot> { .. } => Event::Cancel(msg),
-                    })
-                },
-                Err(reason) => Event::RecvError(reason),
+            loop {
+                let envelope = match ctx.recv().await {
+                    Ok(envelope) => envelope,
+                    Err(reason) => break Event::RecvError(reason),
+                };
+                // An unexpected message type is logged and dropped by `dispatch!`
+                // (it is no longer a panic); keep waiting for one this timer
+                // actually handles.
+                dispatch!(match envelope {
+                    msg @ Request::<proto::ScheduleOneshotAt> { .. } => {
+                        break Event::Schedule(msg)
+                    },
+                    msg @ Request::<proto::CancelOneshot> { .. } => break Event::Cancel(msg),
+                });
             }
         };
 

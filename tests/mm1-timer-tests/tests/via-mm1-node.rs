@@ -40,6 +40,7 @@ where
         let envelope = ctx.recv().await.unwrap();
         let d = dispatch!(match envelope {
             d @ Duration { .. } => d,
+            unexpected @ _ => panic!("unexpected message: {unexpected:?}"),
         });
         log::info!(d = ?d, "TICK");
 

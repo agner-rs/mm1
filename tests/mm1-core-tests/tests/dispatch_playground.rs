@@ -276,5 +276,6 @@ fn dispatch(inbound: Envelope) -> usize {
         } if *forward_to == ADDR => 13,
         Forward::<Ping> { .. } => 14,
         Forward::<Pong> { .. } => 15,
+        unexpected @ _ => panic!("unexpected message: {unexpected:?}"),
     })
 }

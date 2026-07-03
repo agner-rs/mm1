@@ -103,6 +103,7 @@ fn child_actor_panics() {
 
         let _ = dispatch!(match ctx.recv().await.expect("ctx.recv") {
             exited @ Exited { .. } => tx.send(exited),
+            unexpected @ _ => panic!("unexpected message: {unexpected:?}"),
         });
     }
     async fn child<C>(_ctx: &mut C) {
@@ -135,6 +136,7 @@ fn child_actors_fork_panics() {
 
         let _ = dispatch!(match ctx.recv().await.expect("ctx.recv") {
             exited @ Exited { .. } => tx.send(exited),
+            unexpected @ _ => panic!("unexpected message: {unexpected:?}"),
         });
     }
     async fn child<C>(ctx: &mut C) -> Never
@@ -207,6 +209,7 @@ fn message_is_sent_and_received() {
 
         let reply_to = dispatch!(match ctx.recv().await.expect("recv") {
             Request { reply_to } => reply_to,
+            unexpected @ _ => panic!("unexpected message: {unexpected:?}"),
         });
         let _ = ctx.tell(reply_to, Response).await;
     }
@@ -237,6 +240,7 @@ fn child_actor_force_exit_with_trapexit() {
 
         let _ = dispatch!(match ctx.recv().await.expect("ctx.recv") {
             exited @ Exited { peer, .. } if *peer == child_addr => tx.send(exited),
+            unexpected @ _ => panic!("unexpected message: {unexpected:?}"),
         });
     }
     async fn child<C>(ctx: &mut C)

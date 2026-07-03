@@ -101,6 +101,7 @@ where
 
     let main_address = dispatch!(match ctx.recv().await.expect("no message") {
         ImMain { address } => address,
+        unexpected @ _ => panic!("unexpected message: {unexpected:?}"),
     });
     log::info!(to = %main_address, "Sending StopRequest");
     let _ = ctx.kill(main_address).await;

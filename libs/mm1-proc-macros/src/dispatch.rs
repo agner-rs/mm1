@@ -13,13 +13,13 @@ pub(crate) fn dispatch(input: TokenStream) -> TokenStream {
 
         let expr_var_name = Ident::new("__expr", Span::mixed_site());
 
+        // Fallback for a message no arm matched: log it and drop it (evaluates
+        // to `()`), instead of panicking and killing the actor (#134). A
+        // `dispatch!` used in value position must therefore supply its own
+        // catch-all arm.
         let match_tree = arms.iter().rev().fold(
             quote! {
-                panic!(
-                    "unhandled message: header: {:?}, type {}",
-                    #expr_var_name.header(),
-                    #expr_var_name.message_name()
-                )
+                #expr_var_name.log_unhandled()
             },
             |or_else, arm| dispatch_arm(&expr_var_name, arm, or_else),
         );

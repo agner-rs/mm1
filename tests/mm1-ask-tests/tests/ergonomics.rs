@@ -143,6 +143,7 @@ where
     while let Ok(envelope) = ctx.recv().await {
         let (header, Rq { .. }) = dispatch!(match envelope {
             Request::<Rq> { header, payload } => (header, payload),
+            unexpected @ _ => panic!("unexpected message: {unexpected:?}"),
         });
         let () = ctx.reply(header, Rs).await.unwrap();
     }

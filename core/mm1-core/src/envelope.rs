@@ -132,6 +132,24 @@ impl Envelope<AnyMessage> {
     pub fn message_name(&self) -> &str {
         self.message.type_name()
     }
+
+    /// Log an unmatched message and drop it.
+    ///
+    /// The `dispatch!` macro calls this for a message that no arm matched when
+    /// the `match` has no catch-all arm. The message is logged at `WARN` (with
+    /// its header and type name) and dropped — mirroring the fire-and-forget
+    /// semantics elsewhere in the runtime, so an unexpected message from any
+    /// peer no longer panics and kills the actor.
+    ///
+    /// A `dispatch!` used in value position must supply its own catch-all arm,
+    /// because this fallback evaluates to `()`.
+    pub fn log_unhandled(&self) {
+        ::tracing::warn!(
+            header = ?self.header(),
+            message = self.message_name(),
+            "dispatch!: dropping unhandled message"
+        );
+    }
 }
 impl<M> Envelope<M> {
     pub fn take(self) -> (M, Envelope<()>) {
