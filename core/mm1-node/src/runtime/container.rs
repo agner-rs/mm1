@@ -365,10 +365,16 @@ impl Container {
                             let JobEntry {
                                 linked_to,
                                 watched_by,
-                                ..
+                                watches,
                             } = job_entries
                                 .remove(&fork_address.address)
                                 .expect("unknown fork");
+                            unwatch_targets(
+                                &rt_api,
+                                &mut taken_watch_refs,
+                                fork_address.address,
+                                watches,
+                            );
                             for peer in linked_to {
                                 let _ = rt_api.sys_send(
                                     peer,
@@ -725,10 +731,16 @@ impl Container {
                         let JobEntry {
                             linked_to,
                             watched_by,
-                            ..
+                            watches,
                         } = job_entries
                             .remove(&fork_lease.address)
                             .unwrap_or_else(|| panic!("unknown fork: {}", fork_lease.address));
+                        unwatch_targets(
+                            &rt_api,
+                            &mut taken_watch_refs,
+                            fork_lease.address,
+                            watches,
+                        );
                         for peer in linked_to {
                             let msg = sys_link_exit_message(
                                 exit_reason.is_ok(),
@@ -775,6 +787,13 @@ impl Container {
             .remove(&main_fork_address)
             .expect("main job-entry is gone somewhere");
 
+        unwatch_targets(
+            &rt_api,
+            &mut taken_watch_refs,
+            main_fork_address,
+            job_entry.watches,
+        );
+
         trace!(
             linked_count = %job_entry.linked_to.len(),
             "sending Exit to the linked actors"
@@ -812,6 +831,30 @@ impl Container {
         trace!("done");
 
         Ok(exit_reason)
+    }
+}
+
+/// Tear down the outstanding watches of a fork/actor that is exiting: send each
+/// watched target a `SysWatch::Unwatch` (as an explicit `unwatch()` would) and
+/// drop the refs from `taken_watch_refs`. Without this a dead watcher's entries
+/// linger in every target's `watched_by` and in `taken_watch_refs` forever, and
+/// the target later delivers a stray `Down` to the recycled address (#129).
+fn unwatch_targets(
+    rt_api: &RtApi,
+    taken_watch_refs: &mut HashMap<system::WatchRef, Address>,
+    watcher: Address,
+    watches: BTreeSet<(Address, system::WatchRef)>,
+) {
+    for (target, watch_ref) in watches {
+        taken_watch_refs.remove(&watch_ref);
+        let _ = rt_api.sys_send(
+            target,
+            SysMsg::Watch(SysWatch::Unwatch {
+                sender: watcher,
+                receiver: target,
+                watch_ref,
+            }),
+        );
     }
 }
 
