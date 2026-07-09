@@ -375,14 +375,17 @@ impl Container {
                                 fork_address.address,
                                 watches,
                             );
+                            // A fork ending while its actor lives is a normal end:
+                            // notify trapping linked peers with
+                            // `Exited { normal_exit: true }`, mirroring the `Down`
+                            // watchers get below and the actor-exit epilogue (an
+                            // untrapped peer treats `Exit{Normal}` like a plain
+                            // disconnect) (#149). An abnormal end can only come from
+                            // the actor itself crashing, which the epilogue handles
+                            // with `normal_exit: false`.
                             for peer in linked_to {
-                                let _ = rt_api.sys_send(
-                                    peer,
-                                    SysMsg::Link(SysLink::Disconnect {
-                                        sender:   fork_address.address,
-                                        receiver: peer,
-                                    }),
-                                );
+                                let msg = sys_link_exit_message(true, fork_address.address, peer);
+                                let _ = rt_api.sys_send(peer, msg);
                             }
                             for peer in watched_by.into_iter().map(|(peer, _)| peer).filter_map({
                                 let mut prev = None;

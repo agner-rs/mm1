@@ -540,6 +540,11 @@ async fn do_start(
 
     dispatch!(match envelope {
         sys::InitAck { address } => {
+            // The child was linked to this transient start-fork only to observe
+            // an early death (before the init-ack). Drop that link now, before
+            // the fork ends, so the fork's exit does not deliver a spurious
+            // `Exited` to the now-started child (#149).
+            do_unlink(&mut fork, fork_address, address).await;
             if link {
                 do_link(context, this_address, address).await;
             }
