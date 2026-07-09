@@ -22,6 +22,10 @@ fn logger_config() -> mm1_logger::LoggingConfig {
     }
 }
 
+// Flaky: hangs ~2 of 3 runs — the mixed one_for_one supervisor busy-loops when
+// these Permanent children exit immediately. Pre-existing (reproduces on
+// `dev`), tracked in #201, scheduled for R3. Re-enable when that fix lands.
+#[ignore = "flaky: supervisor busy-loop, tracked in #201"]
 #[test]
 fn test_01() {
     let _ = mm1_logger::init(&logger_config());

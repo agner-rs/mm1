@@ -1,0 +1,8 @@
+# cargo-nextest configuration.
+#
+# Fail a hung test fast instead of letting it run to the CI job's default 6h
+# limit. Tests here finish in well under a second; anything still running after
+# two minutes is stuck, so terminate it and report a timeout. See #201 for the
+# known mixed-supervisor busy-loop this guards against.
+[profile.default]
+slow-timeout = { period = "60s", terminate-after = 2 }
