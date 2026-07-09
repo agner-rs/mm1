@@ -3,8 +3,9 @@
 [advisories]
 # Fail on security advisories and on yanked crates in the lockfile.
 yanked = "deny"
-# Tolerated advisories (each with a justification). These are "unmaintained"
-# informational advisories, not vulnerabilities, and have no drop-in fix today.
+# Tolerated advisories (each with a justification). These are informational
+# ("unmaintained") advisories or ones whose unsound path we cannot reach; none
+# is an exploitable vulnerability here, and none has a drop-in fix today.
 ignore = [
     # bincode 2.x is the multinode wire codec; no drop-in replacement. Revisit
     # with the wire-format work (see issues #153 / #156).
@@ -12,6 +13,12 @@ ignore = [
     # paste is pulled transitively by rmp (MessagePack). Drops out when
     # rmp/rmp-serde move off it.
     "RUSTSEC-2024-0436",
+    # scc 2.x TreeIndex: this unsound path (a double-free if the key comparator
+    # panics) cannot happen here. The only TreeIndex we build is keyed by
+    # AddressRange, whose Ord never panics (hardened in #148). The fix is scc
+    # 3.x, which changes the TreeIndex API; that migration is a separate
+    # follow-up.
+    "RUSTSEC-2026-0205",
 ]
 
 [licenses]
