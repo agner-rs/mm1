@@ -9,6 +9,36 @@ plain bug fixes ship as `0.7.PATCH`.
 
 ## [Unreleased]
 
+## [0.7.24] - 2026-07-09
+
+Core-runtime robustness. Bug fixes only; no breaking API changes.
+
+### Fixed
+- `dispatch!` no longer panics on a message that no arm matched. Any peer that
+  learns an address could previously crash an actor that lacked a catch-all;
+  the unmatched message is now logged and dropped.
+- `mm1-ask` checks the response id, so a late reply to a timed-out `ask` is never
+  returned as the answer to a later `ask`; and a message that is not the response
+  is put back for the actor's normal receive loop instead of being destroyed.
+- `ctx.fork()` is cancellation-safe: a `fork()` future dropped at its await (e.g.
+  in a `timeout` or `select!`) no longer leaks a fork entry, and a later fork
+  that reuses the address no longer panics.
+- A fork's or actor's outstanding watches are torn down when it exits: the
+  watched targets are sent `Unwatch`, so their `watched_by` no longer grows
+  without bound and they no longer send a stray `Down` to a recycled address.
+
+### Behavior changes to note
+- **`dispatch!`:** an unmatched message is now logged at `WARN` and dropped
+  rather than panicking. A `dispatch!` used in value position must supply its own
+  catch-all arm (the fallback now evaluates to `()`).
+- **`mm1-ask`:** an `ask` no longer fails when a non-response message arrives
+  while it waits; it keeps waiting until the deadline. A stale response for an
+  earlier, timed-out request is discarded rather than returned.
+- **Links:** a fork's normal end now delivers `Exited { normal_exit: true }` to a
+  *trapping* linked peer, matching the `Down` a watcher already receives (an
+  untrapped peer is unaffected). An abnormal end is still reported as
+  `normal_exit: false` by the actor-exit path.
+
 ## [0.7.23] - 2026-07-02
 
 Bug-fix release: two critical fixes plus a batch of isolated fixes. No breaking
