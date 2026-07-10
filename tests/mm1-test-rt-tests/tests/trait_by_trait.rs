@@ -543,6 +543,38 @@ async fn t_quit() {
 }
 
 #[tokio::test]
+async fn t_actor_return_error() {
+    let _ = mm1_logger::init(&logger_config());
+    time::pause();
+
+    let node_net = AddressPool::new("<ff:>/32".parse().unwrap());
+    let lease_a = node_net.lease(NetMask::M_48).unwrap();
+    let address_a = lease_a.address;
+    let rt = TestRuntime::<Runnable>::new();
+    rt.add_actor(address_a, Some(lease_a), actor).await.unwrap();
+
+    let quit = rt.expect_next_event().await.expect::<query::Quit>();
+    assert_eq!(quit.task_key.actor, address_a);
+    assert_eq!(quit.task_key.context, address_a);
+    assert!(
+        quit.result
+            .as_ref()
+            .unwrap_err()
+            .to_string()
+            .contains("actor failed")
+    );
+    quit.stop_tasks().await.unwrap();
+
+    let done = rt.expect_next_event().await.expect::<MainActorOutcome>();
+    assert_eq!(done.address, address_a);
+    done.remove_actor_entry().await.unwrap();
+
+    async fn actor<C>(_ctx: &mut C) -> Result<(), std::io::Error> {
+        Err(std::io::Error::other("actor failed"))
+    }
+}
+
+#[tokio::test]
 async fn t_watching() {
     let _ = mm1_logger::init(&logger_config());
     time::pause();
