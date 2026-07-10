@@ -49,6 +49,39 @@ async fn t_simplest() {
 }
 
 #[tokio::test]
+async fn t_standalone_context_queries_precede_empty_task_set() {
+    let _ = mm1_logger::init(&logger_config());
+    time::pause();
+
+    let node_net = AddressPool::new("<ff:>/32".parse().unwrap());
+    let address = node_net.lease(NetMask::M_48).unwrap().address;
+    let task_key = TaskKey::actor(address);
+    let rt = TestRuntime::<Runnable>::new();
+
+    assert!(matches!(
+        pin!(rt.next_event()).now_or_never().unwrap(),
+        Ok(None)
+    ));
+
+    // An empty FuturesUnordered is immediately ready with None. Exercise the
+    // competing ready query enough times that an unbiased select cannot hide
+    // the ordering bug as a one-off lucky choice.
+    for _ in 0..64 {
+        let mut context = rt.new_context(task_key, None);
+        let mut init_done = pin!(context.init_done(address));
+        assert!(init_done.as_mut().now_or_never().is_none());
+
+        let event = rt
+            .next_event()
+            .await
+            .unwrap()
+            .expect("queued standalone query must precede an empty task set");
+        event.convert::<query::InitDone>().unwrap().resolve(());
+        init_done.await;
+    }
+}
+
+#[tokio::test]
 async fn t_spawn() {
     let _ = mm1_logger::init(&logger_config());
     time::pause();
