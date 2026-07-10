@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 
 use mm1_address::subnet::NetMask;
 
@@ -54,9 +54,23 @@ impl ActorConfigNode {
 
     pub(crate) fn ensure_runtime_keys_are_valid(
         &self,
-        available_keys: &HashSet<&str>,
+        available_keys: &BTreeSet<&str>,
     ) -> Result<(), String> {
-        let mut used_keys = HashSet::<&str>::new();
+        let used_keys = self.runtime_keys();
+
+        let invalid_keys = used_keys
+            .difference(available_keys)
+            .copied()
+            .collect::<Vec<_>>();
+        if invalid_keys.is_empty() {
+            Ok(())
+        } else {
+            Err(format!("invalid rt-keys: {invalid_keys:?}"))
+        }
+    }
+
+    pub(crate) fn runtime_keys(&self) -> BTreeSet<&str> {
+        let mut used_keys = BTreeSet::<&str>::new();
 
         let mut q = vec![self];
         while let Some(n) = q.pop() {
@@ -66,12 +80,7 @@ impl ActorConfigNode {
             q.extend(n.sub.values());
         }
 
-        let invalid_keys = used_keys.difference(available_keys).collect::<Vec<_>>();
-        if invalid_keys.is_empty() {
-            Ok(())
-        } else {
-            Err(format!("invalid rt-keys: {invalid_keys:?}"))
-        }
+        used_keys
     }
 }
 

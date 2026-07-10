@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::time::Duration;
 
 use tokio::runtime::{Builder, Runtime};
@@ -49,6 +49,27 @@ impl RtConfigs {
 
     pub(crate) fn runtime_keys(&self) -> impl Iterator<Item = &str> {
         self.named.keys().map(String::as_str)
+    }
+
+    pub(crate) fn time_driver_validation_errors(
+        &self,
+        used_runtime_keys: &BTreeSet<&str>,
+    ) -> Vec<String> {
+        let mut errors = Vec::new();
+
+        if self.default.as_ref().is_some_and(|c| !c.enable_time) {
+            errors.push("runtime `default` must have `enable_time: true`".into());
+        }
+
+        for &name in used_runtime_keys {
+            if self.named.get(name).is_some_and(|c| !c.enable_time) {
+                errors.push(format!(
+                    "runtime `{name}` selected by actor config must have `enable_time: true`"
+                ));
+            }
+        }
+
+        errors
     }
 }
 

@@ -26,12 +26,17 @@ impl TryFrom<Mm1NodeConfig> for Valid<Mm1NodeConfig> {
     type Error = ValidationError<Mm1NodeConfig>;
 
     fn try_from(node_config: Mm1NodeConfig) -> Result<Self, Self::Error> {
+        let used_runtime_keys = node_config.actor.runtime_keys();
         let runtime_keys = node_config.runtime.runtime_keys().collect();
 
         let runtime_keys_validation_error_opt = node_config
             .actor
             .ensure_runtime_keys_are_valid(&runtime_keys)
             .err();
+
+        let runtime_time_validation_errors = node_config
+            .runtime
+            .time_driver_validation_errors(&used_runtime_keys);
 
         let exactly_one_auto_network_error_opt = (node_config
             .local_subnets
@@ -60,6 +65,7 @@ impl TryFrom<Mm1NodeConfig> for Valid<Mm1NodeConfig> {
 
         let errors = runtime_keys_validation_error_opt
             .into_iter()
+            .chain(runtime_time_validation_errors)
             .chain(exactly_one_auto_network_error_opt)
             .chain(overlapping_local_nets)
             .collect::<Vec<_>>();
