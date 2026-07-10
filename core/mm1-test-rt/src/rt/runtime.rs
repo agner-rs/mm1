@@ -101,6 +101,17 @@ impl<R> TestRuntime<R> {
             queries_rx, tasks, ..
         } = &mut *shared;
 
+        if tasks.is_empty() {
+            let event_opt = queries_rx.try_recv().ok().map(|query| {
+                Event {
+                    runtime,
+                    kind: EventKind::Query(query),
+                }
+            });
+            drop(shared);
+            return Ok(event_opt)
+        }
+
         let next_query = queries_rx.recv();
         let task_done = tasks.next();
 
