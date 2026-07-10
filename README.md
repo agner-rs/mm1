@@ -54,11 +54,9 @@ loop {
         Ping { reply_to, seq } => {
             ctx.tell(reply_to, Pong { seq }).await.ok();
         }
-        // `dispatch!` requires a catch-all today, otherwise an unexpected
-        // message panics the actor.
-        other @ _ => {
-            // handle or ignore
-        }
+        // A catch-all is optional. Without one, `dispatch!` logs an unexpected
+        // message at WARN and drops it.
+        _ => {}
     });
 }
 ```

@@ -18,9 +18,24 @@ pub fn message(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// envelope's message against each arm's message type in order and runs the
 /// body of the first that matches.
 ///
+/// # Supported patterns
+///
+/// Typed arms support unit-struct paths, tuple-struct patterns, struct
+/// patterns, and bindings such as `message @ Foo { .. }`. Guards are supported
+/// on typed arms, but they inspect the message before the envelope is consumed.
+/// Their bindings are therefore borrowed: for example, write
+/// `Ping { seq } if *seq > 10` when `seq` is a `u64`.
+///
+/// Use `_` to ignore every remaining message, or `message @ _` to bind the
+/// catch-all message. Catch-all arms cannot have guards; put the condition in
+/// the arm body instead. A bare lowercase identifier is rejected as ambiguous
+/// with the unit-struct pattern syntax, so binding catch-alls must use
+/// `message @ _`.
+///
 /// # Unmatched messages
 ///
-/// If no arm matches and there is no catch-all arm (e.g. `other @ _ => ..`),
+/// If no arm matches and there is no catch-all arm (e.g. `_ => ..` or
+/// `other @ _ => ..`),
 /// the message is **logged at `WARN` and dropped** (via
 /// `Envelope::log_unhandled`); the actor is not crashed. This mirrors the
 /// fire-and-forget semantics elsewhere in the runtime — any peer that learns an
