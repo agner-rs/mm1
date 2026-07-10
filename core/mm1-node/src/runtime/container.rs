@@ -66,6 +66,11 @@ struct JobEntry {
     watched_by: BTreeSet<(Address, system::WatchRef)>,
 }
 
+struct TakenWatch {
+    owner:  Address,
+    target: Address,
+}
+
 #[derive(Debug, thiserror::Error)]
 #[error("killed")]
 struct Killed;
@@ -192,7 +197,7 @@ impl Container {
         let (call_tx, call_rx) = sys_call::create();
 
         let mut next_watch_ref: u64 = 0;
-        let mut taken_watch_refs: HashMap<system::WatchRef, Address> = Default::default();
+        let mut taken_watch_refs: HashMap<system::WatchRef, TakenWatch> = Default::default();
 
         let linked_to: HashSet<_> = link_to.into_iter().collect();
         {
@@ -572,7 +577,10 @@ impl Container {
                                 let watch_ref = system::WatchRef::from_u64(candidate);
 
                                 if let HMEntry::Vacant(vacant) = taken_watch_refs.entry(watch_ref) {
-                                    vacant.insert(receiver);
+                                    vacant.insert(TakenWatch {
+                                        owner:  sender,
+                                        target: receiver,
+                                    });
                                     break watch_ref
                                 }
                             };
@@ -606,19 +614,20 @@ impl Container {
                             let _ = reply_tx.send(watch_ref);
                         },
 
-                        (_, Either::Right(SysCall::Unwatch { sender, watch_ref })) => {
-                            let job_entry = job_entries
-                                .get_mut(&sender)
-                                .expect("no job entry for this caller");
-
-                            if let Some(receiver) = taken_watch_refs.remove(&watch_ref) {
-                                job_entry.watches.remove(&(receiver, watch_ref));
+                        (_, Either::Right(SysCall::Unwatch { watch_ref, .. })) => {
+                            if let Some(TakenWatch { owner, target }) =
+                                taken_watch_refs.remove(&watch_ref)
+                            {
+                                let job_entry = job_entries
+                                    .get_mut(&owner)
+                                    .expect("no job entry for this watch owner");
+                                job_entry.watches.remove(&(target, watch_ref));
 
                                 let _ = rt_api.sys_send(
-                                    receiver,
+                                    target,
                                     SysMsg::Watch(SysWatch::Unwatch {
-                                        sender,
-                                        receiver,
+                                        sender: owner,
+                                        receiver: target,
                                         watch_ref,
                                     }),
                                 );
@@ -861,7 +870,7 @@ impl Container {
 /// the target later delivers a stray `Down` to the recycled address (#129).
 fn unwatch_targets(
     rt_api: &RtApi,
-    taken_watch_refs: &mut HashMap<system::WatchRef, Address>,
+    taken_watch_refs: &mut HashMap<system::WatchRef, TakenWatch>,
     watcher: Address,
     watches: BTreeSet<(Address, system::WatchRef)>,
 ) {
