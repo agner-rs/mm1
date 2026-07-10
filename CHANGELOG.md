@@ -9,6 +9,21 @@ plain bug fixes ship as `0.7.PATCH`.
 
 ## [Unreleased]
 
+## [0.7.25] - 2026-07-10
+
+Supervisor robustness. Bug fixes only; no breaking API changes.
+
+### Fixed
+- The mixed supervisor no longer crashes when its own inbox is full: child
+  reports (`Started` / `StartFailed` / `StopFailed`) are sent on the priority
+  lane instead of a regular send that could return `Full` and panic the
+  supervisor.
+- The uniform supervisor's child-start report is likewise sent on the priority
+  lane, so a full supervisor inbox can no longer drop it and strand a started
+  child (which previously drove the supervisor to give up on live children).
+- A uniform-supervisor child that fails to start no longer leaks its `Starting`
+  slot: the failed start is reported and the slot is dropped.
+
 ## [0.7.24] - 2026-07-09
 
 Core-runtime robustness. Bug fixes only; no breaking API changes.
