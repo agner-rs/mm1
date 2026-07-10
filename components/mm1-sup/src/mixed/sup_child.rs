@@ -8,6 +8,7 @@ use mm1_common::log;
 use mm1_core::context::{
     Fork, Linking, Messaging, Quit, ShutdownErrorKind, Start, Stop, Tell, Watching,
 };
+use mm1_core::envelope::{Envelope, EnvelopeHeader};
 use mm1_proto::{Message, message};
 use mm1_proto_sup::common as sup_common;
 use mm1_proto_system::StartErrorKind;
@@ -93,7 +94,19 @@ where
     Ctx: Messaging,
     M: Message,
 {
-    ctx.tell(to, report).await.expect("failed to send report");
+    // Send on the priority lane. These are supervision control messages (like an
+    // ask reply), and the priority lane is unbounded — so a full supervisor
+    // inbox cannot make this fail, which previously panicked the whole supervisor
+    // via `.expect` (#144). Retrying is not usable here: the reports are not
+    // `Clone` and there is no blocking send.
+    let envelope = Envelope::new(EnvelopeHeader::to_address(to).with_priority(true), report);
+    if let Err(reason) = ctx.send(envelope.into_erased()).await {
+        log::warn!(
+            %to,
+            reason = %reason.as_display_chain(),
+            "could not report to the supervisor",
+        );
+    }
 }
 
 async fn do_start<Runnable, Ctx>(
