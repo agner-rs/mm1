@@ -41,3 +41,27 @@ where
 }
 
 impl<F> CatchPanicExt for F where Self: Future + Sized {}
+
+#[cfg(test)]
+mod tests {
+    use std::task::Waker;
+
+    use super::*;
+
+    #[test]
+    fn non_string_panic_payload_has_a_useful_description() {
+        let mut future = Box::pin(
+            async {
+                panic::panic_any(123_u32);
+            }
+            .catch_panic(),
+        );
+        let mut cx = Context::from_waker(Waker::noop());
+
+        let Poll::Ready(Err(panic)) = future.as_mut().poll(&mut cx) else {
+            panic!("future did not report its panic");
+        };
+
+        assert_eq!(&*panic, "<non-string panic payload>");
+    }
+}
