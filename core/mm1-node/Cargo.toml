@@ -42,7 +42,7 @@ num_cpus = "^1"
 pin-project.workspace = true
 rand.workspace = true
 spin.workspace = true
-scc = "^2.3.4"
+scc = "^3.8.4"
 serde = {workspace = true, features = ["derive"]}
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "macros", "net", "time"] }

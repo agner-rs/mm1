@@ -13,12 +13,6 @@ ignore = [
     # paste is pulled transitively by rmp (MessagePack). Drops out when
     # rmp/rmp-serde move off it.
     "RUSTSEC-2024-0436",
-    # scc 2.x TreeIndex: this unsound path (a double-free if the key comparator
-    # panics) cannot happen here. The only TreeIndex we build is keyed by
-    # AddressRange, whose Ord never panics (hardened in #148). The fix is scc
-    # 3.x, which changes the TreeIndex API; that migration is a separate
-    # follow-up.
-    "RUSTSEC-2026-0205",
 ]
 
 [licenses]

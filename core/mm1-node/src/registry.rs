@@ -98,7 +98,7 @@ where
     ) -> Result<(), Node<S, M>> {
         let address_range = AddressRange::from(subnet_address);
         self.networks
-            .insert(address_range, node)
+            .insert_sync(address_range, node)
             .inspect_err(
                 |(address_range, _node)| log::warn!(%address_range, "failed to bind address range"),
             )
@@ -125,7 +125,7 @@ where
             );
             return false
         }
-        let removed = self.networks.remove(&sought_range);
+        let removed = self.networks.remove_sync(&sought_range);
         log::trace!(%sought_range, %removed, "unregister: removing range");
 
         removed
