@@ -8,9 +8,9 @@ use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::log::{debug, warn};
 use mm1_common::types::AnyError;
 use mm1_core::context::{Fork, Linking, Messaging, Start, Stop, Tell, Watching};
-use mm1_core::envelope::dispatch;
+use mm1_core::envelope::{Envelope, EnvelopeHeader, dispatch};
 use mm1_core::tracing::WithTraceIdExt;
-use mm1_proto::message;
+use mm1_proto::{Message, message};
 use mm1_proto_ask::{Request, RequestHeader};
 use mm1_proto_sup::common as sup_common;
 use mm1_proto_sup::uniform::{self as unisup};
@@ -64,6 +64,9 @@ where
                     .with_trace_id(trace_id)
                     .await
                     .wrap_err("handle_child_started")?,
+
+            ChildStartFailed { key } =>
+                trace_id.scope_sync(|| handle_child_start_failed(&mut children, key)),
 
             Request::<_> {
                 header: reply_to,
@@ -394,6 +397,9 @@ where
     match result {
         Err(reason) => {
             warn!(reason = %reason.as_display_chain(), "error");
+            // Tell the supervisor the start failed so it drops the leaked
+            // `Starting` slot (#143a).
+            notify_sup(ctx, sup_address, ChildStartFailed { key: child_key }).await;
             Err(reason)
         },
         Ok(child) => {
@@ -409,15 +415,15 @@ where
                 .await
                 .ok();
             }
-            let _ = ctx
-                .tell(
-                    sup_address,
-                    ChildStarted {
-                        key:     child_key,
-                        address: child,
-                    },
-                )
-                .await;
+            notify_sup(
+                ctx,
+                sup_address,
+                ChildStarted {
+                    key:     child_key,
+                    address: child,
+                },
+            )
+            .await;
             Ok(child)
         },
     }
@@ -474,11 +480,50 @@ where
     Ok(())
 }
 
+/// Send a supervision control message to the supervisor on the priority lane.
+/// That lane is unbounded, so a full supervisor inbox cannot drop the message —
+/// which otherwise leaves a started child unrecorded (#164) or leaks a failed
+/// child's `Starting` slot (#143a). This runs in a fork of the supervisor.
+async fn notify_sup<Ctx, M>(ctx: &mut Ctx, sup: Address, msg: M)
+where
+    Ctx: Messaging,
+    M: Message,
+{
+    let envelope = Envelope::new(EnvelopeHeader::to_address(sup).with_priority(true), msg);
+    if let Err(reason) = ctx.send(envelope.into_erased()).await {
+        warn!(reason = %reason.as_display_chain(), "could not notify the supervisor");
+    }
+}
+
+fn handle_child_start_failed<D>(children: &mut Children<D>, key: ChildKey) {
+    // A child's start failed: drop its `Starting` slot so it is not leaked
+    // forever (#143a).
+    let is_starting = matches!(
+        children.primary.get(key),
+        Some(ChildEntry {
+            status: ChildStatus::Starting,
+            ..
+        })
+    );
+    if is_starting {
+        children.primary.remove(key);
+        debug!(key = ?key, "child status Starting -> Stopped (start failed)");
+    } else {
+        warn!(key = ?key, "child-start-failed for an unexpected child state");
+    }
+}
+
 #[derive(Debug)]
 #[message(base_path = ::mm1_proto)]
 struct ChildStarted {
     key:     ChildKey,
     address: Address,
+}
+
+#[derive(Debug)]
+#[message(base_path = ::mm1_proto)]
+struct ChildStartFailed {
+    key: ChildKey,
 }
 
 #[derive(Debug, thiserror::Error)]
