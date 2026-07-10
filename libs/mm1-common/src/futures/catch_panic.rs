@@ -32,7 +32,7 @@ where
                 } else if let Ok(s) = panic_info.downcast::<String>() {
                     (*s).into()
                 } else {
-                    String::new().into()
+                    "<non-string panic payload>".into()
                 };
                 Poll::Ready(Err(s))
             },
