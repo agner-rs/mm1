@@ -731,13 +731,26 @@ impl Container {
                 match sys_msg {
                     SysMsg::Kill => (),
                     SysMsg::ForkDone(fork_lease) => {
-                        let JobEntry {
+                        let Some(JobEntry {
                             linked_to,
                             watched_by,
                             watches,
-                        } = job_entries
-                            .remove(&fork_lease.address)
-                            .unwrap_or_else(|| panic!("unknown fork: {}", fork_lease.address));
+                        }) = job_entries.remove(&fork_lease.address)
+                        else {
+                            // The container may stop after a fork queued
+                            // `ForkAdded` but before that call was applied. The
+                            // fork context then drops and reports `ForkDone`.
+                            // During normal operation calls are drained before
+                            // system messages, so the running-loop arm keeps its
+                            // strict unknown-fork invariant. During teardown the
+                            // call receiver is already gone; dropping this late
+                            // completion safely returns its lease (#201).
+                            trace!(
+                                fork = %fork_lease.address,
+                                "late unregistered fork completed during teardown"
+                            );
+                            return
+                        };
                         unwatch_targets(
                             &rt_api,
                             &mut taken_watch_refs,
