@@ -1172,6 +1172,7 @@ dependencies = [
  "mm1-proto-sup",
  "mm1-proto-system",
  "mm1-runnable",
+ "mm1-test-rt",
  "parking_lot",
  "serde",
  "slotmap",

@@ -113,3 +113,56 @@ where
         InitType::WithAck { start_timeout } => ctx.start(runnable, true, start_timeout).await,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use mm1_address::pool::Pool;
+    use mm1_address::subnet::NetMask;
+    use mm1_test_rt::rt::{TestRuntime, query};
+
+    use super::*;
+
+    async fn reporter<Ctx>(ctx: &mut Ctx, sup: Address)
+    where
+        Ctx: Messaging,
+    {
+        send_report(
+            ctx,
+            sup,
+            StopFailed {
+                address: sup,
+                reason:  ErrorOf::new(ShutdownErrorKind::InternalError, "test"),
+            },
+        )
+        .await;
+    }
+
+    /// #144: a supervision report must go on the priority lane, so a full
+    /// supervisor inbox cannot drop it or crash the reporting fork.
+    #[tokio::test]
+    async fn send_report_uses_the_priority_lane() {
+        let rt = TestRuntime::<()>::new();
+        let subnet = Pool::new("<ff:>/16".parse().unwrap());
+        let reporter_lease = subnet.lease(NetMask::M_32).unwrap();
+        let sup_lease = subnet.lease(NetMask::M_32).unwrap();
+        let reporter_addr = reporter_lease.address;
+        let sup_addr = sup_lease.address;
+
+        rt.add_actor(reporter_addr, Some(reporter_lease), (reporter, (sup_addr,)))
+            .await
+            .unwrap();
+
+        let tell = rt
+            .next_event()
+            .await
+            .unwrap()
+            .unwrap()
+            .convert::<query::Tell>()
+            .unwrap();
+        assert_eq!(tell.to, sup_addr);
+        assert!(
+            tell.envelope.header().priority,
+            "#144: supervision reports must be sent on the priority lane"
+        );
+    }
+}

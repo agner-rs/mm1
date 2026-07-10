@@ -31,6 +31,7 @@ tokio = {workspace = true, features = ["time"]}
 
 [dev-dependencies]
 mm1-logger.workspace = true
+mm1-test-rt.workspace = true
 
 insta.workspace = true
 test-case.workspace = true
