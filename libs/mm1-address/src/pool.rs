@@ -33,8 +33,10 @@ struct Shared {
 
 impl Pool {
     pub fn new(net_address: NetAddress) -> Self {
+        let mask = net_address.mask.into_u64();
+        let address = net_address.address.into_u64() & mask;
         let shared = Arc::new(Mutex::new(Shared {
-            main: trie::Pool::new(net_address.address.into_u64(), net_address.mask.into_u64()),
+            main: trie::Pool::new(address, mask),
             used: trie::Pool::empty(),
         }));
         Self { shared }
