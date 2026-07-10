@@ -41,6 +41,58 @@ fn hello_runtime() {
         .expect("main actor run error");
 }
 
+#[test]
+fn default_runtime_without_time_is_rejected() {
+    let config: Mm1NodeConfig = serde_yaml_ng::from_str(
+        r#"
+            runtime:
+                default:
+                    enable_time: false
+        "#,
+    )
+    .expect("parse config");
+
+    let error = Rt::create(config).expect_err("default runtime without time must be rejected");
+    assert!(
+        error.to_string().contains("default"),
+        "error must name the default runtime: {error}"
+    );
+}
+
+#[test]
+fn selected_named_runtime_without_time_is_rejected() {
+    let config: Mm1NodeConfig = serde_yaml_ng::from_str(
+        r#"
+            actor:
+                runtime: background
+            runtime:
+                background:
+                    enable_time: false
+        "#,
+    )
+    .expect("parse config");
+
+    let error = Rt::create(config).expect_err("selected runtime without time must be rejected");
+    assert!(
+        error.to_string().contains("background"),
+        "error must name the selected runtime: {error}"
+    );
+}
+
+#[test]
+fn unused_named_runtime_without_time_is_allowed() {
+    let config: Mm1NodeConfig = serde_yaml_ng::from_str(
+        r#"
+            runtime:
+                background:
+                    enable_time: false
+        "#,
+    )
+    .expect("parse config");
+
+    Rt::create(config).expect("unused runtime without time should be allowed");
+}
+
 async fn main<Ctx>(ctx: &mut Ctx)
 where
     Ctx: Fork + Messaging + Start<BoxedRunnable<Ctx>> + Quit + InitDone + Stop + Sync,
