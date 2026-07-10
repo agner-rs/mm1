@@ -45,7 +45,7 @@ spin.workspace = true
 scc = "^2.3.4"
 serde = {workspace = true, features = ["derive"]}
 thiserror.workspace = true
-tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "macros", "net"] }
+tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "macros", "net", "time"] }
+tokio-util = { workspace = true, features = ["rt"] }
 tracing.workspace = true
 url.workspace = true
-

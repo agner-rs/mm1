@@ -1023,6 +1023,7 @@ dependencies = [
  "test-case",
  "thiserror",
  "tokio",
+ "tokio-util",
  "tracing",
  "url",
 ]
@@ -1916,6 +1917,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
+ "futures-util",
  "pin-project-lite",
  "tokio",
 ]

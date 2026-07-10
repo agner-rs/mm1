@@ -262,6 +262,7 @@ impl Container {
 
             subnet_context: Arc::new(subnet_context.into()),
         };
+        let shutdown = rt_api.shutdown_token();
 
         let exit_reason = {
             let mut spawned_jobs = FuturesUnordered::new();
@@ -277,6 +278,7 @@ impl Container {
 
                 let sys_msg_recv = rx_system.recv().fuse();
                 let call_next = call_rx.next();
+                let shutdown_requested = shutdown.cancelled();
 
                 let spawn_jobs_non_empty = !spawned_jobs.is_empty();
                 // XXX: These can panic too, can't they?
@@ -284,6 +286,8 @@ impl Container {
 
                 let selected = tokio::select! {
                     biased;
+
+                    _ = shutdown_requested => break Ok(()),
 
                     call = call_next =>
                         Either::Right(

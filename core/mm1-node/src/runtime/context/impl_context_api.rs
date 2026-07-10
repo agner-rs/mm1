@@ -598,6 +598,12 @@ async fn do_spawn(
     let actor_config = rt_config.actor_config(&actor_key);
     let execute_on = rt_api.choose_executor(actor_config.runtime_key());
     let message_tap = rt_api.message_tap(actor_config.message_tap_key());
+    let spawn_permit = rt_api.reserve_spawn().ok_or_else(|| {
+        ErrorOf::new(
+            sys::SpawnErrorKind::ResourceConstraint,
+            "node shutdown is in progress",
+        )
+    })?;
 
     trace!(?ack_to, "starting");
 
@@ -633,22 +639,28 @@ async fn do_spawn(
     trace!(spawned_address = %actor_address, "about to run spawned actor");
 
     let tx_actor_failure = tx_actor_failure.clone();
-    // TODO: maybe keep it somewhere too?
-    let _join_handle = execute_on.spawn(async move {
-        match container.run().await {
-            Ok(Ok(())) => (),
-            Ok(Err(actor_failure)) => {
-                let _ = tx_actor_failure.send((actor_address, actor_failure));
-            },
-            Err(container_failure) => {
-                let report = AnyError::from(container_failure);
-                log::error!(
-                    err = %report.as_display_chain(), %actor_address,
-                    "actor container failure"
-                );
-            },
-        }
-    });
+    spawn_permit
+        .spawn_on(actor_address, execute_on, async move {
+            match container.run().await {
+                Ok(Ok(())) => (),
+                Ok(Err(actor_failure)) => {
+                    let _ = tx_actor_failure.send((actor_address, actor_failure));
+                },
+                Err(container_failure) => {
+                    let report = AnyError::from(container_failure);
+                    log::error!(
+                        err = %report.as_display_chain(), %actor_address,
+                        "actor container failure"
+                    );
+                },
+            }
+        })
+        .map_err(|_| {
+            ErrorOf::new(
+                sys::SpawnErrorKind::ResourceConstraint,
+                "node shutdown is in progress",
+            )
+        })?;
 
     Ok(actor_address)
 }

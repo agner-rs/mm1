@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use mm1_address::address::Address;
 use mm1_address::pool::{Lease, Pool as SubnetPool};
@@ -9,10 +10,15 @@ use mm1_core::envelope::Envelope;
 use mm1_core::tap::MessageTap;
 use mm1_core::tracing::TraceId;
 use tokio::runtime::Handle;
-use tracing::trace;
+use tracing::{trace, warn};
 
 use crate::registry::Registry;
 use crate::runtime::sys_msg::SysMsg;
+use crate::runtime::task_registry::{ContainerTaskRegistry, SpawnPermit};
+
+const SHUTDOWN_GRACE: Duration = Duration::from_secs(5);
+const SHUTDOWN_KILL_GRACE: Duration = Duration::from_secs(1);
+const SHUTDOWN_ABORT_GRACE: Duration = Duration::from_secs(1);
 
 #[derive(derive_more::Debug, Clone)]
 pub(crate) struct RtApi {
@@ -31,6 +37,7 @@ struct Inner {
     named_rts:    HashMap<String, Handle>,
     default_tap:  Arc<dyn MessageTap>,
     message_taps: Arc<HashMap<String, Arc<dyn MessageTap>>>,
+    tasks:        ContainerTaskRegistry,
 }
 
 impl RtApi {
@@ -44,6 +51,7 @@ impl RtApi {
         let message_taps = message_taps.into();
         let subnet_pool = SubnetPool::new(subnet_address);
         let registry = Registry::new();
+        let tasks = ContainerTaskRegistry::new();
         let inner = Arc::new(Inner {
             subnet_pool,
             registry,
@@ -51,6 +59,7 @@ impl RtApi {
             named_rts,
             default_tap,
             message_taps,
+            tasks,
         });
         Self { inner }
     }
@@ -109,5 +118,51 @@ impl RtApi {
         key.and_then(|k| self.inner.message_taps.get(k))
             .unwrap_or_else(|| &self.inner.default_tap)
             .clone()
+    }
+
+    pub(crate) fn reserve_spawn(&self) -> Option<SpawnPermit> {
+        self.inner.tasks.reserve_spawn()
+    }
+
+    pub(crate) fn shutdown_token(&self) -> tokio_util::sync::CancellationToken {
+        self.inner.tasks.shutdown_token()
+    }
+
+    pub(crate) async fn shutdown(&self) {
+        self.inner.tasks.close();
+        if self.inner.tasks.wait_for_empty(SHUTDOWN_GRACE).await {
+            return
+        }
+
+        let addresses = self.inner.tasks.addresses();
+        let counts = self.inner.tasks.counts();
+        warn!(
+            active_tasks = counts.active_tasks,
+            pending_spawns = counts.pending_spawns,
+            "containers did not finish during graceful node shutdown; killing them"
+        );
+        for address in addresses {
+            let _ = self.sys_send(address, SysMsg::Kill);
+        }
+        if self.inner.tasks.wait_for_empty(SHUTDOWN_KILL_GRACE).await {
+            return
+        }
+
+        let counts = self.inner.tasks.counts();
+        warn!(
+            active_tasks = counts.active_tasks,
+            pending_spawns = counts.pending_spawns,
+            "containers did not stop after kill; aborting their tasks"
+        );
+        self.inner.tasks.abort_all();
+        if !self.inner.tasks.wait_for_empty(SHUTDOWN_ABORT_GRACE).await {
+            let counts = self.inner.tasks.counts();
+            warn!(
+                active_tasks = counts.active_tasks,
+                pending_spawns = counts.pending_spawns,
+                "container tasks remained after the best-effort abort deadline; blocking or \
+                 non-yielding actor code may outlive Rt::run"
+            );
+        }
     }
 }

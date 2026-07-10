@@ -84,6 +84,12 @@ impl Rt {
         self
     }
 
+    /// Runs the main actor, then makes a bounded, best-effort attempt to stop
+    /// actors started during this run.
+    ///
+    /// Tokio task cancellation is cooperative. Actor code that blocks a
+    /// runtime thread or does not yield may keep running and retain resources
+    /// after this method returns.
     pub fn run(&self, main_actor: BoxedRunnable<context::ActorContext>) -> Result<(), RtRunError> {
         let config = self.config.clone();
         let rt_default = self.rt_default.handle().to_owned();
@@ -156,11 +162,12 @@ async fn run_inner(
         tx_actor_failure,
     };
     trace!("creating and running container...");
-    let exit_reason = Container::create(args, main_actor)
-        .map_err(RtRunError::ContainerError)?
-        .run()
-        .await
-        .map_err(RtRunError::ContainerError)?;
+    let container = Container::create(args, main_actor).map_err(RtRunError::ContainerError)?;
+    let exit_result = container.run().await;
+
+    rt_api.shutdown().await;
+
+    let exit_reason = exit_result.map_err(RtRunError::ContainerError)?;
 
     trace!(reason = ?exit_reason.as_ref().map_err(|e| e.as_display_chain()), "container exited");
 
