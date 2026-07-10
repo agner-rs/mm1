@@ -484,3 +484,63 @@ struct ChildStarted {
 #[derive(Debug, thiserror::Error)]
 #[error("unknown peer failure: {}", _0)]
 struct UnknownPeerExited(Address);
+
+#[cfg(test)]
+mod tests {
+    use mm1_address::pool::Pool;
+    use mm1_address::subnet::NetMask;
+    use mm1_test_rt::rt::event::EventResolveResult;
+    use mm1_test_rt::rt::{TestRuntime, query};
+
+    use super::*;
+
+    async fn starter<Ctx>(ctx: &mut Ctx, sup: Address)
+    where
+        Ctx: Messaging + Start<()>,
+    {
+        let _ = do_start_child(ctx, sup, ChildKey::default(), InitType::NoAck, false, ()).await;
+    }
+
+    /// #164: the `ChildStarted` report a started child sends back to the uniform
+    /// supervisor must go on the priority lane, so a full supervisor inbox
+    /// cannot drop it (which would strand the child, unrecorded).
+    #[tokio::test]
+    async fn child_started_report_uses_the_priority_lane() {
+        let rt = TestRuntime::<()>::new();
+        let subnet = Pool::new("<ff:>/16".parse().unwrap());
+        let starter_lease = subnet.lease(NetMask::M_32).unwrap();
+        let sup_lease = subnet.lease(NetMask::M_32).unwrap();
+        let child_lease = subnet.lease(NetMask::M_32).unwrap();
+        let starter_addr = starter_lease.address;
+        let sup_addr = sup_lease.address;
+        let child_addr = child_lease.address;
+
+        rt.add_actor(starter_addr, Some(starter_lease), (starter, (sup_addr,)))
+            .await
+            .unwrap();
+
+        // do_start_child spawns the child (NoAck) ...
+        let spawn = rt
+            .next_event()
+            .await
+            .unwrap()
+            .unwrap()
+            .convert::<query::Spawn<()>>()
+            .unwrap();
+        spawn.resolve_ok(child_addr);
+
+        // ... then reports `ChildStarted` back to the supervisor.
+        let tell = rt
+            .next_event()
+            .await
+            .unwrap()
+            .unwrap()
+            .convert::<query::Tell>()
+            .unwrap();
+        assert_eq!(tell.to, sup_addr);
+        assert!(
+            tell.envelope.header().priority,
+            "#164: the ChildStarted report must be on the priority lane"
+        );
+    }
+}
