@@ -28,11 +28,11 @@ async fn t_simplest() {
 
     let node_net = AddressPool::new("<ff:>/32".parse().unwrap());
     let lease_a = node_net.lease(NetMask::M_48).unwrap();
+    let address_a = lease_a.address;
     let rt = TestRuntime::<Runnable>::new();
-    rt.add_actor(lease_a.address, Some(lease_a), a)
-        .await
-        .unwrap();
+    rt.add_actor(address_a, Some(lease_a), a).await.unwrap();
 
+    expect_actor_quit_ok(&rt, address_a).await;
     let main_actor_done = rt
         .expect_next_event()
         .await
@@ -107,6 +107,7 @@ async fn t_spawn() {
     assert_eq!(runnable.name, "hello-spawn");
     query_spawn.resolve_ok(lease_b.address);
 
+    expect_actor_quit_ok(&rt, address_a).await;
     let main_actor_done = rt
         .expect_next_event()
         .await
@@ -155,6 +156,7 @@ async fn t_start() {
     assert_eq!(runnable.name, "hello-start");
     query_start.resolve_ok(lease_b.address);
 
+    expect_actor_quit_ok(&rt, address_a).await;
     let main_actor_done = rt
         .expect_next_event()
         .await
@@ -209,6 +211,7 @@ async fn t_recv() {
     let envelope = Envelope::new(EnvelopeHeader::to_address(address_a), Hello).into_erased();
     query.resolve_ok(envelope);
 
+    expect_actor_quit_ok(&rt, address_a).await;
     let main_actor_done = rt
         .expect_next_event()
         .await
@@ -252,6 +255,7 @@ async fn t_init_done() {
     assert_eq!(query.address, address_a);
     query.resolve(());
 
+    expect_actor_quit_ok(&rt, address_a).await;
     let main_actor_done = rt
         .expect_next_event()
         .await
@@ -294,6 +298,7 @@ async fn t_recv_close() {
 
     query.resolve(());
 
+    expect_actor_quit_ok(&rt, address_a).await;
     let main_actor_done = rt
         .expect_next_event()
         .await
@@ -380,6 +385,7 @@ async fn t_fork_and_run() {
     query_main_recv
         .resolve_ok(Envelope::new(EnvelopeHeader::to_address(reply_to), Hello).into_erased());
 
+    expect_actor_quit_ok(&rt, address_a).await;
     let main_actor_done = rt
         .expect_next_event()
         .await
@@ -431,6 +437,7 @@ async fn t_bind_net_address() {
     let recv = dbg!(rt.expect_next_event().await.expect::<query::Recv>());
     recv.resolve_err(ErrorOf::new(RecvErrorKind::Closed, "closed"));
 
+    expect_actor_quit_ok(&rt, address_a).await;
     let _done = dbg!(rt.expect_next_event().await.expect::<MainActorOutcome>());
 
     async fn a<C>(ctx: &mut C)
@@ -478,6 +485,7 @@ async fn t_tell() {
 
     query.resolve_ok(());
 
+    expect_actor_quit_ok(&rt, address_a).await;
     let main_actor_done = rt
         .expect_next_event()
         .await
@@ -612,6 +620,7 @@ async fn t_watching() {
 
     query.resolve(());
 
+    expect_actor_quit_ok(&rt, address_a).await;
     let main_actor_done = rt
         .expect_next_event()
         .await
@@ -756,4 +765,12 @@ fn logger_config() -> mm1_logger::LoggingConfig {
             "*=INFO".parse().unwrap(),
         ],
     }
+}
+
+async fn expect_actor_quit_ok<R: std::fmt::Debug>(rt: &TestRuntime<R>, address: Address) {
+    let quit = rt.expect_next_event().await.expect::<query::Quit>();
+    assert_eq!(quit.task_key.actor, address);
+    assert_eq!(quit.task_key.context, address);
+    assert!(quit.result.is_ok());
+    quit.stop_tasks().await.unwrap();
 }

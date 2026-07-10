@@ -3,8 +3,8 @@ use mm1_core::actor_exit::ActorExit;
 use crate::rt::TestContext;
 
 pub trait ActorFn<'a, R>: Send + 'a {
-    type Fut: Future + Send + 'a;
-    type Out;
+    type Fut: Future<Output = Self::Out> + Send + 'a;
+    type Out: ActorExit<TestContext<R>>;
 
     fn run(self, context: &'a mut TestContext<R>) -> Self::Fut;
 }

@@ -104,6 +104,7 @@ async fn ergonomics() {
 
     time::sleep(Duration::from_millis(200)).await;
 
+    expect_actor_quit_ok(&rt, client_address).await;
     let client_done = rt
         .next_event()
         .await
@@ -112,6 +113,14 @@ async fn ergonomics() {
         .convert::<MainActorOutcome>()
         .unwrap();
     assert_eq!(client_done.address, client_address);
+}
+
+async fn expect_actor_quit_ok(rt: &TestRuntime<()>, address: Address) {
+    let quit = rt.expect_next_event().await.expect::<query::Quit>();
+    assert_eq!(quit.task_key.actor, address);
+    assert_eq!(quit.task_key.context, address);
+    assert!(quit.result.is_ok());
+    quit.stop_tasks().await.unwrap();
 }
 
 #[message]

@@ -109,6 +109,7 @@ async fn stale_reply_is_not_accepted() {
 
     // Drain: let ask #2 time out and the actor finish.
     time::sleep(Duration::from_millis(200)).await;
+    expect_actor_quit_ok(&rt, client_address).await;
     let done = rt
         .next_event()
         .await
@@ -192,6 +193,7 @@ async fn bystander_is_not_destroyed() {
     );
     reinject.resolve_ok(());
 
+    expect_actor_quit_ok(&rt, client_address).await;
     let done = rt
         .next_event()
         .await
@@ -201,6 +203,14 @@ async fn bystander_is_not_destroyed() {
         .unwrap();
     assert_eq!(done.address, client_address);
     done.remove_actor_entry().await.unwrap();
+}
+
+async fn expect_actor_quit_ok(rt: &TestRuntime<()>, address: Address) {
+    let quit = rt.expect_next_event().await.expect::<query::Quit>();
+    assert_eq!(quit.task_key.actor, address);
+    assert_eq!(quit.task_key.context, address);
+    assert!(quit.result.is_ok());
+    quit.stop_tasks().await.unwrap();
 }
 
 async fn client_two_asks<Ctx>(ctx: &mut Ctx, server: Address)

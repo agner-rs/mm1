@@ -4,6 +4,7 @@ use std::sync::Arc;
 use futures::{FutureExt, StreamExt};
 use mm1_address::address::Address;
 use mm1_common::log;
+use mm1_core::actor_exit::ActorExit;
 use tokio::sync::{Mutex, mpsc};
 
 use super::MainActorOutcome;
@@ -51,7 +52,8 @@ impl<R> TestRuntime<R> {
         let context = self.new_context(task_key, None);
         let fut = async move {
             let mut context = context;
-            let _ = actor.run(&mut context).await;
+            let actor_exit = actor.run(&mut context).await;
+            match actor_exit.exit(&mut context).await {}
         };
         self.add_task(task_key, address_lease, fut).await?;
         Ok(self)
