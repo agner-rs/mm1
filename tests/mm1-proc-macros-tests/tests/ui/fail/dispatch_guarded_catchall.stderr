@@ -1,0 +1,5 @@
+error: `dispatch!` does not support guards on catch-all arms
+  --> tests/ui/fail/dispatch_guarded_catchall.rs:13:9
+   |
+13 |         message @ _ if true => drop(message),
+   |         ^^^^^^^^^^^

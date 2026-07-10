@@ -1,0 +1,5 @@
+error: `dispatch!` does not support bare binding catch-alls; write `name @ _` instead
+  --> tests/ui/fail/dispatch_bare_binding.rs:13:9
+   |
+13 |         message => drop(message),
+   |         ^^^^^^^
