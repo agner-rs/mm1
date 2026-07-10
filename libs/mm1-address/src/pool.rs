@@ -109,6 +109,23 @@ mod tests {
         NetMask::try_from(bits).expect("valid mask")
     }
 
+    #[test]
+    fn pool_normalizes_noncanonical_network_address() {
+        let pool = Pool::new(NetAddress {
+            address: Address::from_u64(1),
+            mask:    mask(60),
+        });
+
+        let lease = pool.lease(mask(64)).expect("aligned /64 lease");
+        assert_eq!(
+            lease.net_address(),
+            NetAddress {
+                address: Address::from_u64(0),
+                mask:    mask(64),
+            }
+        );
+    }
+
     // Regression test for #147: freeing one half of a block must not strand the
     // other half in a different trie. A lease that needs the whole block must
     // still succeed after the two halves are freed to different tries.
