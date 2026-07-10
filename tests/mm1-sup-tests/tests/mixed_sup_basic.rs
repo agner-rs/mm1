@@ -22,10 +22,9 @@ fn logger_config() -> mm1_logger::LoggingConfig {
     }
 }
 
-// Flaky: hangs ~2 of 3 runs — the mixed one_for_one supervisor busy-loops when
-// these Permanent children exit immediately. Pre-existing (reproduces on
-// `dev`), tracked in #201, scheduled for R3. Re-enable when that fix lands.
-#[ignore = "flaky: supervisor busy-loop, tracked in #201"]
+// Regression for #201. The mixed supervisor correctly reaches Quit(false) after
+// these Permanent children exhaust the restart limit. The node must then finish
+// tearing down even when a fork completes across the container-exit boundary.
 #[test]
 fn test_01() {
     let _ = mm1_logger::init(&logger_config());
