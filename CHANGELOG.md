@@ -9,6 +9,43 @@ plain bug fixes ship as `0.7.PATCH`.
 
 ## [Unreleased]
 
+## [0.7.26] - 2026-07-11
+
+Runtime lifecycle and polish. Bug fixes only; no breaking API changes.
+
+### Fixed
+- Container teardown tolerates a late `ForkDone` whose `ForkAdded` call was not
+  applied before shutdown, so the restored mixed-supervisor test no longer
+  panics or hangs.
+- Node configuration rejects the default actor runtime, or a selected named
+  actor runtime, when its Tokio time driver is disabled. Unused named runtimes
+  remain valid.
+- `Rt::run` tracks spawned containers on default and named executors, closes
+  admission when the main run ends, and makes a bounded, best-effort attempt at
+  normal cleanup before `Kill` and task-abort fallbacks. Tokio cancellation is
+  cooperative: blocking or non-yielding actor code may still outlive `Rt::run`.
+- The test runtime returns already queued standalone-context queries before
+  reporting that its task set is empty.
+- The test runtime applies an actor's returned `ActorExit`, so `Quit` is
+  observed before `Done`, matching production execution.
+- A `WatchRef` transferred to another fork can be cancelled there without
+  leaking the original watch or producing a stray `Down`.
+- Address pools normalize noncanonical input network addresses before building
+  their allocation trie.
+- Non-string panic payloads produce the useful
+  `<non-string panic payload>` diagnostic instead of an empty message.
+- A uniform supervisor that exceeds a child's restart intensity attempts to
+  reap every remaining started child before returning the original intensity
+  error; one cleanup failure no longer skips later survivors or replaces that
+  error.
+
+### Changed
+- `dispatch!` accepts a plain `_` catch-all and reports focused errors for bare
+  binding catch-alls, guarded catch-alls, and unsupported patterns. Existing
+  unit-struct patterns and borrowed typed guards remain supported.
+- The private node registry now uses `scc` 3.8.4, removing the resolved
+  `RUSTSEC-2026-0205` advisory exception.
+
 ## [0.7.25] - 2026-07-10
 
 Supervisor robustness. Bug fixes only; no breaking API changes.
