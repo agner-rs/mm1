@@ -534,10 +534,11 @@ struct UnknownPeerExited(Address);
 mod tests {
     use mm1_address::pool::Pool;
     use mm1_address::subnet::NetMask;
-    use mm1_test_rt::rt::event::EventResolveResult;
-    use mm1_test_rt::rt::{TestRuntime, query};
+    use mm1_test_rt::rt::event::{EventResolve, EventResolveResult};
+    use mm1_test_rt::rt::{MainActorOutcome, TaskKey, TestContext, TestRuntime, query};
 
     use super::*;
+    use crate::common::restart_intensity::RestartIntensity;
 
     async fn starter<Ctx>(ctx: &mut Ctx, sup: Address)
     where
@@ -587,5 +588,151 @@ mod tests {
             tell.envelope.header().priority,
             "#164: the ChildStarted report must be on the priority lane"
         );
+    }
+
+    #[derive(Debug)]
+    struct UnitFactory;
+
+    impl ActorFactory for UnitFactory {
+        type Args = ();
+        type Runnable = ();
+
+        fn produce(&self, (): Self::Args) -> Self::Runnable {}
+    }
+
+    async fn fail_restart_intensity(
+        ctx: &mut TestContext<()>,
+        failed_child: Address,
+        surviving_child: Address,
+    ) -> Result<(), AnyError> {
+        let child_type = crate::uniform::child_type::Permanent::new(RestartIntensity {
+            max_restarts: 0,
+            within:       Duration::MAX,
+        });
+        let mut children = Children {
+            primary:    Default::default(),
+            by_address: Default::default(),
+        };
+
+        for child_address in [failed_child, surviving_child] {
+            let key = children.primary.insert(ChildEntry {
+                status: ChildStatus::Started(child_address),
+                data:   child_type.new_data(()),
+            });
+            assert_eq!(children.by_address.insert(child_address, key), None);
+        }
+
+        let child_spec = ChildSpec::new(UnitFactory)
+            .with_child_type(child_type)
+            .with_stop_timeout(Duration::from_secs(10));
+
+        handle_sys_exited(ctx, &child_spec, &mut children, failed_child, false).await
+    }
+
+    /// #164: a uniform supervisor that reaches a child's restart-intensity
+    /// limit must gracefully reap its other started children before returning
+    /// the intensity error.
+    #[tokio::test]
+    async fn restart_intensity_failure_reaps_started_siblings_before_returning() {
+        tokio::time::pause();
+
+        let subnet = Pool::new("<ff:>/16".parse().unwrap());
+        let sup_lease = subnet.lease(NetMask::M_32).unwrap();
+        let failed_child_lease = subnet.lease(NetMask::M_32).unwrap();
+        let surviving_child_lease = subnet.lease(NetMask::M_32).unwrap();
+        let fork_lease = subnet.lease(NetMask::M_32).unwrap();
+        let sup_address = sup_lease.address;
+        let failed_child = failed_child_lease.address;
+        let surviving_child = surviving_child_lease.address;
+        let fork_address = fork_lease.address;
+
+        let rt = TestRuntime::<()>::new();
+        rt.add_actor(
+            sup_address,
+            Some(sup_lease),
+            (fail_restart_intensity, (failed_child, surviving_child)),
+        )
+        .await
+        .unwrap();
+
+        // Reaping starts by reserving a context for the shutdown sequence. On
+        // the buggy path the actor is already Done here because the intensity
+        // error escaped before any attempt to stop the surviving child.
+        let fork = rt
+            .expect_next_event()
+            .await
+            .convert::<query::Fork<()>>()
+            .expect("restart-intensity failure must start reaping survivors");
+        assert_eq!(fork.task_key, TaskKey::actor(sup_address));
+        fork.resolve_ok(rt.new_context(TaskKey::fork(sup_address, fork_address), Some(fork_lease)));
+
+        let watch = rt
+            .expect_next_event()
+            .await
+            .convert::<query::Watch>()
+            .unwrap();
+        assert_eq!(watch.task_key, TaskKey::fork(sup_address, fork_address));
+        assert_eq!(watch.peer, surviving_child);
+        let watch_ref = system::WatchRef::MIN;
+        watch.resolve(watch_ref);
+
+        // `shutdown` polls its exit request and its Down receiver together, so
+        // either query may reach the test runtime first. Keep the receive query
+        // pending until the graceful Exit has been observed and accepted.
+        let event = rt.expect_next_event().await;
+        let recv = match event.convert::<query::Exit>() {
+            Ok(exit) => {
+                assert_eq!(exit.task_key, TaskKey::actor(sup_address));
+                assert_eq!(exit.peer, surviving_child);
+                exit.resolve(true);
+                rt.expect_next_event()
+                    .await
+                    .convert::<query::Recv>()
+                    .unwrap()
+            },
+            Err(event) => {
+                let recv = event.convert::<query::Recv>().unwrap();
+                let exit = rt
+                    .expect_next_event()
+                    .await
+                    .convert::<query::Exit>()
+                    .unwrap();
+                assert_eq!(exit.task_key, TaskKey::actor(sup_address));
+                assert_eq!(exit.peer, surviving_child);
+                exit.resolve(true);
+                recv
+            },
+        };
+        assert_eq!(recv.task_key, TaskKey::fork(sup_address, fork_address));
+        recv.resolve_ok(
+            Envelope::new(
+                EnvelopeHeader::to_address(fork_address),
+                system::Down {
+                    peer: surviving_child,
+                    watch_ref,
+                    normal_exit: true,
+                },
+            )
+            .into_erased(),
+        );
+
+        // The restart-intensity error is applied as ActorExit only after the
+        // survivor has completed its shutdown sequence.
+        let quit = rt
+            .expect_next_event()
+            .await
+            .convert::<query::Quit>()
+            .unwrap();
+        let reason = quit.result.as_ref().unwrap_err().to_string();
+        assert!(reason.contains("max restart intensity reached"), "{reason}");
+        quit.stop_tasks().await.unwrap();
+
+        let done = rt
+            .expect_next_event()
+            .await
+            .convert::<MainActorOutcome>()
+            .unwrap();
+        assert_eq!(done.address, sup_address);
+        done.remove_actor_entry().await.unwrap();
     }
 }
