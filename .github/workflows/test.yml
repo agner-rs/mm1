@@ -27,7 +27,7 @@ jobs:
       # test suite on the MSRV also serves as the MSRV gate. Bump deliberately
       # together with clippy.yml.
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@1.91
+        uses: dtolnay/rust-toolchain@1.100
 
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
