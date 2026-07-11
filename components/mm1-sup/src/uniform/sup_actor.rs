@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use eyre::Context;
 use mm1_address::address::Address;
-use mm1_common::errors::chain::StdErrorDisplayChainExt;
+use mm1_common::errors::chain::{ExactTypeDisplayChainExt, StdErrorDisplayChainExt};
 use mm1_common::errors::error_of::ErrorOf;
 use mm1_common::log::{debug, warn};
 use mm1_common::types::AnyError;
@@ -329,7 +329,31 @@ where
             Ok(())
         },
         ChildStatus::Started(a) => {
-            if child_type.should_restart(data, normal_exit)? {
+            let should_restart = match child_type.should_restart(data, normal_exit) {
+                Ok(should_restart) => should_restart,
+                Err(reason) => {
+                    assert_eq!(a, peer);
+                    primary.remove(key);
+
+                    debug!(
+                        key = ?key, peer = %peer,
+                        "child status Started -> Stopped (restart decision failed)"
+                    );
+
+                    if let Err(cleanup_reason) =
+                        reap_started_children(ctx, child_spec, children).await
+                    {
+                        warn!(
+                            restart_reason = %reason.as_display_chain(),
+                            cleanup_reason = %cleanup_reason.as_display_chain(),
+                            "child cleanup failed after restart decision failed"
+                        );
+                    }
+                    return Err(reason)
+                },
+            };
+
+            if should_restart {
                 assert_eq!(a, peer);
 
                 let runnable = child_type
@@ -463,6 +487,7 @@ where
         primary,
         by_address,
     } = children;
+    let mut first_error = None;
 
     for (child_key, ChildEntry { status, data: _ }) in primary.drain() {
         let ChildStatus::Started(child_address) = status else {
@@ -472,12 +497,25 @@ where
         let should_be_child_key = by_address.remove(&child_address);
         assert_eq!(should_be_child_key, Some(child_key));
 
-        do_stop_child(ctx, sup_address, *stop_timeout, child_address)
+        if let Err(reason) = do_stop_child(ctx, sup_address, *stop_timeout, child_address)
             .await
-            .wrap_err("do_stop_child")?;
+            .wrap_err("do_stop_child")
+        {
+            warn!(
+                child_address = %child_address,
+                reason = %reason.as_display_chain(),
+                "could not stop child while reaping"
+            );
+            if first_error.is_none() {
+                first_error = Some(reason);
+            }
+        }
     }
 
-    Ok(())
+    match first_error {
+        Some(reason) => Err(reason),
+        None => Ok(()),
+    }
 }
 
 /// Send a supervision control message to the supervisor on the priority lane.
@@ -534,6 +572,7 @@ struct UnknownPeerExited(Address);
 mod tests {
     use mm1_address::pool::Pool;
     use mm1_address::subnet::NetMask;
+    use mm1_core::context::ForkErrorKind;
     use mm1_test_rt::rt::event::{EventResolve, EventResolveResult};
     use mm1_test_rt::rt::{MainActorOutcome, TaskKey, TestContext, TestRuntime, query};
 
@@ -723,6 +762,120 @@ mod tests {
             .await
             .convert::<query::Quit>()
             .unwrap();
+        let reason = quit.result.as_ref().unwrap_err().to_string();
+        assert!(reason.contains("max restart intensity reached"), "{reason}");
+        quit.stop_tasks().await.unwrap();
+
+        let done = rt
+            .expect_next_event()
+            .await
+            .convert::<MainActorOutcome>()
+            .unwrap();
+        assert_eq!(done.address, sup_address);
+        done.remove_actor_entry().await.unwrap();
+    }
+
+    async fn fail_restart_intensity_and_report_result(
+        ctx: &mut TestContext<()>,
+        failed_child: Address,
+        surviving_child_a: Address,
+        surviving_child_b: Address,
+        result_tx: tokio::sync::oneshot::Sender<String>,
+    ) -> Result<(), AnyError> {
+        let child_type = crate::uniform::child_type::Permanent::new(RestartIntensity {
+            max_restarts: 0,
+            within:       Duration::MAX,
+        });
+        let mut children = Children {
+            primary:    Default::default(),
+            by_address: Default::default(),
+        };
+
+        for child_address in [failed_child, surviving_child_a, surviving_child_b] {
+            let key = children.primary.insert(ChildEntry {
+                status: ChildStatus::Started(child_address),
+                data:   child_type.new_data(()),
+            });
+            assert_eq!(children.by_address.insert(child_address, key), None);
+        }
+
+        let child_spec = ChildSpec::new(UnitFactory)
+            .with_child_type(child_type)
+            .with_stop_timeout(Duration::from_secs(10));
+
+        let result = handle_sys_exited(ctx, &child_spec, &mut children, failed_child, false).await;
+        let reason = result
+            .as_ref()
+            .expect_err("restart intensity must fail")
+            .to_string();
+        result_tx
+            .send(reason)
+            .expect("test must receive the restart-intensity result");
+        result
+    }
+
+    #[tokio::test]
+    async fn cleanup_failure_does_not_hide_intensity_error_or_skip_later_siblings() {
+        let subnet = Pool::new("<ff:>/16".parse().unwrap());
+        let sup_lease = subnet.lease(NetMask::M_32).unwrap();
+        let failed_child_lease = subnet.lease(NetMask::M_32).unwrap();
+        let surviving_child_a_lease = subnet.lease(NetMask::M_32).unwrap();
+        let surviving_child_b_lease = subnet.lease(NetMask::M_32).unwrap();
+        let sup_address = sup_lease.address;
+        let failed_child = failed_child_lease.address;
+        let surviving_child_a = surviving_child_a_lease.address;
+        let surviving_child_b = surviving_child_b_lease.address;
+        let (result_tx, result_rx) = tokio::sync::oneshot::channel();
+
+        let rt = TestRuntime::<()>::new();
+        rt.add_actor(
+            sup_address,
+            Some(sup_lease),
+            (
+                fail_restart_intensity_and_report_result,
+                (
+                    failed_child,
+                    surviving_child_a,
+                    surviving_child_b,
+                    result_tx,
+                ),
+            ),
+        )
+        .await
+        .unwrap();
+
+        let first_fork = rt
+            .expect_next_event()
+            .await
+            .convert::<query::Fork<()>>()
+            .expect("the first survivor must enter shutdown");
+        assert_eq!(first_fork.task_key, TaskKey::actor(sup_address));
+        first_fork.resolve_err(ErrorOf::new(
+            ForkErrorKind::ResourceConstraint,
+            "injected first cleanup failure",
+        ));
+
+        // The first cleanup failed, but the later survivor must still get its
+        // own shutdown attempt.
+        let second_fork = rt
+            .expect_next_event()
+            .await
+            .convert::<query::Fork<()>>()
+            .expect("cleanup failure must not skip the later survivor");
+        assert_eq!(second_fork.task_key, TaskKey::actor(sup_address));
+        second_fork.resolve_err(ErrorOf::new(
+            ForkErrorKind::ResourceConstraint,
+            "injected second cleanup failure",
+        ));
+
+        let quit = rt
+            .expect_next_event()
+            .await
+            .convert::<query::Quit>()
+            .unwrap();
+        let reason = result_rx.await.unwrap();
+        assert_eq!(reason, "max restart intensity reached");
+
         let reason = quit.result.as_ref().unwrap_err().to_string();
         assert!(reason.contains("max restart intensity reached"), "{reason}");
         quit.stop_tasks().await.unwrap();
