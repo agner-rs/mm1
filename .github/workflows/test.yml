@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Pinned to the declared MSRV (rust-version in Cargo.toml). Running the
       # test suite on the MSRV also serves as the MSRV gate. Bump deliberately
